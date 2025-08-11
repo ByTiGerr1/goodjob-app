@@ -1,7 +1,17 @@
 # goodjob-app
 Este es el repositorio de la app Good Job, proyecto hecho para Proyecto de Software 2025
 
-    ## Para trabajar en otras ramas hacer lo siguiente
+## Para trabajar con Flutter seguir las siguientes indicaciones:
+1. Descargar la extensión de VSCode de Flutter. 
+2. Descargar la Flutter SDK en cualquier directorio, agregarlo al Path.
+3. Descargar las dependencias del proyecto, correr "flutter pub get"
+4. Para ejecutar la aplicación ocupar "flutter run" se tiene que tener el emulador o dispositivo con el que se va a emular conectado.
+* Otros comandos útiles:
+   - flutter doctor : para revisar que todo esté bien configurado.
+   - flutter clean : limpia build si hay problemas.
+   - flutter pub upgrade : actualiza dependencias a versiones más recientes compatibles.
+    
+    ## Para trabajar en otras ramas hacer lo siguiente:
     1. Primero se trae el repositorio con "git clone https://github.com/ByTiGerr1/goodjob-app.git", eso traera main.
     2. Se hace "git fetch origin dev" para traer la rama dev.
     3. Se hace "git checkout dev" para cambiar finalmente a la rama dev.
