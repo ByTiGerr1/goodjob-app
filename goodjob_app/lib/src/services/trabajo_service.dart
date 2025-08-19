@@ -6,10 +6,7 @@ class TrabajoService {
       FirebaseFirestore.instance.collection('trabajos');
 
   Stream<QuerySnapshot> obtenerTrabajos() {
-    return _trabajos
-        .where('estado', isEqualTo: 'Abierta para Postulaciones')
-        .orderBy('creadoEn', descending: true)
-        .snapshots();
+    return _trabajos.orderBy('creadoEn', descending: true).snapshots();
   }
 
   Future<void> crearTrabajo({
@@ -35,7 +32,6 @@ class TrabajoService {
       'horaInicio': {'h': horaInicio.hour, 'm': horaInicio.minute},
       'horaFin': {'h': horaFin.hour, 'm': horaFin.minute},
       'precio': precio,
-      'estado': 'Abierta para Postulaciones',
       'creadoEn': FieldValue.serverTimestamp(),
     });
   }
