@@ -6,6 +6,7 @@ import 'src/screens/login_screen.dart';
 import 'src/screens/register_screen.dart';
 import 'src/screens/welcome_screen.dart';
 import 'src/screens/admin_home_screen.dart';
+import 'src/screens/crear_trabajo_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -29,6 +30,7 @@ class MainApp extends StatelessWidget {
         'register': (_) => const RegisterScreen(),
         'home': (_) => const HomeScreen(),
         'admin_home': (_) => const AdminHomeScreen(),
+        'crear_trabajo': (_) => const CrearTrabajoScreen(),
       },
     );
   }

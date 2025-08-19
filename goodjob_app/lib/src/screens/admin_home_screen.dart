@@ -24,6 +24,10 @@ class AdminHomeScreen extends StatelessWidget {
       body: const Center(
         child: Text('Panel de administrador'),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pushNamed(context, 'crear_trabajo'),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
