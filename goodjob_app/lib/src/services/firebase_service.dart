@@ -24,6 +24,18 @@ class Auth {
   Future<void> logout() async {
     await _firebaseAuth.signOut();
   }
+  // Obtener el rol del usuario actual a partir de Firestore
+  Future<String?> getUserRole(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(uid)
+          .get();
+      return doc['rol'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
 
   // Registro de usuario con correo electrónico y contraseña
   Future<void> registerUser(String nombre, String email, String password) async {

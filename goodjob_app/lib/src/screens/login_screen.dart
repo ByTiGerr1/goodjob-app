@@ -26,8 +26,20 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
+      final uid = _auth.currentUser?.uid;
+      String? role;
+      if (uid != null) {
+        role = await _auth.getUserRole(uid);
+      }
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, 'home');
+      if (role == 'admin') {
+        Navigator.pushReplacementNamed(context, 'admin_home');
+      } else {
+        Navigator.pushReplacementNamed(context, 'home');
+      }
+
+
+
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
