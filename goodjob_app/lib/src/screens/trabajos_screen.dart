@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/trabajo_service.dart';
+import 'detalle_trabajo_screen.dart';
 
 class TrabajosScreen extends StatelessWidget {
   const TrabajosScreen({super.key});
@@ -30,6 +31,14 @@ class TrabajosScreen extends StatelessWidget {
                 trailing: data['precio'] != null
                     ? Text('${data['precio']}')
                     : null,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DetalleTrabajoScreen(trabajo: data),
+                    ),
+                  );
+                },
               );
             },
           );

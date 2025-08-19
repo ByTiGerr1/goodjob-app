@@ -12,6 +12,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _termsAccepted = false;
   final Auth _auth = Auth();
 
   @override
@@ -19,16 +21,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _register() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Por favor, complete todos los campos')));
+      return;
+    }
+    if (!_termsAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Debe aceptar los términos y condiciones')));
+      return;
+    }
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Las contraseñas no coinciden')));
+      return;
+    }
     try {
-      await _auth.registerUser(
-        _nameController.text.trim(),
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+      await _auth.registerUser(name, email, password);
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, 'home');
     } catch (e) {
@@ -61,6 +80,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _passwordController,
                 decoration: const InputDecoration(labelText: 'Contraseña'),
                 obscureText: true,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _confirmPasswordController,
+                decoration:
+                    const InputDecoration(labelText: 'Confirmar Contraseña'),
+                obscureText: true,
+              ),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _termsAccepted,
+                    onChanged: (value) {
+                      setState(() {
+                        _termsAccepted = value ?? false;
+                      });
+                    },
+                  ),
+                  const Expanded(
+                    child: Text('Acepto términos y condiciones'),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               ElevatedButton(
