@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'trabajos_screen.dart';
+import 'mis_trabajos_screen.dart';
+import 'mis_pagos.dart';
+import 'perfil_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,10 +15,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
-    ColoredBox(color: Colors.red, child: Center(child: Text('Página 1'))),
-    ColoredBox(color: Colors.green, child: Center(child: Text('Página 2'))),
-    ColoredBox(color: Colors.blue, child: Center(child: Text('Página 3'))),
-    ColoredBox(color: Colors.orange, child: Center(child: Text('Página 4'))),
+    TrabajosScreen(),
+    MisTrabajosScreen(),
+    MisPagosScreen(),
+    PerfilScreen(),
   ];
 
   @override
@@ -35,10 +39,12 @@ class _HomeScreenState extends State<HomeScreen> {
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.looks_one), label: 'Rojo'),
-            BottomNavigationBarItem(icon: Icon(Icons.looks_two), label: 'Verde'),
-            BottomNavigationBarItem(icon: Icon(Icons.looks_3), label: 'Azul'),
-            BottomNavigationBarItem(icon: Icon(Icons.looks_4), label: 'Naranja'),
+            BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Trabajos'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.assignment), label: 'Mis trabajos'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.payment), label: 'Mis pagos'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
           ],
         ),
       ),
