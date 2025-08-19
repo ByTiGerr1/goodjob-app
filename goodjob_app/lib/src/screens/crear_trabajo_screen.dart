@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/trabajo_service.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
   const CrearTrabajoScreen({super.key});
@@ -326,9 +327,34 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       _showError('Las direcciones deben pertenecer al mismo país.');
       return;
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Trabajo guardado')));
-    Navigator.pop(context);
+
+    final servicio = TrabajoService();
+    servicio.crearTrabajo(
+      titulo: _tituloController.text,
+      descripcion: _descripcionController.text,
+      empresa: _empresa!,
+      origen: {
+        'direccion': _origenDireccionCtrl.text,
+        'ciudad': _origenCiudadCtrl.text,
+        'pais': _origenPaisCtrl.text,
+      },
+      destino: {
+        'direccion': _destinoDireccionCtrl.text,
+        'ciudad': _destinoCiudadCtrl.text,
+        'pais': _destinoPaisCtrl.text,
+      },
+      fechaLimite: _fechaLimite!,
+      fechaTrabajo: _fechaTrabajo!,
+      horaInicio: _horaInicio!,
+      horaFin: _horaFin!,
+      precio: double.tryParse(_precioCtrl.text) ?? 0,
+    ).then((_) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Trabajo guardado')));
+      Navigator.pop(context);
+    }).catchError((e) {
+      _showError('Error al guardar: $e');
+    });
   }
 
   void _showError(String message) {
