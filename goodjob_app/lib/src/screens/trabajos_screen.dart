@@ -25,6 +25,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   final _servicio = TrabajoService();
   SortOption _sortOption = SortOption.dateDesc;
   Position? _currentPosition;
+  final TextEditingController _searchController = TextEditingController();
+  bool _soloHoy = false;
 
   @override
   void initState() {
@@ -47,6 +49,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     } catch (_) {
       // Ignorar errores de ubicación
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   double? _calcularDistancia(Map<String, dynamic> trabajo) {
@@ -100,75 +108,176 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Trabajos'),
-        actions: [
-          PopupMenuButton<SortOption>(
-            icon: const Icon(Icons.sort),
-            onSelected: (opt) => setState(() => _sortOption = opt),
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                  value: SortOption.distanceAsc,
-                  child: Text('Distancia (asc)')),
-              PopupMenuItem(
-                  value: SortOption.distanceDesc,
-                  child: Text('Distancia (desc)')),
-              PopupMenuItem(
-                  value: SortOption.priceAsc,
-                  child: Text('Precio (asc)')),
-              PopupMenuItem(
-                  value: SortOption.priceDesc,
-                  child: Text('Precio (desc)')),
-              PopupMenuItem(
-                  value: SortOption.dateDesc,
-                  child: Text('Fecha más reciente')),
-              PopupMenuItem(
-                  value: SortOption.dateAsc,
-                  child: Text('Fecha más antigua')),
-            ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Search',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                PopupMenuButton<SortOption>(
+                  icon: const Icon(Icons.filter_list),
+                  onSelected: (opt) => setState(() => _sortOption = opt),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                        value: SortOption.distanceAsc,
+                        child: Text('Distancia (asc)')),
+                    PopupMenuItem(
+                        value: SortOption.distanceDesc,
+                        child: Text('Distancia (desc)')),
+                    PopupMenuItem(
+                        value: SortOption.priceAsc,
+                        child: Text('Precio (asc)')),
+                    PopupMenuItem(
+                        value: SortOption.priceDesc,
+                        child: Text('Precio (desc)')),
+                    PopupMenuItem(
+                        value: SortOption.dateDesc,
+                        child: Text('Fecha más reciente')),
+                    PopupMenuItem(
+                        value: SortOption.dateAsc,
+                        child: Text('Fecha más antigua')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Como obtener tu primer trabajo'),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      child: const Text('Help'),
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Para hoy'),
+                Switch(
+                  value: _soloHoy,
+                  onChanged: (v) => setState(() => _soloHoy = v),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _servicio.obtenerTrabajos(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('No hay trabajos disponibles'));
+                }
+                final trabajos = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final dist = _calcularDistancia(data);
+                  return {...data, 'distance': dist};
+                }).toList();
+
+                if (_soloHoy) {
+                  final hoy = DateTime.now();
+                  trabajos.removeWhere((t) {
+                    final fecha = (t['fechaTrabajo'] as Timestamp?)?.toDate();
+                    return fecha == null ||
+                        fecha.year != hoy.year ||
+                        fecha.month != hoy.month ||
+                        fecha.day != hoy.day;
+                  });
+                }
+
+                final query = _searchController.text.toLowerCase();
+                if (query.isNotEmpty) {
+                  trabajos.retainWhere((t) {
+                    final titulo =
+                        (t['titulo'] ?? '').toString().toLowerCase();
+                    final empresa =
+                        (t['empresa'] ?? '').toString().toLowerCase();
+                    return titulo.contains(query) || empresa.contains(query);
+                  });
+                }
+
+                _ordenar(trabajos);
+
+                return ListView.builder(
+                  itemCount: trabajos.length,
+                  itemBuilder: (context, index) {
+                    final data = trabajos[index];
+                    final distancia = data['distance'] as double?;
+                    final distanciaTxt = distancia != null
+                        ? '${distancia.toStringAsFixed(1)} km'
+                        : 'N/D';
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          color: Colors.grey.shade300,
+                          child:
+                              const Icon(Icons.image, color: Colors.black54),
+                        ),
+                        title: Text(data['titulo'] ?? 'Text'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(data['empresa'] ?? ''),
+                            Text('Distancia: $distanciaTxt'),
+                          ],
+                        ),
+                        trailing: data['precio'] != null
+                            ? Text('${data['precio']}')
+                            : null,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  DetalleTrabajoScreen(trabajo: data),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _servicio.obtenerTrabajos(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No hay trabajos disponibles'));
-          }
-          final trabajos = snapshot.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final dist = _calcularDistancia(data);
-            return {...data, 'distance': dist};
-          }).toList();
-          _ordenar(trabajos);
-
-          return ListView.builder(
-            itemCount: trabajos.length,
-            itemBuilder: (context, index) {
-              final data = trabajos[index];
-              final distancia = data['distance'] as double?;
-              final distanciaTxt =
-                  distancia != null ? '${distancia.toStringAsFixed(1)} km' : 'N/D';
-              return ListTile(
-                title: Text(data['titulo'] ?? ''),
-                subtitle: Text(
-                    '${data['empresa'] ?? ''} · Distancia: $distanciaTxt'),
-                trailing: data['precio'] != null
-                    ? Text('${data['precio']}')
-                    : null,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DetalleTrabajoScreen(trabajo: data),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
       ),
     );
   }
