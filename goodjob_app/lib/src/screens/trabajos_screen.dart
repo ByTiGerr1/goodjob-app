@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-
 import '../services/trabajo_service.dart';
 import 'detalle_trabajo_screen.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 enum SortOption {
   distanceAsc,
@@ -28,6 +28,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _soloHoy = false;
   int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
+  GoogleMapController? _mapController;
+  LatLngBounds? _visibleRegion;
+  static const LatLng _defaultLocation = LatLng(19.432608, -99.133209);
 
   @override
   void initState() {
@@ -47,6 +50,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       }
       final pos = await Geolocator.getCurrentPosition();
       setState(() => _currentPosition = pos);
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLng(
+          LatLng(pos.latitude, pos.longitude),
+        ),
+      );
     } catch (_) {
       // Ignorar errores de ubicación
     }
@@ -102,6 +110,77 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         trabajos.sort((a, b) => compareDate(b, a));
         break;
     }
+  }
+  bool _boundsContains(LatLngBounds bounds, LatLng point) {
+    final lat = point.latitude;
+    final lng = point.longitude;
+    return lat >= bounds.southwest.latitude &&
+        lat <= bounds.northeast.latitude &&
+        lng >= bounds.southwest.longitude &&
+        lng <= bounds.northeast.longitude;
+  }
+
+  Widget _buildMapa() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _servicio.obtenerTrabajos(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('No hay trabajos disponibles'));
+        }
+
+        final trabajos = snapshot.data!.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {...data, 'id': doc.id};
+        }).toList();
+
+        final markers = trabajos.where((t) {
+          final origen = t['origen'] as Map<String, dynamic>?;
+          final lat = origen?['lat'];
+          final lng = origen?['lng'];
+          if (lat == null || lng == null) return false;
+          final pos = LatLng((lat as num).toDouble(), (lng as num).toDouble());
+          if (_visibleRegion == null) return true;
+          return _boundsContains(_visibleRegion!, pos);
+        }).map((t) {
+          final origen = t['origen'] as Map<String, dynamic>;
+          final pos = LatLng(
+            (origen['lat'] as num).toDouble(),
+            (origen['lng'] as num).toDouble(),
+          );
+          return Marker(
+            markerId: MarkerId(t['id'] as String),
+            position: pos,
+            infoWindow: InfoWindow(
+              title: t['titulo']?.toString() ?? '',
+              snippet: t['precio'] != null ? '${t['precio']}' : null,
+            ),
+          );
+        }).toSet();
+
+        final center = _currentPosition != null
+            ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+            : _defaultLocation;
+
+        return GoogleMap(
+          initialCameraPosition: CameraPosition(target: center, zoom: 12),
+          myLocationEnabled: true,
+          markers: markers,
+          onMapCreated: (controller) async {
+            _mapController = controller;
+            final bounds = await controller.getVisibleRegion();
+            setState(() => _visibleRegion = bounds);
+          },
+          onCameraIdle: () async {
+            if (_mapController == null) return;
+            final bounds = await _mapController!.getVisibleRegion();
+            setState(() => _visibleRegion = bounds);
+          },
+        );
+      },
+    );
   }
 
   Widget _buildSelectorVista() {
@@ -347,9 +426,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       ),
       body: _vistaActual == 0
           ? _buildLista()
-          : const Center(
-              child: Text('Mapa en construcción'),
-            ),
+          : _buildMapa(),
     );
   }
 }
