@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/trabajo_service.dart';
 import 'detalle_trabajo_screen.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
 
 enum SortOption {
   distanceAsc,
@@ -28,8 +30,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _soloHoy = false;
   int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
-  GoogleMapController? _mapController;
-  LatLngBounds? _visibleRegion;
+  final MapController _mapController = MapController();
   static const LatLng _defaultLocation = LatLng(19.432608, -99.133209);
 
   @override
@@ -50,10 +51,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       }
       final pos = await Geolocator.getCurrentPosition();
       setState(() => _currentPosition = pos);
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(
-          LatLng(pos.latitude, pos.longitude),
-        ),
+      _mapController.move(
+        LatLng(pos.latitude, pos.longitude),
+        12,
       );
     } catch (_) {
       // Ignorar errores de ubicación
@@ -111,14 +111,6 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         break;
     }
   }
-  bool _boundsContains(LatLngBounds bounds, LatLng point) {
-    final lat = point.latitude;
-    final lng = point.longitude;
-    return lat >= bounds.southwest.latitude &&
-        lat <= bounds.northeast.latitude &&
-        lng >= bounds.southwest.longitude &&
-        lng <= bounds.northeast.longitude;
-  }
 
   Widget _buildMapa() {
     return StreamBuilder<QuerySnapshot>(
@@ -136,48 +128,56 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           return {...data, 'id': doc.id};
         }).toList();
 
-        final markers = trabajos.where((t) {
+        final markers = <Marker>[];
+
+        for (final t in trabajos) {
           final origen = t['origen'] as Map<String, dynamic>?;
           final lat = origen?['lat'];
           final lng = origen?['lng'];
-          if (lat == null || lng == null) return false;
+          if (lat == null || lng == null) continue;
           final pos = LatLng((lat as num).toDouble(), (lng as num).toDouble());
-          if (_visibleRegion == null) return true;
-          return _boundsContains(_visibleRegion!, pos);
-        }).map((t) {
-          final origen = t['origen'] as Map<String, dynamic>;
-          final pos = LatLng(
-            (origen['lat'] as num).toDouble(),
-            (origen['lng'] as num).toDouble(),
-          );
-          return Marker(
-            markerId: MarkerId(t['id'] as String),
-            position: pos,
-            infoWindow: InfoWindow(
-              title: t['titulo']?.toString() ?? '',
-              snippet: t['precio'] != null ? '${t['precio']}' : null,
+          markers.add(
+            Marker(
+              width: 40,
+              height: 40,
+              point: pos,
+              child: const Icon(Icons.location_on, color: Colors.red, size: 40),
             ),
           );
-        }).toSet();
+        }
+
+        if (_currentPosition != null) {
+          markers.add(
+            Marker(
+              width: 40,
+              height: 40,
+              point: LatLng(
+                _currentPosition!.latitude,
+                _currentPosition!.longitude,
+              ),
+              child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
+            ),
+          );
+        }
 
         final center = _currentPosition != null
             ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
             : _defaultLocation;
 
-        return GoogleMap(
-          initialCameraPosition: CameraPosition(target: center, zoom: 12),
-          myLocationEnabled: true,
-          markers: markers,
-          onMapCreated: (controller) async {
-            _mapController = controller;
-            final bounds = await controller.getVisibleRegion();
-            setState(() => _visibleRegion = bounds);
-          },
-          onCameraIdle: () async {
-            if (_mapController == null) return;
-            final bounds = await _mapController!.getVisibleRegion();
-            setState(() => _visibleRegion = bounds);
-          },
+        return FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: 12,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate:
+                  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              subdomains: const ['a', 'b', 'c'],
+            ),
+            MarkerLayer(markers: markers),
+          ],
         );
       },
     );
