@@ -112,6 +112,27 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     }
   }
 
+  String _formatHora(Map<String, dynamic>? hora) {
+    if (hora == null) return 'N/D';
+    final h = hora['h'];
+    final m = hora['m'];
+    final hour = (h is int ? h : int.tryParse(h?.toString() ?? '0') ?? 0)
+        .toString()
+        .padLeft(2, '0');
+    final min = (m is int ? m : int.tryParse(m?.toString() ?? '0') ?? 0)
+        .toString()
+        .padLeft(2, '0');
+    return '$hour:$min';
+  }
+
+  String _formatFecha(DateTime? fecha) {
+    if (fecha == null) return 'N/D';
+    final day = fecha.day.toString().padLeft(2, '0');
+    final month = fecha.month.toString().padLeft(2, '0');
+    final year = (fecha.year % 100).toString().padLeft(2, '0');
+    return '$day/$month/$year';
+  }
+
   Widget _buildMapa() {
     return StreamBuilder<QuerySnapshot>(
       stream: _servicio.obtenerTrabajos(),
@@ -360,41 +381,109 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 itemCount: trabajos.length,
                 itemBuilder: (context, index) {
                   final data = trabajos[index];
-                  final distancia = data['distance'] as double?;
-                  final distanciaTxt = distancia != null
-                      ? '${distancia.toStringAsFixed(1)} km'
-                      : 'N/D';
+                  final horaInicio =
+                      data['horaInicio'] as Map<String, dynamic>?;
+                  final horaFin = data['horaFin'] as Map<String, dynamic>?;
+                  final fechaInicio =
+                      (data['fechaTrabajo'] as Timestamp?)?.toDate();
+                  final fechaFin =
+                      (data['fechaLimite'] as Timestamp?)?.toDate();
+                  final origen =
+                      (data['origen'] as Map<String, dynamic>?) ?? {};
+                  final ciudad = origen['ciudad'] ?? '';
+                  final horaTxt =
+                      '${_formatHora(horaInicio)} - ${_formatHora(horaFin)}';
+                  final fechaTxt =
+                      '${_formatFecha(fechaInicio)}${fechaFin != null ? ' - ${_formatFecha(fechaFin)}' : ''}';
+
                   return Card(
                     margin: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
-                    child: ListTile(
-                      leading: Container(
-                        width: 48,
-                        height: 48,
-                        color: Colors.grey.shade300,
-                        child:
-                            const Icon(Icons.image, color: Colors.black54),
-                      ),
-                      title: Text(data['titulo'] ?? 'Text'),
-                      subtitle: Column(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(data['empresa'] ?? ''),
-                          Text('Distancia: $distanciaTxt'),
+                          Text(
+                            data['titulo'] ?? 'Sin título',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if ((data['empresa'] ?? '').toString().isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    border:
+                                        Border.all(color: Colors.green),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    data['empresa'],
+                                    style: const TextStyle(color: Colors.green),
+                                  ),
+                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.location_on,
+                                      size: 16, color: Colors.black54),
+                                  const SizedBox(width: 4),
+                                  Text(ciudad),
+                                ],
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.access_time,
+                                      size: 16, color: Colors.black54),
+                                  const SizedBox(width: 4),
+                                  Text(horaTxt),
+                                ],
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.calendar_today,
+                                      size: 16, color: Colors.black54),
+                                  const SizedBox(width: 4),
+                                  Text(fechaTxt),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (data['precio'] != null)
+                                Text(
+                                  '\$${data['precio']} Bruto por oferta',
+                                  style:
+                                      const TextStyle(color: Colors.green),
+                                ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => DetalleTrabajoScreen(
+                                          trabajo: data),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Ver más'),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      trailing: data['precio'] != null
-                          ? Text('${data['precio']}')
-                          : null,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                DetalleTrabajoScreen(trabajo: data),
-                          ),
-                        );
-                      },
                     ),
                   );
                 },
