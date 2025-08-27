@@ -11,3 +11,4 @@ class MisPagosScreen extends StatelessWidget {
     );
   }
 }
+
