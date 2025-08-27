@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -21,6 +22,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, complete todos los campos.')),
+      );
+      return;
+    }
+
     try {
       await _auth.login(
         _emailController.text.trim(),
@@ -37,13 +45,27 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         Navigator.pushReplacementNamed(context, 'home');
       }
-
-
-
     } catch (e) {
       if (!mounted) return;
+      String errorMessage = 'Ocurrió un error. Por favor, inténtelo de nuevo.';
+
+      if (e is FirebaseAuthException) {
+        switch (e.code) {
+          case 'user-not-found':
+          case 'wrong-password':
+          case 'invalid-credential':
+            errorMessage = 'Nombre y/o contraseña incorrectos.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'El correo electrónico no es válido.';
+            break;
+          default:
+            errorMessage = 'Error: ${e.message}';
+        }
+      }
+
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+          .showSnackBar(SnackBar(content: Text(errorMessage)));
     }
   }
 
