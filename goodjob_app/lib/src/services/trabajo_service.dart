@@ -5,21 +5,32 @@ class TrabajoService {
   final CollectionReference _trabajos =
       FirebaseFirestore.instance.collection('trabajos');
 
+  /// Fetches a stream of all jobs, ordered by creation date.
   Stream<QuerySnapshot> obtenerTrabajos() {
     return _trabajos.orderBy('creadoEn', descending: true).snapshots();
   }
 
+  /// Fetches a stream of featured jobs.
+  Stream<QuerySnapshot> obtenerTrabajosDestacados() {
+    return _trabajos
+        .where('destacado', isEqualTo: true)
+        .orderBy('creadoEn', descending: true)
+        .snapshots();
+  }
+
+  /// Creates a new job document in Firestore.
   Future<void> crearTrabajo({
     required String titulo,
     required String descripcion,
     required String empresa,
-    required Map<String, String> origen,
-    required Map<String, String> destino,
+    required Map<String, dynamic> origen,
+    required Map<String, dynamic> destino,
     required DateTime fechaLimite,
     required DateTime fechaTrabajo,
     required TimeOfDay horaInicio,
     required TimeOfDay horaFin,
     required double precio,
+    bool destacado = false, 
   }) {
     return _trabajos.add({
       'titulo': titulo,
@@ -32,6 +43,7 @@ class TrabajoService {
       'horaInicio': {'h': horaInicio.hour, 'm': horaInicio.minute},
       'horaFin': {'h': horaFin.hour, 'm': horaFin.minute},
       'precio': precio,
+      'destacado': destacado,
       'creadoEn': FieldValue.serverTimestamp(),
     });
   }

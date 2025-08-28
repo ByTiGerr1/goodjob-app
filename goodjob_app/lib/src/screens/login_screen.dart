@@ -71,34 +71,100 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtiene el tamaño de la pantalla para cálculos de diseño
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Correo'),
+      // Usamos un Stack para superponer la imagen de fondo y el contenedor de botones
+      body: Stack(
+        children: [
+          // Contenedor de la imagen de fondo. Ocupa el 60% de la pantalla.
+          Positioned.fill(
+            child: Container(
+              height: screenHeight * 0.6,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/images/monachina.webp'), // Asegúrate de que esta sea la ruta correcta a tu imagen
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Contraseña'),
-              obscureText: true,
+          ),
+          
+          // Contenedor con los campos de texto y botones, posicionado en la parte inferior de la pantalla.
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: double.infinity,
+              // Ajustamos el padding para el espaciado interno
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary, 
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Título de la pantalla
+                    const Text(
+                      'Iniciar sesión',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Campos de texto
+                    TextField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Correo',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                        ),
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 24),
+                    // Botón principal
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _login,
+                        child: const Text('Ingresar'),
+                      ),
+                    ),
+                    // Botón para volver
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, 'register'),
+                      child: const Text('Registrarse'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _login,
-              child: const Text('Ingresar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, 'register'),
-              child: const Text('Registrarse'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
