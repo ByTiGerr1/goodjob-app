@@ -47,79 +47,195 @@ class DetalleTrabajoScreen extends StatelessWidget {
     final horaFin = trabajo['horaFin'] as Map<String, dynamic>?;
 
     return Scaffold(
-      appBar: AppBar(title: Text(trabajo['titulo'] ?? 'Detalle del Trabajo')),
+      appBar: AppBar(title: Text('Detalle del Trabajo')),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          if (trabajo['empresa'] != null || trabajo['origen'] != null)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.location_on_outlined,
-                    color: Colors.black54),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          // Título del trabajo
+          Text(
+            trabajo['titulo'] ?? 'Título no disponible',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 54), // Espacio grande
+          // Detalle de la oferta (izquierda) y imagen (derecha)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Detalle de la oferta',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      trabajo['descripcion'] ?? 'Descripción no disponible.',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 6),
+              // Imagen de la oferta (placeholder)
+              Container(
+                width: 80,
+                height: 80,
+                color: Colors.grey[300],
+                child: Center(child: Text('Imagen', style: TextStyle(color: Colors.black54))),
+              ),
+            ],
+          ),
+          SizedBox(height: 54), // Espacio grande
+          // Horario (izquierda) y Día (derecha)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Horario
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Horario',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Row(
                     children: [
-                      if (trabajo['empresa'] != null)
-                        Text(trabajo['empresa'],
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                      if (trabajo['origen'] != null)
-                        Text(_formatearUbicacion(trabajo['origen'])),
+                      const Icon(Icons.access_time, size: 16, color: Colors.black54),
+                      SizedBox(width: 4),
+                      Text('${_formatHora(horaInicio)} - ${_formatHora(horaFin)} hrs'),
                     ],
+                  ),
+                ],
+              ),
+              // Día
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Día',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
+                      SizedBox(width: 4),
+                      Text(_formatFecha(fechaInicio)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 24), // Espacio grande
+          // Ubicación (izquierda) y Fecha límite (derecha)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Ubicación
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ubicación',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    if (trabajo['empresa'] != null || trabajo['origen'] != null)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.location_on_outlined, color: Colors.black54),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (trabajo['empresa'] != null)
+                                  Text(trabajo['empresa'], style: const TextStyle(fontWeight: FontWeight.w600)),
+                                if (trabajo['origen'] != null)
+                                  Text(_formatearUbicacion(trabajo['origen'])),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 6), // Espacio entre las columnas
+              // Fecha límite
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Fecha límite de la oferta',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.event_busy, size: 16, color: Colors.black54),
+                      SizedBox(width: 4),
+                      Text(_formatFecha(fechaFin)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 54), // Espacio grande
+
+          // Precio
+          if (trabajo['precio'] != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Precio',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '\$${trabajo['precio']} Bruto por oferta',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ],
             ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.access_time, size: 16, color: Colors.black54),
-              const SizedBox(width: 4),
-              Text('${_formatHora(horaInicio)} - ${_formatHora(horaFin)} hrs'),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
-              const SizedBox(width: 4),
-              Text('${_formatFecha(fechaInicio)} - ${_formatFecha(fechaFin)}'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (trabajo['precio'] != null)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '\$${trabajo['precio']} Bruto por oferta',
-                    style: const TextStyle(
-                        color: Colors.green, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                    const Text('El monto que te depositaremos será el monto líquido posterior a los descuentos legales y estará sujeto a verificación de asistencia.',
-                        style: TextStyle(fontSize: 12)),
-                ],
+          SizedBox(height: 52), // Espacio grande
+
+          // Botón de "Postular"
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Función de postular no implementada')),
+                );
+              },
+              child: const Text('Postular', style: TextStyle(fontSize: 18)),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
-          const SizedBox(height: 16),
-          if (trabajo['descripcion'] != null) ...[
-            const Text('Descripción de la oferta',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(
-              trabajo['descripcion'],
-              style: const TextStyle(fontSize: 16),
-            ),
-          ],
+          ),
         ],
       ),
     );
