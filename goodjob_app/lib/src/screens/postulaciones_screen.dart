@@ -12,13 +12,31 @@ class PostulacionesScreen extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: servicio.obtenerPostulacionesPendientes(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          final error = snapshot.error;
+          if (error is FirebaseException &&
+              error.code == 'failed-precondition') {
+            return const Center(
+                child: Text('Preparando índices, intenta más tarde'));
+          }
+          return const Center(
+              child: Text('Error al cargar las postulaciones'));
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(child: Text('No hay postulaciones'));
         }
-        final postulaciones = snapshot.data!.docs;
+        final postulaciones = snapshot.data!.docs.toList()
+          ..sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aTime = aData['creadoEn'] as Timestamp?;
+            final bTime = bData['creadoEn'] as Timestamp?;
+            if (aTime == null || bTime == null) return 0;
+            return bTime.compareTo(aTime);
+          });
         return ListView.builder(
           itemCount: postulaciones.length,
           itemBuilder: (context, index) {

@@ -21,7 +21,6 @@ class PostulacionService {
   Stream<QuerySnapshot> obtenerPostulacionesPendientes() {
     return _postulaciones
         .where('estado', isEqualTo: 'pendiente')
-        .orderBy('creadoEn', descending: true)
         .snapshots();
   }
 
@@ -30,9 +29,6 @@ class PostulacionService {
   }
 
   Stream<QuerySnapshot> obtenerPostulacionesDeUsuario(String uid) {
-    return _postulaciones
-        .where('usuarioId', isEqualTo: uid)
-        .orderBy('creadoEn', descending: true)
-        .snapshots();
+    return _postulaciones.where('usuarioId', isEqualTo: uid).snapshots();
   }
 }
