@@ -7,6 +7,17 @@ import '../services/postulacion_service.dart';
 class MisTrabajosScreen extends StatelessWidget {
   const MisTrabajosScreen({super.key});
 
+  Color _colorEstado(String estado) {
+    switch (estado) {
+      case 'aceptado':
+        return Colors.green;
+      case 'rechazado':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
+  }
+
   void _mostrarNotificacion(
       BuildContext context, String titulo, String estado) {
     final mensaje = estado == 'aceptado'
@@ -79,9 +90,25 @@ class MisTrabajosScreen extends StatelessWidget {
               final data = postulaciones[index].data() as Map<String, dynamic>;
               final titulo = data['trabajoTitulo'] ?? '';
               final estado = data['estado'] ?? '';
-              return ListTile(
-                title: Text(titulo),
-                subtitle: Text('Estado: $estado'),
+              return Card(
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: const Icon(Icons.work_outline,
+                      color: Colors.indigoAccent),
+                  title: Text(
+                    titulo,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  trailing: Chip(
+                    label: Text(estado),
+                    backgroundColor: _colorEstado(estado),
+                    labelStyle: const TextStyle(color: Colors.white),
+                  ),
+                ),
               );
             },
           );

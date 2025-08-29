@@ -1,15 +1,40 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
 import '../services/firebase_service.dart';
 import '../services/postulacion_service.dart';
 
-class DetalleTrabajoScreen extends StatelessWidget {
+class DetalleTrabajoScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
 
   const DetalleTrabajoScreen(
       {super.key, required this.trabajoId, required this.trabajo});
+
+  @override
+  State<DetalleTrabajoScreen> createState() => _DetalleTrabajoScreenState();
+}
+
+class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
+  bool _yaPostulado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarPostulacion();
+  }
+
+  Future<void> _verificarPostulacion() async {
+    final auth = Auth();
+    final uid = auth.currentUser?.uid;
+    if (uid == null) return;
+    final existe = await PostulacionService().existePostulacion(
+      trabajoId: widget.trabajoId,
+      usuarioId: uid,
+    );
+    if (mounted) {
+      setState(() => _yaPostulado = existe);
+    }
+  }
 
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
     if (ubicacion == null) return '';
@@ -44,12 +69,12 @@ class DetalleTrabajoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Timestamp? fechaInicioTs = trabajo['fechaTrabajo'];
-    final Timestamp? fechaFinTs = trabajo['fechaLimite'];
+    final Timestamp? fechaInicioTs = widget.trabajo['fechaTrabajo'];
+    final Timestamp? fechaFinTs = widget.trabajo['fechaLimite'];
     final fechaInicio = fechaInicioTs?.toDate();
     final fechaFin = fechaFinTs?.toDate();
-    final horaInicio = trabajo['horaInicio'] as Map<String, dynamic>?;
-    final horaFin = trabajo['horaFin'] as Map<String, dynamic>?;
+    final horaInicio = widget.trabajo['horaInicio'] as Map<String, dynamic>?;
+    final horaFin = widget.trabajo['horaFin'] as Map<String, dynamic>?;
 
     return Scaffold(
       appBar: AppBar(title: Text('Detalle del Trabajo')),
@@ -58,8 +83,8 @@ class DetalleTrabajoScreen extends StatelessWidget {
         children: [
           // Título del trabajo
           Text(
-            trabajo['titulo'] ?? 'Título no disponible',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            widget.trabajo['titulo'] ?? 'Título no disponible',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 54), // Espacio grande
           // Detalle de la oferta (izquierda) y imagen (derecha)
@@ -76,8 +101,9 @@ class DetalleTrabajoScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      trabajo['descripcion'] ?? 'Descripción no disponible.',
-                      style: TextStyle(fontSize: 16),
+                      widget.trabajo['descripcion'] ??
+                          'Descripción no disponible.',
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ],
                 ),
@@ -150,7 +176,8 @@ class DetalleTrabajoScreen extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 4),
-                    if (trabajo['empresa'] != null || trabajo['origen'] != null)
+                    if (widget.trabajo['empresa'] != null ||
+                        widget.trabajo['origen'] != null)
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -160,10 +187,13 @@ class DetalleTrabajoScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (trabajo['empresa'] != null)
-                                  Text(trabajo['empresa'], style: const TextStyle(fontWeight: FontWeight.w600)),
-                                if (trabajo['origen'] != null)
-                                  Text(_formatearUbicacion(trabajo['origen'])),
+                                if (widget.trabajo['empresa'] != null)
+                                  Text(widget.trabajo['empresa'],
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                if (widget.trabajo['origen'] != null)
+                                  Text(
+                                      _formatearUbicacion(widget.trabajo['origen'])),
                               ],
                             ),
                           ),
@@ -196,7 +226,7 @@ class DetalleTrabajoScreen extends StatelessWidget {
           SizedBox(height: 54), // Espacio grande
 
           // Precio
-          if (trabajo['precio'] != null)
+          if (widget.trabajo['precio'] != null)
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -212,7 +242,7 @@ class DetalleTrabajoScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '\$${trabajo['precio']} Bruto por oferta',
+                    '\$${widget.trabajo['precio']} Bruto por oferta',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -227,35 +257,40 @@ class DetalleTrabajoScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () async {
-                final auth = Auth();
-                final uid = auth.currentUser?.uid;
-                if (uid == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Usuario no autenticado')),
-                  );
-                  return;
-                }
-                try {
-                  await PostulacionService().crearPostulacion(
-                    trabajoId: trabajoId,
-                    trabajoTitulo: trabajo['titulo'] ?? '',
-                    usuarioId: uid,
-                  );
-                  if (context.mounted) {
+              onPressed: _yaPostulado
+                  ? null
+                  : () async {
+                  final auth = Auth();
+                  final uid = auth.currentUser?.uid;
+                  if (uid == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Postulación enviada')),
+                      const SnackBar(content: Text('Usuario no autenticado')),
                     );
+                    return;
                   }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error al postular: $e')),
+                  try {
+                    await PostulacionService().crearPostulacion(
+                      trabajoId: widget.trabajoId,
+                      trabajoTitulo: widget.trabajo['titulo'] ?? '',
+                      usuarioId: uid,
                     );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Postulación enviada')),
+                      );
+                      setState(() => _yaPostulado = true);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error al postular: $e')),
+                      );
+                    }
                   }
-                }
               },
-              child: const Text('Postular', style: TextStyle(fontSize: 18)),
+              child: Text(
+                  _yaPostulado ? 'Ya postulaste' : 'Postular',
+                  style: const TextStyle(fontSize: 18)),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(

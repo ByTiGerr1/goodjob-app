@@ -18,6 +18,18 @@ class PostulacionService {
     });
   }
 
+  Future<bool> existePostulacion({
+    required String trabajoId,
+    required String usuarioId,
+  }) async {
+    final query = await _postulaciones
+        .where('trabajoId', isEqualTo: trabajoId)
+        .where('usuarioId', isEqualTo: usuarioId)
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
+  }
+
   Stream<QuerySnapshot> obtenerPostulacionesPendientes() {
     return _postulaciones
         .where('estado', isEqualTo: 'pendiente')

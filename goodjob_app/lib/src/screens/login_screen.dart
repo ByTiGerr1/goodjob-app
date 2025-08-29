@@ -41,9 +41,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       if (!mounted) return;
       if (role == 'admin') {
-        Navigator.pushReplacementNamed(context, 'admin_home');
+        Navigator.pushNamedAndRemoveUntil(
+            context, 'admin_home', (Route<dynamic> route) => false);
       } else {
-        Navigator.pushReplacementNamed(context, 'home');
+        Navigator.pushNamedAndRemoveUntil(
+            context, 'home', (Route<dynamic> route) => false);
       }
     } catch (e) {
       if (!mounted) return;
