@@ -356,7 +356,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => DetalleTrabajoScreen(trabajo: data),
+                                      builder: (_) => DetalleTrabajoScreen(
+                                        trabajoId: data['id'],
+                                        trabajo: data,
+                                      ),
                                     ),
                                   );
                                 },
@@ -447,7 +450,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               final trabajos = snapshot.data!.docs.map((doc) {
                 final data = doc.data() as Map<String, dynamic>;
                 final dist = _calcularDistancia(data);
-                return {...data, 'distance': dist};
+                return {...data, 'distance': dist, 'id': doc.id};
               }).toList();
 
 
@@ -541,7 +544,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => DetalleTrabajoScreen(trabajo: data),
+                                  builder: (_) => DetalleTrabajoScreen(
+                                    trabajoId: data['id'],
+                                    trabajo: data,
+                                  ),
                                 ),
                               );
                             },

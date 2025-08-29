@@ -1,10 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../services/firebase_service.dart';
+import '../services/postulacion_service.dart';
+
 class DetalleTrabajoScreen extends StatelessWidget {
+  final String trabajoId;
   final Map<String, dynamic> trabajo;
 
-  const DetalleTrabajoScreen({super.key, required this.trabajo});
+  const DetalleTrabajoScreen(
+      {super.key, required this.trabajoId, required this.trabajo});
 
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
     if (ubicacion == null) return '';
@@ -222,10 +227,33 @@ class DetalleTrabajoScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Función de postular no implementada')),
-                );
+              onPressed: () async {
+                final auth = Auth();
+                final uid = auth.currentUser?.uid;
+                if (uid == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Usuario no autenticado')),
+                  );
+                  return;
+                }
+                try {
+                  await PostulacionService().crearPostulacion(
+                    trabajoId: trabajoId,
+                    trabajoTitulo: trabajo['titulo'] ?? '',
+                    usuarioId: uid,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Postulación enviada')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error al postular: $e')),
+                    );
+                  }
+                }
               },
               child: const Text('Postular', style: TextStyle(fontSize: 18)),
               style: ElevatedButton.styleFrom(

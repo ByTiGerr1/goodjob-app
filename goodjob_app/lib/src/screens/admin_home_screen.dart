@@ -122,8 +122,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         return ListView.builder(
           itemCount: trabajos.length,
           itemBuilder: (context, index) {
-            final data =
-                trabajos[index].data() as Map<String, dynamic>;
+            final doc = trabajos[index];
+            final data = doc.data() as Map<String, dynamic>;
             return ListTile(
               title: Text(data['titulo'] ?? ''),
               subtitle: Text(data['descripcion'] ?? ''),
@@ -132,7 +132,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => DetalleTrabajoScreen(trabajo: data),
+                    builder: (_) => DetalleTrabajoScreen(
+                      trabajoId: doc.id,
+                      trabajo: data,
+                    ),
                   ),
                 );
               },
