@@ -9,7 +9,7 @@ class CrearTrabajoScreen extends StatefulWidget {
 }
 
 class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
-  final _formKeys = List.generate(5, (_) => GlobalKey<FormState>());
+  final _formKeys = List.generate(6, (_) => GlobalKey<FormState>());
   int _currentStep = 0;
 
   final _tituloController = TextEditingController();
@@ -31,6 +31,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   TimeOfDay? _horaFin;
 
   final _precioCtrl = TextEditingController();
+  final _instruccionesController = TextEditingController(); // Added controller for instrucciones
 
   @override
   void dispose() {
@@ -43,6 +44,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     _destinoCiudadCtrl.dispose();
     _destinoPaisCtrl.dispose();
     _precioCtrl.dispose();
+    _instruccionesController.dispose(); // Dispose instrucciones controller
     super.dispose();
   }
 
@@ -210,6 +212,27 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           ),
         ),
       ),
+      Step(
+        title: const Text('Instrucciones'),
+        isActive: _currentStep >= 5,
+        content: Form(
+          key: GlobalKey<FormState>(),
+          child: TextFormField(
+            controller: _instruccionesController,
+            decoration: const InputDecoration(labelText: 'Instrucciones'),
+            maxLines: 3,
+            maxLength: 1000,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Requerido';
+              } else if (value.length > 1000) {
+                return 'Máximo 1000 caracteres';
+              }
+              return null;
+            },
+          ),
+        ),
+      ),
     ];
   }
 
@@ -348,6 +371,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       horaInicio: _horaInicio!,
       horaFin: _horaFin!,
       precio: double.tryParse(_precioCtrl.text) ?? 0,
+      instrucciones: _instruccionesController.text, // Added instrucciones
     ).then((_) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Trabajo guardado')));

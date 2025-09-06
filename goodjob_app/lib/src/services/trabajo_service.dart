@@ -30,7 +30,8 @@ class TrabajoService {
     required TimeOfDay horaInicio,
     required TimeOfDay horaFin,
     required double precio,
-    bool destacado = false, 
+    required String instrucciones, 
+    bool destacado = false,
   }) {
     return _trabajos.add({
       'titulo': titulo,
@@ -43,6 +44,7 @@ class TrabajoService {
       'horaInicio': {'h': horaInicio.hour, 'm': horaInicio.minute},
       'horaFin': {'h': horaFin.hour, 'm': horaFin.minute},
       'precio': precio,
+      'instrucciones': instrucciones, 
       'destacado': destacado,
       'creadoEn': FieldValue.serverTimestamp(),
     });
