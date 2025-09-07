@@ -119,26 +119,71 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           return const Center(child: Text('No hay trabajos'));
         }
         final trabajos = snapshot.data!.docs;
-        return ListView.builder(
+        return ListView.separated(
           itemCount: trabajos.length,
+          separatorBuilder: (context, index) => const Divider(),
           itemBuilder: (context, index) {
             final doc = trabajos[index];
             final data = doc.data() as Map<String, dynamic>;
-            return ListTile(
-              title: Text(data['titulo'] ?? ''),
-              subtitle: Text(data['descripcion'] ?? ''),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DetalleTrabajoScreen(
-                      trabajoId: doc.id,
-                      trabajo: data,
+            return Dismissible(
+              key: Key(doc.id),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: const Icon(Icons.cancel, color: Colors.white),
+              ),
+              confirmDismiss: (direction) async {
+                return await showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text(
+                      'Confirmar cancelación',
+                      style: TextStyle(color: Colors.black),
                     ),
+                    content: const Text(
+                      '¿Estás seguro de que quieres cancelar este trabajo? Una vez cancelado tendrás que crear otro trabajo.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('No', style: TextStyle(color: Colors.black)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Sí', style: TextStyle(color: Colors.black)),
+                      ),
+                    ],
                   ),
                 );
               },
+              onDismissed: (direction) {
+                servicio.cancelarTrabajo(doc.id).then((_) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Trabajo cancelado')),
+                  );
+                }).catchError((e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error al cancelar: $e')),
+                  );
+                });
+              },
+              child: ListTile(
+                title: Text(data['titulo'] ?? ''),
+                subtitle: Text(data['descripcion'] ?? ''),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DetalleTrabajoScreen(
+                        trabajoId: doc.id,
+                        trabajo: data,
+                      ),
+                    ),
+                  );
+                },
+              ),
             );
           },
         );

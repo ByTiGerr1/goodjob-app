@@ -1,6 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+enum EstadoTrabajo {
+  abierto,         // Aceptando postulaciones
+  cerrado,         // Postulaciones cerradas
+  finalizado,      // Trabajo completado
+  cancelado,       // Trabajo cancelado
+}
+
 class TrabajoService {
   final CollectionReference _trabajos =
       FirebaseFirestore.instance.collection('trabajos');
@@ -46,7 +53,13 @@ class TrabajoService {
       'precio': precio,
       'instrucciones': instrucciones, 
       'destacado': destacado,
+      'estado': EstadoTrabajo.abierto.name, // Estado default
       'creadoEn': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// Cancels a job by updating its state to 'cancelado'.
+  Future<void> cancelarTrabajo(String trabajoId) {
+    return _trabajos.doc(trabajoId).update({'estado': EstadoTrabajo.cancelado.name});
   }
 }
