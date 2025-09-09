@@ -13,6 +13,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _BankController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  String? _accountType; // para seleccionar tipos de cuentas
   bool _termsAccepted = false;
   final Auth _auth = Auth();
 
@@ -22,6 +25,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _BankController.dispose();
+    _accountNumberController.dispose();
     super.dispose();
   }
 
@@ -30,8 +35,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
+    final bank = _BankController.text.trim();
+    final accountNumber = _accountNumberController.text.trim();
+    final accountType = _accountType;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || bank.isEmpty || accountNumber.isEmpty || accountType == null ) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Por favor, complete todos los campos')));
       return;
@@ -49,7 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       await _auth.registerUser(name, email, password);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, 'home');
+      Navigator.pushReplacementNamed(context, 'login');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -131,6 +139,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       obscureText: true,
                     ),
                     const SizedBox(height: 12),
+                    TextField(
+                      controller: _BankController,
+                      decoration: const InputDecoration(labelText: 'Banco'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _accountNumberController,
+                      decoration: const InputDecoration(labelText: 'Número de cuenta'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _accountType,
+                      decoration: const InputDecoration(labelText: 'Tipo de Cuenta'),
+                      items: const [
+                        DropdownMenuItem(value: 'Cuenta Corriente',  child: Text('Cuenta Corriente')),
+                        DropdownMenuItem(value: 'Cuenta Vista', child: Text('Cuenta Vista')),
+                        DropdownMenuItem(value: 'Cuenta de ahorro',child: Text('Cuenta de Ahorro')),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _accountType = value;
+                        });
+                      },
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -164,7 +196,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     // Botón para volver
                     TextButton(
-                      onPressed: () => Navigator.pushNamed(context, 'login'),
+                      onPressed: () => Navigator.pushNamed(context, 'home'),
                       child: const Text('Iniciar Sesión'),
                     ),
                   ],
