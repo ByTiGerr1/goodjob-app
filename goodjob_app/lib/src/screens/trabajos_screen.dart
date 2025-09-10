@@ -31,8 +31,6 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
   final MapController _mapController = MapController();
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
-  static final LatLngBounds _chileBounds =
-      LatLngBounds(LatLng(-56.0, -76.0), LatLng(-17.0, -66.0));
 
   @override
   void initState() {
@@ -166,10 +164,23 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               width: 40,
               height: 40,
               point: pos,
-              child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+              child: GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      content: Text(
+                          '${t['titulo']} - ${String.fromCharCode(36)}${t['precio']}'),
+                    ),
+                  );
+                },
+                child:
+                    const Icon(Icons.location_on, color: Colors.red, size: 40),
+              ),
             ),
           );
         }
+
 
         if (_currentPosition != null) {
           markers.add(
@@ -238,10 +249,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
-            onTap: () {
-              setState(() => _vistaActual = 1);
-              _centrarEnUbicacion();
-            },
+            onTap: () => setState(() => _vistaActual = 0),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -259,7 +267,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           ),
           const SizedBox(width: 8),
           GestureDetector(
-            onTap: () => setState(() => _vistaActual = 1),
+            onTap: () {
+              setState(() => _vistaActual = 1);
+              _centrarEnUbicacion();
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(

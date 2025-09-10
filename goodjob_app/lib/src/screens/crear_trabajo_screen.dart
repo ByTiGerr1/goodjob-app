@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
+import 'seleccionar_ubicacion_screen.dart';
 import '../services/trabajo_service.dart';
 
 class CrearTrabajoScreen extends StatefulWidget {
@@ -20,10 +23,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   final _origenDireccionCtrl = TextEditingController();
   final _origenCiudadCtrl = TextEditingController();
   final _origenPaisCtrl = TextEditingController();
+  LatLng? _origenLatLng;
 
   final _destinoDireccionCtrl = TextEditingController();
   final _destinoCiudadCtrl = TextEditingController();
   final _destinoPaisCtrl = TextEditingController();
+  LatLng? _destinoLatLng;
 
   DateTime? _fechaLimite;
   DateTime? _fechaTrabajo;
@@ -48,6 +53,22 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     super.dispose();
   }
 
+  Future<LatLng?> _obtenerCoords(
+      String direccion, String ciudad, String pais) async {
+    final query = [direccion, ciudad, pais]
+        .where((e) => e.isNotEmpty)
+        .join(', ');
+    if (query.isEmpty) return null;
+    try {
+      final results = await geocoding.locationFromAddress(query);
+      if (results.isNotEmpty) {
+        final loc = results.first;
+        return LatLng(loc.latitude, loc.longitude);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final steps = _buildSteps(context);
@@ -57,6 +78,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         currentStep: _currentStep,
         onStepContinue: _nextStep,
         onStepCancel: _previousStep,
+        onStepTapped: (step) => setState(() => _currentStep = step),
         steps: steps,
         controlsBuilder: (context, details) {
           final isLast = _currentStep == steps.length - 1;
@@ -135,34 +157,134 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               TextFormField(
                 controller: _origenDireccionCtrl,
                 decoration: const InputDecoration(labelText: 'Dirección'),
-                validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                validator: (v) => _origenLatLng == null &&
+                        (v == null || v.isEmpty)
+                    ? 'Requerido'
+                    : null,
               ),
               TextFormField(
                 controller: _origenCiudadCtrl,
                 decoration: const InputDecoration(labelText: 'Ciudad'),
-                validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                validator: (v) => _origenLatLng == null &&
+                        (v == null || v.isEmpty)
+                    ? 'Requerido'
+                    : null,
               ),
               TextFormField(
                 controller: _origenPaisCtrl,
                 decoration: const InputDecoration(labelText: 'País'),
-                validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                validator: (v) => _origenLatLng == null &&
+                        (v == null || v.isEmpty)
+                    ? 'Requerido'
+                    : null,
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(_origenLatLng == null
+                        ? 'Ubicación no seleccionada'
+                        : 'Lat: ${_origenLatLng!.latitude.toStringAsFixed(4)}, Lng: ${_origenLatLng!.longitude.toStringAsFixed(4)}'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final result = await Navigator.push<LatLng>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SeleccionarUbicacionScreen(
+                            initialPosition: _origenLatLng ??
+                                const LatLng(-33.447487, -70.673676),
+                          ),
+                        ),
+                      );
+                      if (result != null) {
+                        setState(() => _origenLatLng = result);
+                      }
+                    },
+                    child: const Text('Mapa'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final coords = await _obtenerCoords(
+                        _origenDireccionCtrl.text,
+                        _origenCiudadCtrl.text,
+                        _origenPaisCtrl.text,
+                      );
+                      if (coords != null) {
+                        setState(() => _origenLatLng = coords);
+                      } else {
+                        _showError('Dirección no encontrada');
+                      }
+                    },
+                    child: const Text('Buscar'),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text('Destino', style: Theme.of(context).textTheme.titleMedium),
               TextFormField(
                 controller: _destinoDireccionCtrl,
                 decoration: const InputDecoration(labelText: 'Dirección'),
-                validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                validator: (v) => _destinoLatLng == null &&
+                        (v == null || v.isEmpty)
+                    ? 'Requerido'
+                    : null,
               ),
               TextFormField(
                 controller: _destinoCiudadCtrl,
                 decoration: const InputDecoration(labelText: 'Ciudad'),
-                validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                validator: (v) => _destinoLatLng == null &&
+                        (v == null || v.isEmpty)
+                    ? 'Requerido'
+                    : null,
               ),
               TextFormField(
                 controller: _destinoPaisCtrl,
                 decoration: const InputDecoration(labelText: 'País'),
-                validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                validator: (v) => _destinoLatLng == null &&
+                        (v == null || v.isEmpty)
+                    ? 'Requerido'
+                    : null,
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(_destinoLatLng == null
+                        ? 'Ubicación no seleccionada'
+                        : 'Lat: ${_destinoLatLng!.latitude.toStringAsFixed(4)}, Lng: ${_destinoLatLng!.longitude.toStringAsFixed(4)}'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final result = await Navigator.push<LatLng>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SeleccionarUbicacionScreen(
+                            initialPosition: _destinoLatLng ??
+                                const LatLng(-33.447487, -70.673676),
+                          ),
+                        ),
+                      );
+                      if (result != null) {
+                        setState(() => _destinoLatLng = result);
+                      }
+                    },
+                    child: const Text('Mapa'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final coords = await _obtenerCoords(
+                        _destinoDireccionCtrl.text,
+                        _destinoCiudadCtrl.text,
+                        _destinoPaisCtrl.text,
+                      );
+                      if (coords != null) {
+                        setState(() => _destinoLatLng = coords);
+                      } else {
+                        _showError('Dirección no encontrada');
+                      }
+                    },
+                    child: const Text('Buscar'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -292,7 +414,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   void _nextStep() {
-    if (!_validateStep(_currentStep)) return;
     if (_currentStep < _formKeys.length - 1) {
       setState(() => _currentStep += 1);
     } else {
@@ -306,79 +427,121 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     }
   }
 
-  bool _validateStep(int step) {
-    final form = _formKeys[step].currentState;
-    if (form != null && !form.validate()) return false;
-    if (step == 3) {
-      if (_fechaLimite == null || _fechaTrabajo == null) {
-        _showError('Seleccione las fechas.');
-        return false;
-      }
-      if (_fechaLimite!.isAfter(_fechaTrabajo!)) {
-        _showError(
-            'La fecha límite no puede ser posterior a la fecha del trabajo.');
-        return false;
-      }
-      if (_horaInicio == null || _horaFin == null) {
-        _showError('Seleccione horas válidas.');
-        return false;
-      }
-      final ini = _horaInicio!.hour * 60 + _horaInicio!.minute;
-      final fin = _horaFin!.hour * 60 + _horaFin!.minute;
-      if (ini >= fin) {
-        _showError('La hora de inicio debe ser anterior a la de fin.');
-        return false;
-      }
-    }
-    return true;
+  bool _direccionCompleta(TextEditingController d, TextEditingController c,
+      TextEditingController p) {
+    return d.text.isNotEmpty && c.text.isNotEmpty && p.text.isNotEmpty;
   }
 
   bool _validarDirecciones() {
-    if (_origenPaisCtrl.text.isEmpty || _destinoPaisCtrl.text.isEmpty) {
-      return false;
+    if (!_direccionCompleta(
+            _origenDireccionCtrl, _origenCiudadCtrl, _origenPaisCtrl) ||
+        !_direccionCompleta(
+            _destinoDireccionCtrl, _destinoCiudadCtrl, _destinoPaisCtrl)) {
+      return true;
     }
     return _origenPaisCtrl.text.trim().toLowerCase() ==
         _destinoPaisCtrl.text.trim().toLowerCase();
   }
 
-  void _guardarTrabajo() {
+  Future<void> _guardarTrabajo() async {
     for (final key in _formKeys) {
-      final form = key.currentState;
-      if (form != null && !form.validate()) return;
+      key.currentState?.validate();
     }
+
+    final missing = <String>[];
+    if (_tituloController.text.isEmpty) missing.add('título');
+    if (_descripcionController.text.isEmpty) missing.add('descripción');
+    if (_empresa == null) missing.add('empresa');
+
+    final origenCompleto =
+        _origenLatLng != null ||
+            _direccionCompleta(
+                _origenDireccionCtrl, _origenCiudadCtrl, _origenPaisCtrl);
+    final destinoCompleto =
+        _destinoLatLng != null ||
+            _direccionCompleta(
+                _destinoDireccionCtrl, _destinoCiudadCtrl, _destinoPaisCtrl);
+    if (!origenCompleto) missing.add('ubicación de origen');
+    if (!destinoCompleto) missing.add('ubicación de destino');
+
+    if (_fechaLimite == null) missing.add('fecha límite');
+    if (_fechaTrabajo == null) missing.add('fecha del trabajo');
+    if (_horaInicio == null) missing.add('hora de inicio');
+    if (_horaFin == null) missing.add('hora de fin');
+    if (_precioCtrl.text.isEmpty) missing.add('precio');
+    if (_instruccionesController.text.isEmpty) missing.add('instrucciones');
+
+    if (missing.isNotEmpty) {
+      _showError('Complete: ${missing.join(', ')}');
+      return;
+    }
+
+    if (_fechaLimite!.isAfter(_fechaTrabajo!)) {
+      _showError('La fecha límite no puede ser posterior a la fecha del trabajo.');
+      return;
+    }
+    final ini = _horaInicio!.hour * 60 + _horaInicio!.minute;
+    final fin = _horaFin!.hour * 60 + _horaFin!.minute;
+    if (ini >= fin) {
+      _showError('La hora de inicio debe ser anterior a la de fin.');
+      return;
+    }
+
     if (!_validarDirecciones()) {
       _showError('Las direcciones deben pertenecer al mismo país.');
       return;
     }
 
+    if (_origenLatLng == null) {
+      _origenLatLng = await _obtenerCoords(
+          _origenDireccionCtrl.text,
+          _origenCiudadCtrl.text,
+          _origenPaisCtrl.text);
+    }
+    if (_destinoLatLng == null) {
+      _destinoLatLng = await _obtenerCoords(
+          _destinoDireccionCtrl.text,
+          _destinoCiudadCtrl.text,
+          _destinoPaisCtrl.text);
+    }
+
     final servicio = TrabajoService();
-    servicio.crearTrabajo(
-      titulo: _tituloController.text,
-      descripcion: _descripcionController.text,
-      empresa: _empresa!,
-      origen: {
-        'direccion': _origenDireccionCtrl.text,
-        'ciudad': _origenCiudadCtrl.text,
-        'pais': _origenPaisCtrl.text,
-      },
-      destino: {
-        'direccion': _destinoDireccionCtrl.text,
-        'ciudad': _destinoCiudadCtrl.text,
-        'pais': _destinoPaisCtrl.text,
-      },
-      fechaLimite: _fechaLimite!,
-      fechaTrabajo: _fechaTrabajo!,
-      horaInicio: _horaInicio!,
-      horaFin: _horaFin!,
-      precio: double.tryParse(_precioCtrl.text) ?? 0,
-      instrucciones: _instruccionesController.text, // Added instrucciones
-    ).then((_) {
+    try {
+      await servicio.crearTrabajo(
+        titulo: _tituloController.text,
+        descripcion: _descripcionController.text,
+        empresa: _empresa!,
+        origen: {
+          'direccion': _origenDireccionCtrl.text,
+          'ciudad': _origenCiudadCtrl.text,
+          'pais': _origenPaisCtrl.text,
+          if (_origenLatLng != null) ...{
+            'lat': _origenLatLng!.latitude,
+            'lng': _origenLatLng!.longitude,
+          },
+        },
+        destino: {
+          'direccion': _destinoDireccionCtrl.text,
+          'ciudad': _destinoCiudadCtrl.text,
+          'pais': _destinoPaisCtrl.text,
+          if (_destinoLatLng != null) ...{
+            'lat': _destinoLatLng!.latitude,
+            'lng': _destinoLatLng!.longitude,
+          },
+        },
+        fechaLimite: _fechaLimite!,
+        fechaTrabajo: _fechaTrabajo!,
+        horaInicio: _horaInicio!,
+        horaFin: _horaFin!,
+        precio: double.tryParse(_precioCtrl.text) ?? 0,
+        instrucciones: _instruccionesController.text,
+      );
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Trabajo guardado')));
       Navigator.pop(context);
-    }).catchError((e) {
+    } catch (e) {
       _showError('Error al guardar: $e');
-    });
+    }
   }
 
   void _showError(String message) {
