@@ -6,15 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../services/trabajo_service.dart';
 import 'detalle_trabajo_screen.dart';
 
-
-enum SortOption {
-  distanceAsc,
-  distanceDesc,
-  priceAsc,
-  priceDesc,
-  dateDesc,
-  dateAsc,
-}
+enum DisplayOption { upcoming, recent }
 
 class TrabajosScreen extends StatefulWidget {
   const TrabajosScreen({super.key});
@@ -25,9 +17,8 @@ class TrabajosScreen extends StatefulWidget {
 
 class _TrabajosScreenState extends State<TrabajosScreen> {
   final _servicio = TrabajoService();
-  SortOption _sortOption = SortOption.dateDesc;
+  DisplayOption _selectedDisplay = DisplayOption.upcoming;
   Position? _currentPosition;
-  final TextEditingController _searchController = TextEditingController();
   int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
   final MapController _mapController = MapController();
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
@@ -64,7 +55,6 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -75,57 +65,36 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     final lng = origen?['lng'];
     if (lat == null || lng == null) return null;
     return Geolocator.distanceBetween(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-        (lat as num).toDouble(),
-        (lng as num).toDouble(),
-      ) /
-      1000;
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          (lat as num).toDouble(),
+          (lng as num).toDouble(),
+        ) /
+        1000;
   }
 
   void _ordenar(List<Map<String, dynamic>> trabajos) {
-    int compareDistance(a, b) =>
-        (a['distance'] ?? double.infinity)
-            .compareTo(b['distance'] ?? double.infinity);
-    int comparePrice(a, b) => (a['precio'] ?? 0).compareTo(b['precio'] ?? 0);
     int compareDate(a, b) =>
-        ((a['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0))
-            .compareTo((b['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0));
+        ((a['fechaTrabajo'] as Timestamp?)?.toDate() ?? DateTime(0)).compareTo(
+          (b['fechaTrabajo'] as Timestamp?)?.toDate() ?? DateTime(0),
+        );
+    int compareCreated(a, b) =>
+        ((a['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0)).compareTo(
+          (b['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0),
+        );
 
-    switch (_sortOption) {
-      case SortOption.distanceAsc:
-        trabajos.sort(compareDistance);
+    switch (_selectedDisplay) {
+      case DisplayOption.upcoming:
+        trabajos.sort(compareDate); // Ordena por fecha de trabajo ascendente
         break;
-      case SortOption.distanceDesc:
-        trabajos.sort((a, b) => compareDistance(b, a));
-        break;
-      case SortOption.priceAsc:
-        trabajos.sort(comparePrice);
-        break;
-      case SortOption.priceDesc:
-        trabajos.sort((a, b) => comparePrice(b, a));
-        break;
-      case SortOption.dateAsc:
-        trabajos.sort(compareDate);
-        break;
-      case SortOption.dateDesc:
-        trabajos.sort((a, b) => compareDate(b, a));
+      case DisplayOption.recent:
+        trabajos.sort(
+          (a, b) => compareCreated(b, a),
+        ); // Ordena por fecha de creación descendente
         break;
     }
   }
 
-  String _formatHora(Map<String, dynamic>? hora) {
-    if (hora == null) return 'N/D';
-    final h = hora['h'];
-    final m = hora['m'];
-    final hour = (h is int ? h : int.tryParse(h?.toString() ?? '0') ?? 0)
-        .toString()
-        .padLeft(2, '0');
-    final min = (m is int ? m : int.tryParse(m?.toString() ?? '0') ?? 0)
-        .toString()
-        .padLeft(2, '0');
-    return '$hour:$min';
-  }
 
   String _formatFecha(DateTime? fecha) {
     if (fecha == null) return 'N/D';
@@ -191,7 +160,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 _currentPosition!.latitude,
                 _currentPosition!.longitude,
               ),
-              child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
+              child: const Icon(
+                Icons.my_location,
+                color: Color(0xFF7B0997),
+                size: 40,
+              ),
             ),
           );
         }
@@ -241,10 +214,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   Widget _buildSelectorVista() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      decoration: BoxDecoration(
-        color: Color(0xFF7B0997),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -253,13 +223,15 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: _vistaActual == 0 ? Colors.amber : Colors.transparent,
+                color: _vistaActual == 0
+                    ? const Color(0xFF7B0997)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 'Lista',
                 style: TextStyle(
-                  color: _vistaActual == 0 ? Colors.black : Colors.white,
+                  color: _vistaActual == 0 ? Colors.white : Colors.black,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -274,13 +246,15 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: _vistaActual == 1 ? Colors.amber : Colors.transparent,
+                color: _vistaActual == 1
+                    ? const Color(0xFF7B0997)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 'Mapa',
                 style: TextStyle(
-                  color: _vistaActual == 1 ? Colors.black : Colors.white,
+                  color: _vistaActual == 1 ? Colors.white : Colors.black,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -301,15 +275,13 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16.0),
             child: Text(
               'Trabajos destacados',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(height: 12),
+          // Aumentamos la altura de la lista y el ancho de las tarjetas
           SizedBox(
-            height: 180, // Altura fija para el carrusel de tarjetas
+            height: 200, // Altura fija para el carrusel de tarjetas
             child: StreamBuilder<QuerySnapshot>(
               stream: _servicio.obtenerTrabajosDestacados(),
               builder: (context, snapshot) {
@@ -318,7 +290,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(
-                      child: Text('No hay trabajos destacados.'));
+                    child: Text('No hay trabajos destacados.'),
+                  );
                 }
 
                 final trabajosDestacados = snapshot.data!.docs.map((doc) {
@@ -334,71 +307,124 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     final titulo = data['titulo'] ?? 'Sin título';
                     final empresa = data['empresa'] ?? '';
                     final precio = data['precio'] ?? 'N/D';
+                    final fechaInicio = (data['fechaTrabajo'] as Timestamp?)
+                        ?.toDate();
+                    final fechaTxt = _formatFecha(fechaInicio);
 
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 8),
-                      elevation: 5,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                       child: Container(
-                        width: 250,
+                        width: 250, 
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               titulo,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFFFFD900),
+                                color: Theme.of(context).colorScheme.onSecondary,
                               ),
                               overflow: TextOverflow.ellipsis,
                               maxLines: 2,
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              empresa,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontStyle: FontStyle.italic,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const Spacer(),
-                            Text(
-                              '\$$precio',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Text(
-                              'Bruto por oferta',
-                              style: TextStyle(
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: TextButton(
-                                style: TextButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFFD900),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => DetalleTrabajoScreen(
-                                        trabajoId: data['id'],
-                                        trabajo: data,
-                                      ),
+                            Expanded(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Imagen de avatar a la izquierda
+                                  CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Theme.of(context).colorScheme.primary,
+                                    child: const Icon(
+                                      Icons.business_center,
+                                      size: 30,
                                     ),
-                                  );
-                                },
-                                child: const Text('Ver más', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Contenido de texto a la derecha
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          empresa,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                        Text(
+                                          fechaTxt,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                        Text(
+                                          '\$$precio',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: TextButton(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      DetalleTrabajoScreen(
+                                                        trabajoId: data['id'],
+                                                        trabajo: data,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                            style: TextButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.yellow[700],
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 8,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'Ver más',
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -416,200 +442,234 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   }
 
   Widget _buildLista() {
-    return Column(
-      children: [
-        // Sección de trabajos destacados
-        _buildDestacados(),
-        // Barra de búsqueda
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Buscar...',
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF212121)),
-                    filled: true,
-                    fillColor: Color(0xFFFFD900),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
-                    hintStyle: const TextStyle(color: Color(0xFF212121)),
-                  ),
-                  style: const TextStyle(color: Color(0xFF212121)),
-                  onChanged: (_) => setState(() {}),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _servicio.obtenerTrabajos(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'No hay trabajos disponibles',
+                style: TextStyle(color: Theme.of(context).primaryColor),
+              ),
+            ),
+          );
+        }
+        final trabajos = snapshot.data!.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final dist = _calcularDistancia(data);
+          return {...data, 'distance': dist, 'id': doc.id};
+        }).toList();
+
+        _ordenar(trabajos);
+
+        // Se utiliza CustomScrollView para una experiencia de scroll unificada,
+        // combinando la sección de trabajos destacados con la lista principal.
+        return CustomScrollView(
+          slivers: [
+            // SliverToBoxAdapter se usa para widgets que no son listas, como la sección de destacados.
+            SliverToBoxAdapter(child: _buildDestacados()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
                 ),
-              ),
-              const SizedBox(width: 8),
-              PopupMenuButton<SortOption>(
-                icon: const Icon(Icons.filter_list, color: Color(0xFF212121)),
-                onSelected: (opt) => setState(() => _sortOption = opt),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
-                      value: SortOption.distanceAsc,
-                      child: Text('Distancia (asc)')),
-                  PopupMenuItem(
-                      value: SortOption.distanceDesc,
-                      child: Text('Distancia (desc)')),
-                  PopupMenuItem(
-                      value: SortOption.priceAsc,
-                      child: Text('Precio (asc)')),
-                  PopupMenuItem(
-                      value: SortOption.priceDesc,
-                      child: Text('Precio (desc)')),
-                  PopupMenuItem(
-                      value: SortOption.dateDesc,
-                      child: Text('Fecha más reciente')),
-                  PopupMenuItem(
-                      value: SortOption.dateAsc,
-                      child: Text('Fecha más antigua')),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _servicio.obtenerTrabajos(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No hay trabajos disponibles', style: TextStyle(color: Color(0xFF212121))));
-              }
-              final trabajos = snapshot.data!.docs.map((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                final dist = _calcularDistancia(data);
-                return {...data, 'distance': dist, 'id': doc.id};
-              }).toList();
-
-
-              final query = _searchController.text.toLowerCase();
-              if (query.isNotEmpty) {
-                trabajos.retainWhere((t) {
-                  final titulo =
-                      (t['titulo'] ?? '').toString().toLowerCase();
-                  final empresa =
-                      (t['empresa'] ?? '').toString().toLowerCase();
-                  return titulo.contains(query) || empresa.contains(query);
-                });
-              }
-
-              _ordenar(trabajos);
-
-              return ListView.builder(
-                itemCount: trabajos.length,
-                itemBuilder: (context, index) {
-                  final data = trabajos[index];
-                  final horaInicio =
-                      data['horaInicio'] as Map<String, dynamic>?;
-                  final horaFin = data['horaFin'] as Map<String, dynamic>?;
-                  final fechaInicio =
-                      (data['fechaTrabajo'] as Timestamp?)?.toDate();
-                  final fechaFin =
-                      (data['fechaLimite'] as Timestamp?)?.toDate();
-                      (data['origen'] as Map<String, dynamic>?) ?? {};
-                      '${_formatHora(horaInicio)} - ${_formatHora(horaFin)}';
-                  final fechaTxt =
-                      '${_formatFecha(fechaInicio)}${fechaFin != null ? ' - ${_formatFecha(fechaFin)}' : ''}';
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Imagen de avatar a la izquierda
-                          CircleAvatar(
-                            radius: 30,
-                            child: const Icon(Icons.business_center, size: 30),
-                          ),
-                          const SizedBox(width: 16),
-                          // Contenido de texto en el centro
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Nombre del trabajo en letra grande
-                                Text(
-                                  data['titulo'] ?? 'Sin título',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                                const SizedBox(height: 4),
-                                // Fecha del trabajo en letra pequeña
-                                Text(
-                                  fechaTxt,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                // Precio o pago más grande
-                                Text(
-                                  '\$${data['precio'] ?? 'N/D'}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Botón "Ver más" a la derecha
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => DetalleTrabajoScreen(
-                                    trabajoId: data['id'],
-                                    trabajo: data,
-                                  ),
-                                ),
-                              );
-                            },
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors.yellow[700],
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                            child: const Text(
-                              'Ver más',
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(
+                        () => _selectedDisplay = DisplayOption.upcoming,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _selectedDisplay == DisplayOption.upcoming
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Próximas',
                               style: TextStyle(
-                                color: Colors.black,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
+                                color:
+                                    _selectedDisplay == DisplayOption.upcoming
+                                    ? Colors.white
+                                    : Colors.black,
                               ),
                             ),
-                          ),
-                        ],
+                            Text(
+                              'más próximas a iniciar',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color:
+                                    _selectedDisplay == DisplayOption.upcoming
+                                    ? Colors.white70
+                                    : Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => setState(
+                        () => _selectedDisplay = DisplayOption.recent,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _selectedDisplay == DisplayOption.recent
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Recientes',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: _selectedDisplay == DisplayOption.recent
+                                    ? Colors.white
+                                    : Colors.black,
+                              ),
+                            ),
+                            Text(
+                              'recientemente publicadas',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _selectedDisplay == DisplayOption.recent
+                                    ? Colors.white70
+                                    : Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // SliverList construye la lista de elementos de manera eficiente.
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final data = trabajos[index];
+                final fechaInicio = (data['fechaTrabajo'] as Timestamp?)
+                    ?.toDate();
+                final fechaFin = (data['fechaLimite'] as Timestamp?)?.toDate();
+                final fechaTxt =
+                    '${_formatFecha(fechaInicio)}${fechaFin != null ? ' - ${_formatFecha(fechaFin)}' : ''}';
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor:Theme.of(context).colorScheme.primary,
+                          child: const Icon(Icons.business_center, size: 30),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                data['titulo'] ?? 'Sin título',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                fechaTxt,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '\$${data['precio'] ?? 'N/D'}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetalleTrabajoScreen(
+                                  trabajoId: data['id'],
+                                  trabajo: data,
+                                ),
+                              ),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.secondary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: Text(
+                            'Ver más',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }, childCount: trabajos.length),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -619,25 +679,24 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: ImageIcon(
-            const AssetImage('assets/images/onlylogo.png'),
-            color: const Color(0xFFFFD900), // Color del ícono
+            const AssetImage(
+              'assets/images/GoodJob_con_margen_en_logo_sin_nombre.png',
+            ),
+            color: Theme.of(context).colorScheme.secondary, // Color del ícono
             size: 24, // Tamaño del ícono
           ),
-          onPressed: () {
-          },
+          onPressed: () {},
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
+            icon: const Icon(Icons.notifications_none, color: Colors.black),
             onPressed: () {},
           ),
         ],
         title: _buildSelectorVista(),
         centerTitle: true,
       ),
-      body: _vistaActual == 0
-          ? _buildLista()
-          : _buildMapa(),
+      body: _vistaActual == 0 ? _buildLista() : _buildMapa(),
     );
   }
 }

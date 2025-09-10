@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../services/firebase_service.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/postulacion_service.dart';
 
 class DetalleTrabajoScreen extends StatefulWidget {
@@ -15,35 +16,100 @@ class DetalleTrabajoScreen extends StatefulWidget {
 }
 
 class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
-  bool _yaPostulado = false;
+  final PostulacionService _postulacionService = PostulacionService();
+  final String? _usuarioId = FirebaseAuth.instance.currentUser?.uid;
+  Timer? _timer;
+  String _countdownText = '';
 
   @override
   void initState() {
     super.initState();
-    _verificarPostulacion();
+    _startCountdown();
   }
 
-  Future<void> _verificarPostulacion() async {
-    final auth = Auth();
-    final uid = auth.currentUser?.uid;
-    if (uid == null) return;
-    final existe = await PostulacionService().existePostulacion(
-      trabajoId: widget.trabajoId,
-      usuarioId: uid,
-    );
-    if (mounted) {
-      setState(() => _yaPostulado = existe);
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdown() {
+    final fechaFinTs = widget.trabajo['fechaLimite'];
+    if (fechaFinTs is! Timestamp) {
+      setState(() {
+        _countdownText = 'Fecha límite no disponible';
+      });
+      return;
+    }
+
+    _updateCountdown();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateCountdown();
+    });
+  }
+
+  void _updateCountdown() {
+    final fechaFin = widget.trabajo['fechaLimite'];
+    if (fechaFin is! Timestamp) {
+      _timer?.cancel();
+      return;
+    }
+
+    final remaining = fechaFin.toDate().difference(DateTime.now());
+
+    if (remaining.isNegative) {
+      setState(() {
+        _countdownText = 'Ya acabó';
+      });
+      _timer?.cancel();
+    } else {
+      final days = remaining.inDays;
+      final hours = remaining.inHours % 24;
+      final minutes = remaining.inMinutes % 60;
+      final seconds = remaining.inSeconds % 60;
+      setState(() {
+        _countdownText =
+            '${days}d ${hours}h ${minutes}m ${seconds}s';
+      });
+    }
+  }
+
+  Future<void> _postularse() async {
+    if (_usuarioId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para postularte.')),
+      );
+      return;
+    }
+
+    try {
+      await _postulacionService.crearPostulacion(
+        trabajoId: widget.trabajoId,
+        trabajoTitulo: widget.trabajo['titulo'] ?? '',
+        usuarioId: _usuarioId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('¡Te has postulado con éxito!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al postularte: $e')),
+        );
+      }
     }
   }
 
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
-    if (ubicacion == null) return '';
+    if (ubicacion == null) return 'N/D';
     final partes = [
       ubicacion['direccion'],
       ubicacion['ciudad'],
       ubicacion['pais'],
     ].where((e) => e != null && e.toString().isNotEmpty).join(', ');
-    return partes;
+    return partes.isEmpty ? 'N/D' : partes;
   }
 
   String _formatHora(Map<String, dynamic>? hora) {
@@ -70,206 +136,239 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   @override
   Widget build(BuildContext context) {
     final Timestamp? fechaInicioTs = widget.trabajo['fechaTrabajo'];
-    final Timestamp? fechaFinTs = widget.trabajo['fechaLimite'];
     final fechaInicio = fechaInicioTs?.toDate();
-    final fechaFin = fechaFinTs?.toDate();
     final horaInicio = widget.trabajo['horaInicio'] as Map<String, dynamic>?;
     final horaFin = widget.trabajo['horaFin'] as Map<String, dynamic>?;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Detalle del Trabajo')),
+      appBar: AppBar(title: const Text('Detalle del Trabajo')),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Ícono del trabajo con forma cuadrada y bordes redondeados
+          Center(
+            child: Container(
+              height: 180,
+              width: 420,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(24.0),
+              ),
+              child: const Icon(Icons.business_center, color: Colors.black54, size: 60),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Título del trabajo
           Text(
             widget.trabajo['titulo'] ?? 'Título no disponible',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          SizedBox(height: 54), // Espacio grande
-          // Detalle de la oferta (izquierda) y imagen (derecha)
+          const SizedBox(height: 16),
+
+          // Sección de la descripción
+          Card(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Descripción:',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    widget.trabajo['descripcion'] ?? 'Descripción no disponible.',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 34),
+
+          // Título de "Detalles de la oferta"
+          const Text(
+            'Detalles de la oferta:',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 22),
+
+          // Tarjeta de Ubicación (fila completa)
+          Card(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, color: Color(0xFF7B0997), size: 24),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Ubicación',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.trabajo['empresa'] ?? 'N/D',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          _formatearUbicacion(widget.trabajo['origen']),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Cards de Horario y Día (mitad y mitad)
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Detalle de la oferta',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                child: Card(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.access_time_filled, color: Color(0xFF7B0997), size: 24),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Horario',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_formatHora(horaInicio)} - ${_formatHora(horaFin)} hrs',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      widget.trabajo['descripcion'] ??
-                          'Descripción no disponible.',
-                      style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Card(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.calendar_today, color: Color(0xFF7B0997), size: 24),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Día',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatFecha(fechaInicio),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Fecha límite de la oferta con cuenta regresiva
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.event_busy, color: Colors.orange, size: 24),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Esta oferta termina en:',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
                     ),
                   ],
                 ),
-              ),
-              SizedBox(width: 6),
-              // Imagen de la oferta (placeholder)
-              Container(
-                width: 80,
-                height: 80,
-                color: Colors.grey[300],
-                child: Center(child: Text('Imagen', style: TextStyle(color: Colors.black54))),
-              ),
-            ],
-          ),
-          SizedBox(height: 54), // Espacio grande
-          // Horario (izquierda) y Día (derecha)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Horario
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Horario',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time, size: 16, color: Colors.black54),
-                      SizedBox(width: 4),
-                      Text('${_formatHora(horaInicio)} - ${_formatHora(horaFin)} hrs'),
-                    ],
-                  ),
-                ],
-              ),
-              // Día
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Día',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
-                      SizedBox(width: 4),
-                      Text(_formatFecha(fechaInicio)),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: 24), // Espacio grande
-          // Ubicación (izquierda) y Fecha límite (derecha)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Ubicación
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ubicación',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 4),
-                    if (widget.trabajo['empresa'] != null ||
-                        widget.trabajo['origen'] != null)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.location_on_outlined, color: Colors.black54),
-                          SizedBox(width: 4),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (widget.trabajo['empresa'] != null)
-                                  Text(widget.trabajo['empresa'],
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600)),
-                                if (widget.trabajo['origen'] != null)
-                                  Text(
-                                      _formatearUbicacion(widget.trabajo['origen'])),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  _countdownText,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
                 ),
-              ),
-              SizedBox(width: 6), // Espacio entre las columnas
-              // Fecha límite
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Fecha límite de la oferta',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.event_busy, size: 16, color: Colors.black54),
-                      SizedBox(width: 4),
-                      Text(_formatFecha(fechaFin)),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
-          SizedBox(height: 54), // Espacio grande
+          const SizedBox(height: 24),
 
           // Precio
-          if (widget.trabajo['precio'] != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Precio',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.green[50],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '\$${widget.trabajo['precio']} Bruto por oferta',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                Row(
+                  children: [
+                    const Icon(Icons.payments, color: Colors.green, size: 24),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Pago',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '\$${widget.trabajo['precio']?.toString() ?? 'N/D'} Bruto por oferta',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.green,
                   ),
                 ),
               ],
             ),
-          SizedBox(height: 52), // Espacio grande
+          ),
+          const SizedBox(height: 52),
 
           // Botón de "Postular"
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _yaPostulado
-                  ? null
-                  : () async {
-                  final auth = Auth();
-                  final uid = auth.currentUser?.uid;
-                  if (uid == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Usuario no autenticado')),
-                    );
-                    return;
-                  }
-                  try {
-                    await PostulacionService().crearPostulacion(
+            child: FutureBuilder<bool>(
+              future: _usuarioId != null
+                  ? _postulacionService.existePostulacion(
                       trabajoId: widget.trabajoId,
                       trabajoTitulo: widget.trabajo['titulo'] ?? '',
                       usuarioId: uid,

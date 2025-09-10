@@ -14,9 +14,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.initState();
     // Iniciar un temporizador que, después de 3 segundos, navega a la siguiente pantalla
     Timer(const Duration(seconds: 3), () {
-      // Usar pushReplacementNamed para reemplazar la ruta actual
-      // y evitar que el usuario pueda volver a la pantalla de bienvenida con el botón de retroceso
-      Navigator.pushReplacementNamed(context, 'welcome');
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, 'welcome');
+    }
     });
   }
 

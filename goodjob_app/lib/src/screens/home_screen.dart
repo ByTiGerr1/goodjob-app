@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'trabajos_screen.dart';
 import 'mis_trabajos_screen.dart';
 import 'mis_pagos.dart';
-import 'perfil_screen.dart';
+import 'configuracion_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
     TrabajosScreen(),
     MisTrabajosScreen(),
     MisPagosScreen(),
-    PerfilScreen(),
+    ConfiguracionScreen(),
   ];
 
   @override
@@ -34,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icon(Icons.assignment), label: 'Mis trabajos'),
           BottomNavigationBarItem(
               icon: Icon(Icons.payment), label: 'Mis pagos'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
     );

@@ -2,10 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 enum EstadoTrabajo {
-  abierto,         // Aceptando postulaciones
-  cerrado,         // Postulaciones cerradas
-  finalizado,      // Trabajo completado
-  cancelado,       // Trabajo cancelado
+  abierto,
+  cerrado, 
+  finalizado,
+  cancelado, 
 }
 
 class TrabajoService {
@@ -37,7 +37,7 @@ class TrabajoService {
     required TimeOfDay horaInicio,
     required TimeOfDay horaFin,
     required double precio,
-    required String instrucciones, 
+    required String instrucciones,
     bool destacado = false,
   }) {
     return _trabajos.add({
@@ -51,7 +51,7 @@ class TrabajoService {
       'horaInicio': {'h': horaInicio.hour, 'm': horaInicio.minute},
       'horaFin': {'h': horaFin.hour, 'm': horaFin.minute},
       'precio': precio,
-      'instrucciones': instrucciones, 
+      'instrucciones': instrucciones,
       'destacado': destacado,
       'estado': EstadoTrabajo.abierto.name, // Estado default
       'creadoEn': FieldValue.serverTimestamp(),
@@ -61,5 +61,19 @@ class TrabajoService {
   /// Cancels a job by updating its state to 'cancelado'.
   Future<void> cancelarTrabajo(String trabajoId) {
     return _trabajos.doc(trabajoId).update({'estado': EstadoTrabajo.cancelado.name});
+  }
+
+  /// Counts the number of applications for a specific job.
+  Future<int> contarPostulaciones(String trabajoId) async {
+    try {
+      final querySnapshot = await _trabajos
+          .doc(trabajoId)
+          .collection('postulaciones')
+          .get();
+      return querySnapshot.docs.length;
+    } catch (e) {
+      print('Error al contar postulaciones: $e');
+      return 0;
+    }
   }
 }

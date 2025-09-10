@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class MisPagosScreen extends StatelessWidget {
-  const MisPagosScreen({super.key});
+class AdminPagosScreen extends StatelessWidget {
+  const AdminPagosScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -11,4 +11,3 @@ class MisPagosScreen extends StatelessWidget {
     );
   }
 }
-
