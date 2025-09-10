@@ -30,7 +30,8 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         // Colores
         scaffoldBackgroundColor: const Color(0xFFF5F5F5), 
-        primaryColor: const Color(0xFF7B0997), // AppBar color
+        primaryColor: const Color(0xFF7B0997), 
+
         colorScheme: const ColorScheme(
           primary: Color(0xFF7B0997),
           onPrimary: Colors.white,
@@ -40,12 +41,12 @@ class MainApp extends StatelessWidget {
           onSurface: Color(0xFF1E1E1E),
           error: Color(0xFFFF0000),
           onError: Colors.white,
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
         ),
         // Colores appbar
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF7B0997),
-          foregroundColor: Colors.white,
+          backgroundColor: Color(0xFFF5F5F5),
+          foregroundColor: Color.fromARGB(255, 0, 0, 0),
           elevation: 0,
         ),
         // Colores botones
@@ -62,7 +63,7 @@ class MainApp extends StatelessWidget {
         fontFamily: 'Roboto',
         textTheme: const TextTheme(
           displayLarge: TextStyle(fontSize: 72.0, fontWeight: FontWeight.bold),
-          bodyMedium: TextStyle(color: Color(0xFF4C0082), fontSize: 14.0, fontFamily: 'Hind'),
+          bodyMedium: TextStyle(color: Color.fromARGB(255, 16, 16, 17), fontSize: 14.0, fontFamily: 'Hind'),
           bodySmall: TextStyle(color: Colors.white70),
           headlineSmall: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
