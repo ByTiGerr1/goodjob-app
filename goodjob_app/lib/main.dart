@@ -29,7 +29,7 @@ class MainApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         // Colores
-        scaffoldBackgroundColor: const Color(0xFFF5F5F5), // Dark background for contrast
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5), 
         primaryColor: const Color(0xFF7B0997), // AppBar color
         colorScheme: const ColorScheme(
           primary: Color(0xFF7B0997),

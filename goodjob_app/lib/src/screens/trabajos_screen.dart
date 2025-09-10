@@ -323,7 +323,6 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                               empresa,
                               style: const TextStyle(
                                 fontSize: 14,
-                                color: Colors.white70,
                                 fontStyle: FontStyle.italic,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -334,14 +333,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.greenAccent,
                               ),
                             ),
                             const Text(
                               'Bruto por oferta',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.white54,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -497,8 +494,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                           // Imagen de avatar a la izquierda
                           CircleAvatar(
                             radius: 30,
-                            backgroundColor: Colors.blue.withOpacity(0.1),
-                            child: const Icon(Icons.business_center, size: 30, color: Colors.blue),
+                            child: const Icon(Icons.business_center, size: 30),
                           ),
                           const SizedBox(width: 16),
                           // Contenido de texto en el centro
