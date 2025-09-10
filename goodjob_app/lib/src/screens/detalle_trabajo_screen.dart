@@ -288,15 +288,15 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                     }
                   }
               },
-              child: Text(
-                  _yaPostulado ? 'Ya postulaste' : 'Postular',
-                  style: const TextStyle(fontSize: 18)),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
+              child: Text(
+                  _yaPostulado ? 'Ya postulaste' : 'Postular',
+                  style: const TextStyle(fontSize: 18)),
             ),
           ),
         ],

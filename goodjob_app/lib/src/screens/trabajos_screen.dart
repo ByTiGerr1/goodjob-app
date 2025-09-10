@@ -30,7 +30,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
   final MapController _mapController = MapController();
-  static const LatLng _defaultLocation = LatLng(19.432608, -99.133209);
+  static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
+  static final LatLngBounds _chileBounds =
+      LatLngBounds(LatLng(-56.0, -76.0), LatLng(-17.0, -66.0));
 
   @override
   void initState() {
@@ -50,13 +52,16 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       }
       final pos = await Geolocator.getCurrentPosition();
       setState(() => _currentPosition = pos);
-      _mapController.move(
-        LatLng(pos.latitude, pos.longitude),
-        12,
-      );
+      _centrarEnUbicacion();
     } catch (_) {
       // Ignorar errores de ubicación
     }
+  }
+  void _centrarEnUbicacion() {
+    if (_currentPosition == null) return;
+    final dest =
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+    _mapController.move(dest, 16.0);
   }
 
   @override
@@ -181,22 +186,41 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         }
 
         final center = _currentPosition != null
-            ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+            ? LatLng(
+                _currentPosition!.latitude, _currentPosition!.longitude)
             : _defaultLocation;
 
-        return FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 12,
-          ),
+        final zoom = _currentPosition != null ? 16.0 : 5.0;
+
+        return Stack(
           children: [
-            TileLayer(
-              urlTemplate:
-                  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-              subdomains: const ['a', 'b', 'c'],
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: center,
+                initialZoom: zoom,
+                maxZoom: 40,
+                minZoom: 9,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                  subdomains: const ['a', 'b', 'c', 'd'],
+                ),
+                MarkerLayer(markers: markers),
+              ],
             ),
-            MarkerLayer(markers: markers),
+            if (_currentPosition != null)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton(
+                  mini: true,
+                  onPressed: _centrarEnUbicacion,
+                  child: const Icon(Icons.my_location),
+                ),
+              ),
           ],
         );
       },
@@ -214,7 +238,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
-            onTap: () => setState(() => _vistaActual = 0),
+            onTap: () {
+              setState(() => _vistaActual = 1);
+              _centrarEnUbicacion();
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -603,3 +630,5 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 }
+
+
