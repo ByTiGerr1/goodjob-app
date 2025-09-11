@@ -370,32 +370,38 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
               future: _usuarioId != null
                   ? _postulacionService.existePostulacion(
                       trabajoId: widget.trabajoId,
-                      trabajoTitulo: widget.trabajo['titulo'] ?? '',
-                      usuarioId: uid,
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Postulación enviada')),
-                      );
-                      setState(() => _yaPostulado = true);
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al postular: $e')),
-                      );
-                    }
-                  }
+                      usuarioId: _usuarioId,
+                    )
+                  : Future.value(false), // Si no hay usuario, no está postulado
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const ElevatedButton(
+                    onPressed: null,
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final yaPostulado = snapshot.data ?? false;
+                final isAuth = _usuarioId != null;
+
+                return ElevatedButton(
+                  onPressed: isAuth && !yaPostulado ? _postularse : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7B0997),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    !isAuth
+                        ? 'Inicia sesión para postularte'
+                        : yaPostulado
+                            ? 'Ya te has postulado'
+                            : 'Postular',
+                    style: const TextStyle(fontSize: 18, color: Colors.white)),
+                );
               },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                  _yaPostulado ? 'Ya postulaste' : 'Postular',
-                  style: const TextStyle(fontSize: 18)),
             ),
           ),
         ],

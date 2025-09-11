@@ -12,11 +12,17 @@ class CrearTrabajoScreen extends StatefulWidget {
 }
 
 class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
-  final _formKeys = List.generate(6, (_) => GlobalKey<FormState>());
+  /// Tres formularios para las secciones: información básica,
+  /// logística/pago y requisitos/contacto.
+  final _formKeys = List.generate(3, (_) => GlobalKey<FormState>());
   int _currentStep = 0;
 
   final _tituloController = TextEditingController();
   final _descripcionController = TextEditingController();
+
+  final _contactoNombreController = TextEditingController();
+  final _contactoNumeroController = TextEditingController();
+  final Set<String> _implementosSeleccionados = {};
 
   String? _empresa;
 
@@ -36,12 +42,15 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   TimeOfDay? _horaFin;
 
   final _precioCtrl = TextEditingController();
-  final _instruccionesController = TextEditingController(); // Added controller for instrucciones
+  final _instruccionesController =
+      TextEditingController(); // Added controller for instrucciones
 
   @override
   void dispose() {
     _tituloController.dispose();
     _descripcionController.dispose();
+    _contactoNombreController.dispose();
+    _contactoNumeroController.dispose();
     _origenDireccionCtrl.dispose();
     _origenCiudadCtrl.dispose();
     _origenPaisCtrl.dispose();
@@ -86,7 +95,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             children: [
               ElevatedButton(
                 onPressed: details.onStepContinue,
-                child: Text(isLast ? 'Guardar' : 'Siguiente'),
+                child: Text(isLast ? 'Publicar' : 'Siguiente'),
               ),
               const SizedBox(width: 8),
               if (_currentStep > 0)
@@ -104,7 +113,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   List<Step> _buildSteps(BuildContext context) {
     return [
       Step(
-        title: const Text('Detalles'),
+        title: const Text('Información básica'),
         isActive: _currentStep >= 0,
         content: Form(
           key: _formKeys[0],
@@ -112,44 +121,39 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             children: [
               TextFormField(
                 controller: _tituloController,
-                decoration: const InputDecoration(labelText: 'Título'),
+                decoration:
+                    const InputDecoration(labelText: 'Nombre de trabajo'),
                 validator: (value) =>
                     value == null || value.isEmpty ? 'Requerido' : null,
               ),
               TextFormField(
                 controller: _descripcionController,
-                decoration: const InputDecoration(labelText: 'Descripción'),
+                decoration: const InputDecoration(
+                    labelText: 'Descripción del trabajo'),
                 maxLines: 3,
                 validator: (value) =>
                     value == null || value.isEmpty ? 'Requerido' : null,
+              ),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: 'Empresa'),
+                value: _empresa,
+                items: const [
+                  DropdownMenuItem(value: 'Empresa A', child: Text('Empresa A')),
+                  DropdownMenuItem(value: 'Empresa B', child: Text('Empresa B')),
+                ],
+                onChanged: (value) => setState(() => _empresa = value),
+                validator: (value) =>
+                    value == null ? 'Seleccione una empresa' : null,
               ),
             ],
           ),
         ),
       ),
       Step(
-        title: const Text('Empresa'),
+        title: const Text('Logística y pago'),
         isActive: _currentStep >= 1,
         content: Form(
           key: _formKeys[1],
-          child: DropdownButtonFormField<String>(
-            decoration: const InputDecoration(labelText: 'Empresa'),
-            initialValue: _empresa,
-            items: const [
-              DropdownMenuItem(value: 'Empresa A', child: Text('Empresa A')),
-              DropdownMenuItem(value: 'Empresa B', child: Text('Empresa B')),
-            ],
-            onChanged: (value) => setState(() => _empresa = value),
-            validator: (value) =>
-                value == null ? 'Seleccione una empresa' : null,
-          ),
-        ),
-      ),
-      Step(
-        title: const Text('Ubicaciones'),
-        isActive: _currentStep >= 2,
-        content: Form(
-          key: _formKeys[2],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -157,26 +161,26 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               TextFormField(
                 controller: _origenDireccionCtrl,
                 decoration: const InputDecoration(labelText: 'Dirección'),
-                validator: (v) => _origenLatLng == null &&
-                        (v == null || v.isEmpty)
-                    ? 'Requerido'
-                    : null,
+                validator: (v) =>
+                    _origenLatLng == null && (v == null || v.isEmpty)
+                        ? 'Requerido'
+                        : null,
               ),
               TextFormField(
                 controller: _origenCiudadCtrl,
                 decoration: const InputDecoration(labelText: 'Ciudad'),
-                validator: (v) => _origenLatLng == null &&
-                        (v == null || v.isEmpty)
-                    ? 'Requerido'
-                    : null,
+                validator: (v) =>
+                    _origenLatLng == null && (v == null || v.isEmpty)
+                        ? 'Requerido'
+                        : null,
               ),
               TextFormField(
                 controller: _origenPaisCtrl,
                 decoration: const InputDecoration(labelText: 'País'),
-                validator: (v) => _origenLatLng == null &&
-                        (v == null || v.isEmpty)
-                    ? 'Requerido'
-                    : null,
+                validator: (v) =>
+                    _origenLatLng == null && (v == null || v.isEmpty)
+                        ? 'Requerido'
+                        : null,
               ),
               Row(
                 children: [
@@ -224,26 +228,26 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               TextFormField(
                 controller: _destinoDireccionCtrl,
                 decoration: const InputDecoration(labelText: 'Dirección'),
-                validator: (v) => _destinoLatLng == null &&
-                        (v == null || v.isEmpty)
-                    ? 'Requerido'
-                    : null,
+                validator: (v) =>
+                    _destinoLatLng == null && (v == null || v.isEmpty)
+                        ? 'Requerido'
+                        : null,
               ),
               TextFormField(
                 controller: _destinoCiudadCtrl,
                 decoration: const InputDecoration(labelText: 'Ciudad'),
-                validator: (v) => _destinoLatLng == null &&
-                        (v == null || v.isEmpty)
-                    ? 'Requerido'
-                    : null,
+                validator: (v) =>
+                    _destinoLatLng == null && (v == null || v.isEmpty)
+                        ? 'Requerido'
+                        : null,
               ),
               TextFormField(
                 controller: _destinoPaisCtrl,
                 decoration: const InputDecoration(labelText: 'País'),
-                validator: (v) => _destinoLatLng == null &&
-                        (v == null || v.isEmpty)
-                    ? 'Requerido'
-                    : null,
+                validator: (v) =>
+                    _destinoLatLng == null && (v == null || v.isEmpty)
+                        ? 'Requerido'
+                        : null,
               ),
               Row(
                 children: [
@@ -286,17 +290,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-      Step(
-        title: const Text('Fechas y horario'),
-        isActive: _currentStep >= 3,
-        content: Form(
-          key: _formKeys[3],
-          child: Column(
-            children: [
+              const SizedBox(height: 16),
               _buildDatePicker(
                 label: 'Fecha límite de postulación',
                 value: _fechaLimite,
@@ -317,41 +311,67 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                 value: _horaFin,
                 onPicked: (t) => setState(() => _horaFin = t),
               ),
+              TextFormField(
+                controller: _precioCtrl,
+                decoration: const InputDecoration(labelText: 'Pago total'),
+                keyboardType: TextInputType.number,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Requerido' : null,
+              ),
             ],
           ),
         ),
       ),
       Step(
-        title: const Text('Pago'),
-        isActive: _currentStep >= 4,
+        title: const Text('Requisitos y contacto'),
+        isActive: _currentStep >= 2,
         content: Form(
-          key: _formKeys[4],
-          child: TextFormField(
-            controller: _precioCtrl,
-            decoration: const InputDecoration(labelText: 'Precio'),
-            keyboardType: TextInputType.number,
-            validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
-          ),
-        ),
-      ),
-      Step(
-        title: const Text('Instrucciones'),
-        isActive: _currentStep >= 5,
-        content: Form(
-          key: GlobalKey<FormState>(),
-          child: TextFormField(
-            controller: _instruccionesController,
-            decoration: const InputDecoration(labelText: 'Instrucciones'),
-            maxLines: 3,
-            maxLength: 1000,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Requerido';
-              } else if (value.length > 1000) {
-                return 'Máximo 1000 caracteres';
-              }
-              return null;
-            },
+          key: _formKeys[2],
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _contactoNombreController,
+                decoration:
+                    const InputDecoration(labelText: 'Nombre de contacto'),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
+              ),
+              TextFormField(
+                controller: _contactoNumeroController,
+                decoration: const InputDecoration(labelText: 'Número de contacto'),
+                keyboardType: TextInputType.phone,
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Requerido' : null,
+              ),
+              const SizedBox(height: 8),
+              ...['Implemento A', 'Implemento B', 'Implemento C']
+                  .map((e) => CheckboxListTile(
+                        title: Text(e),
+                        value: _implementosSeleccionados.contains(e),
+                        onChanged: (v) => setState(() {
+                          if (v == true) {
+                            _implementosSeleccionados.add(e);
+                          } else {
+                            _implementosSeleccionados.remove(e);
+                          }
+                        }),
+                      )),
+              TextFormField(
+                controller: _instruccionesController,
+                decoration:
+                    const InputDecoration(labelText: 'Requisitos específicos'),
+                maxLines: 3,
+                maxLength: 1000,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Requerido';
+                  } else if (value.length > 1000) {
+                    return 'Máximo 1000 caracteres';
+                  }
+                  return null;
+                },
+              ),
+            ],
           ),
         ),
       ),
@@ -452,6 +472,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (_tituloController.text.isEmpty) missing.add('título');
     if (_descripcionController.text.isEmpty) missing.add('descripción');
     if (_empresa == null) missing.add('empresa');
+    if (_contactoNombreController.text.isEmpty)
+      missing.add('nombre de contacto');
+    if (_contactoNumeroController.text.isEmpty)
+      missing.add('número de contacto');
 
     final origenCompleto =
         _origenLatLng != null ||

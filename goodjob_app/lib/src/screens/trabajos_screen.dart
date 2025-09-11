@@ -160,11 +160,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 _currentPosition!.latitude,
                 _currentPosition!.longitude,
               ),
-              child: const Icon(
-                Icons.my_location,
-                color: Color(0xFF7B0997),
-                size: 40,
-              ),
+              child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
             ),
           );
         }
@@ -700,5 +696,3 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 }
-
-
