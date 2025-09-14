@@ -63,4 +63,12 @@ class Auth {
       throw Exception('Error al registrar usuario: $e');
     }
   }
+
+  // Método para actualizar el token del admin antes de realizar consultas.
+  Future<void> actualizarAdminToken() async {
+    final user = _firebaseAuth.currentUser;
+    if (user != null) {
+      await user.getIdToken(true); // Forzar la actualización del token
+    }
+  }
 }

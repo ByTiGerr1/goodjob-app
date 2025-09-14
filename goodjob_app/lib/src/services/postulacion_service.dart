@@ -12,14 +12,13 @@ class PostulacionService {
         .snapshots();
   }
 
-  // Obtiene las postulaciones para un trabajo específico.
+  // Obtiene las postulaciones para un trabajo específico desde la colección raíz.
   // Esta es la consulta que te permitirá ver los postulantes en la pantalla
   // 'PostulantesTrabajoScreen'.
   Stream<QuerySnapshot> obtenerPostulacionesDeTrabajo(String trabajoId) {
     return _firestore
-        .collection('trabajos')
-        .doc(trabajoId)
         .collection('postulaciones')
+        .where('trabajoId', isEqualTo: trabajoId)
         .orderBy('fechaPostulacion', descending: true)
         .snapshots();
   }

@@ -8,7 +8,7 @@ class PostulantesTrabajoScreen extends StatelessWidget {
 
   Future<Map<String, dynamic>> _obtenerDatosUsuario(String usuarioId) async {
     final docSnapshot =
-        await FirebaseFirestore.instance.collection('users').doc(usuarioId).get();
+        await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
     return docSnapshot.data() ?? {};
   }
 
@@ -21,9 +21,8 @@ class PostulantesTrabajoScreen extends StatelessWidget {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('trabajos')
-            .doc(trabajoId)
             .collection('postulaciones')
+            .where('trabajoId', isEqualTo: trabajoId)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -31,7 +30,7 @@ class PostulantesTrabajoScreen extends StatelessWidget {
           }
           if (snapshot.hasError) {
             // Manejar errores de permisos o de carga de la base de datos.
-            return Center(child: Text('Error al cargar postulantes: ${snapshot.error}'));
+            return Center(child: Text('Error al cargar postulantes: \\${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text('No hay postulantes para este trabajo.'));
