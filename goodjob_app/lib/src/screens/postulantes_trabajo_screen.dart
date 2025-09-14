@@ -21,8 +21,9 @@ class PostulantesTrabajoScreen extends StatelessWidget {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
+            .collection('trabajos')
+            .doc(trabajoId)
             .collection('postulaciones')
-            .where('trabajoId', isEqualTo: trabajoId)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
