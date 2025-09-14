@@ -24,7 +24,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   final _contactoNumeroController = TextEditingController();
   final Set<String> _implementosSeleccionados = {};
 
-  String? _empresa;
+  final _empresaController = TextEditingController();
 
   final _origenDireccionCtrl = TextEditingController();
   final _origenCiudadCtrl = TextEditingController();
@@ -59,6 +59,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     _destinoPaisCtrl.dispose();
     _precioCtrl.dispose();
     _instruccionesController.dispose(); // Dispose instrucciones controller
+    _empresaController.dispose();
     super.dispose();
   }
 
@@ -134,16 +135,18 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                 validator: (value) =>
                     value == null || value.isEmpty ? 'Requerido' : null,
               ),
-              DropdownButtonFormField<String>(
+              TextFormField(
+                controller: _empresaController,
                 decoration: const InputDecoration(labelText: 'Empresa'),
-                value: _empresa,
-                items: const [
-                  DropdownMenuItem(value: 'Empresa A', child: Text('Empresa A')),
-                  DropdownMenuItem(value: 'Empresa B', child: Text('Empresa B')),
-                ],
-                onChanged: (value) => setState(() => _empresa = value),
-                validator: (value) =>
-                    value == null ? 'Seleccione una empresa' : null,
+                maxLength: 30,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Requerido';
+                  } else if (value.length > 30) {
+                    return 'Máximo 30 caracteres';
+                  }
+                  return null;
+                },
               ),
             ],
           ),
@@ -471,7 +474,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     final missing = <String>[];
     if (_tituloController.text.isEmpty) missing.add('título');
     if (_descripcionController.text.isEmpty) missing.add('descripción');
-    if (_empresa == null) missing.add('empresa');
+    if (_empresaController.text.isEmpty) missing.add('empresa');
     if (_contactoNombreController.text.isEmpty)
       missing.add('nombre de contacto');
     if (_contactoNumeroController.text.isEmpty)
@@ -534,7 +537,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       await servicio.crearTrabajo(
         titulo: _tituloController.text,
         descripcion: _descripcionController.text,
-        empresa: _empresa!,
+        empresa: _empresaController.text,
         origen: {
           'direccion': _origenDireccionCtrl.text,
           'ciudad': _origenCiudadCtrl.text,
