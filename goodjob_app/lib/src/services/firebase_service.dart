@@ -38,7 +38,7 @@ class Auth {
   }
 
   // Registro de usuario con correo electrónico y contraseña
-  Future<void> registerUser(String nombre, String email, String password) async {
+  Future<void> registerUser(String nombre, String email, String password, String banco, String numeroCuenta, String tipoCuenta) async {
     try {
       // Crear usuario en Firebase Authentication
       UserCredential userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
@@ -54,6 +54,9 @@ class Auth {
         'nombre': nombre,
         'email': email,
         'rol': 'usuario',
+        'banco': banco,
+        'numeroCuenta': numeroCuenta,
+        'tipoCuenta': tipoCuenta,
         'creadoEn': FieldValue.serverTimestamp(),
       });
     } catch (e) {

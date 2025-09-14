@@ -13,7 +13,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _BankController = TextEditingController();
+  final _bankController = TextEditingController();
   final _accountNumberController = TextEditingController();
   String? _accountType; // para seleccionar tipos de cuentas
   bool _termsAccepted = false;
@@ -25,7 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _BankController.dispose();
+    _bankController.dispose();
     _accountNumberController.dispose();
     super.dispose();
   }
@@ -35,11 +35,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-    final bank = _BankController.text.trim();
-    final accountNumber = _accountNumberController.text.trim();
-    final accountType = _accountType;
+    final banco = _bankController.text.trim();
+    final numeroCuenta = _accountNumberController.text.trim();
+    final tipoCuenta = _accountType;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || bank.isEmpty || accountNumber.isEmpty || accountType == null ) {
+    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || banco.isEmpty || numeroCuenta.isEmpty || tipoCuenta == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Por favor, complete todos los campos')));
       return;
@@ -55,7 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     try {
-      await _auth.registerUser(name, email, password);
+      await _auth.registerUser(name, email, password, banco, numeroCuenta, tipoCuenta);
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, 'login');
     } catch (e) {
@@ -140,7 +140,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextField(
-                      controller: _BankController,
+                      controller: _bankController,
                       decoration: const InputDecoration(labelText: 'Banco'),
                     ),
                     const SizedBox(height: 12),
@@ -150,7 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _accountType,
+                      initialValue: _accountType,
                       decoration: const InputDecoration(labelText: 'Tipo de Cuenta'),
                       items: const [
                         DropdownMenuItem(value: 'Cuenta Corriente',  child: Text('Cuenta Corriente')),
