@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:goodjob_app/src/screens/admin_pagos_screen.dart';
-
+import 'package:goodjob_app/src/screens/admin_trabajo_detalle_screen.dart';
+import 'package:goodjob_app/src/widgets/trabajo_card.dart';
 import '../services/firebase_service.dart';
 import '../services/trabajo_service.dart';
-import 'postulantes_trabajo_screen.dart'; // Nuevo import
+import 'postulantes_trabajo_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -17,35 +18,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
   final Auth auth = Auth();
   final TrabajoService servicio = TrabajoService();
-
-  String _formatTiempoRestante(DateTime fechaLimite) {
-    final ahora = DateTime.now();
-    final diferencia = fechaLimite.difference(ahora);
-
-    if (diferencia.isNegative) {
-      return 'Cerrado';
-    }
-
-    final dias = diferencia.inDays;
-    final horas = diferencia.inHours % 24;
-    final minutos = diferencia.inMinutes % 60;
-    final segundos = diferencia.inSeconds % 60;
-
-    String resultado = '';
-    if (dias > 0) {
-      resultado += '$dias d ';
-    }
-    if (horas > 0) {
-      resultado += '$horas h ';
-    }
-    if (minutos > 0) {
-      resultado += '$minutos min ';
-    }
-    if (resultado.isEmpty) {
-      return '$segundos s';
-    }
-    return resultado.trim();
-  }
 
   Widget _buildCardResumen(String titulo, int cantidad, IconData icono, Color color) {
     return Card(
@@ -93,6 +65,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
         final trabajos = snapshot.data!.docs;
         final ahora = DateTime.now();
+
         final trabajosActivos = trabajos.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final fechaLimite = (data['fechaLimite'] as Timestamp).toDate();
@@ -150,7 +123,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               const SizedBox(height: 24),
               Text(
                 'Lista de Trabajos',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Theme.of(context).colorScheme.onSurface),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurface),
               ),
               const Divider(height: 10),
               const SizedBox(height: 8),
@@ -184,7 +160,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               backgroundColor: Theme.of(context).colorScheme.surface,
                               title: Text(
                                 'Confirmar cancelación',
-                                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface),
                               ),
                               content: Text(
                                 '¿Estás seguro de que quieres cancelar este trabajo?',
@@ -193,11 +170,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(false),
-                                  child: Text('No', style: Theme.of(context).textTheme.bodyMedium),
+                                  child: Text('No',
+                                      style:
+                                          Theme.of(context).textTheme.bodyMedium),
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.of(context).pop(true),
-                                  child: Text('Sí', style: Theme.of(context).textTheme.bodyMedium),
+                                  child: Text('Sí',
+                                      style:
+                                          Theme.of(context).textTheme.bodyMedium),
                                 ),
                               ],
                             ),
@@ -217,7 +198,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         child: Card(
                           elevation: 2,
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Row(
@@ -229,38 +211,42 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                     children: [
                                       Text(
                                         data['titulo'] ?? '',
-                                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         'Estado: $estado',
-                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey),
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         'Postulantes: $postulantes',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary),
                                       ),
                                       const SizedBox(height: 8),
                                       Row(
                                         children: [
                                           Text(
                                             'Disponible hasta: ',
-                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w500),
                                           ),
-                                          StreamBuilder(
-                                            stream: Stream.periodic(const Duration(seconds: 1)),
-                                            builder: (context, _) {
-                                              return Text(
-                                                _formatTiempoRestante(fechaLimite),
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.red,
-                                                ),
-                                              );
-                                            },
-                                          ),
+                                          TiempoRestante(fechaLimite: fechaLimite),
                                         ],
                                       ),
                                     ],
@@ -268,19 +254,59 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                 ),
                                 Align(
                                   alignment: Alignment.centerRight,
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => PostulantesTrabajoScreen(trabajoId: doc.id),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      // Botón de Edición
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  AdminTrabajoDetalleScreen(
+                                                trabajoId: doc.id,
+                                                trabajo: data,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .secondary,
+                                          foregroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .onSecondary,
                                         ),
-                                      );
-                                    },
-                                    child: Text(
-                                      'Ver postulantes',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSecondary),
-                                    ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Botón de Ver postulantes
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  PostulantesTrabajoScreen(
+                                                      trabajoId: doc.id),
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          'Ver postulantes',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSecondary),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],

@@ -6,7 +6,6 @@ class AdminPagosScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('GOODS')),
       body: const Center(child: Text('Mis pagos')),
     );
   }
