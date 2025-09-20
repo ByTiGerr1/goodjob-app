@@ -21,6 +21,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   Position? _currentPosition;
   int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
   final MapController _mapController = MapController();
+  final PageController _carouselController = PageController(viewportFraction: 0.75);
+  String? _ultimoTrabajoSeleccionadoId;
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
 
   bool get _mapReady =>
@@ -58,8 +60,42 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     _mapController.move(dest, 16.0);
   }
 
+    void _centrarEnTrabajo(Map<String, dynamic> trabajo) {
+    if (!_mapReady) return;
+    final ubicacion = trabajo['ubicacion'] as Map<String, dynamic>?;
+    final lat = ubicacion?['lat'];
+    final lng = ubicacion?['lng'];
+    if (lat == null || lng == null) return;
+    final destino = LatLng((lat as num).toDouble(), (lng as num).toDouble());
+    _mapController.move(destino, 17.0);
+  }
+
+  void _onTrabajoCarruselTap(
+      BuildContext context, Map<String, dynamic> trabajo) {
+    final id = trabajo['id'] as String?;
+    if (id == null) return;
+
+    if (_ultimoTrabajoSeleccionadoId == id) {
+      final detalleTrabajo = Map<String, dynamic>.from(trabajo)
+        ..remove('distance');
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DetalleTrabajoScreen(
+            trabajoId: id,
+            trabajo: detalleTrabajo,
+          ),
+        ),
+      );
+    } else {
+      setState(() => _ultimoTrabajoSeleccionadoId = id);
+      _centrarEnTrabajo(trabajo);
+    }
+  }
+
   @override
   void dispose() {
+    _carouselController.dispose();
     super.dispose();
   }
 
@@ -125,6 +161,23 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           return {...data, 'id': doc.id};
         }).toList();
 
+        final trabajosConDistancia = trabajos.map((trabajo) {
+          final distancia = _calcularDistancia(trabajo);
+          return {...trabajo, 'distance': distancia};
+        }).toList();
+
+        final trabajosCercanos = trabajosConDistancia
+            .where((trabajo) {
+              final distancia = trabajo['distance'] as double?;
+              return distancia != null && distancia <= 10;
+            })
+            .toList()
+          ..sort((a, b) {
+            final distanciaA = a['distance'] as double? ?? double.infinity;
+            final distanciaB = b['distance'] as double? ?? double.infinity;
+            return distanciaA.compareTo(distanciaB);
+          });
+
         final markers = <Marker>[];
 
         for (final t in trabajos) {
@@ -177,6 +230,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
         final zoom = _currentPosition != null ? 16.0 : 5.0;
 
+        final double fabBottom = trabajosCercanos.isNotEmpty ? 180.0 : 16.0;
+
         return Stack(
           children: [
             FlutterMap(
@@ -198,7 +253,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             ),
             if (_currentPosition != null)
               Positioned(
-                bottom: 16,
+                bottom: fabBottom,
                 right: 16,
                 child: FloatingActionButton(
                   mini: true,
@@ -206,11 +261,138 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                   child: const Icon(Icons.my_location),
                 ),
               ),
+            if (trabajosCercanos.isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 16,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Text(
+                        'Selecciona una tarjeta para ver su ubicación y toca nuevamente para ver detalles',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 150,
+                      child: PageView.builder(
+                        controller: _carouselController,
+                        itemCount: trabajosCercanos.length,
+                        itemBuilder: (context, index) {
+                          final trabajo = trabajosCercanos[index];
+                          final id = trabajo['id'] as String?;
+                          final seleccionado =
+                              id != null && id == _ultimoTrabajoSeleccionadoId;
+                          final distancia = trabajo['distance'] as double?;
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: GestureDetector(
+                              onTap: () =>
+                                  _onTrabajoCarruselTap(context, trabajo),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: seleccionado
+                                        ? const Color(0xFF7B0997)
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: seleccionado
+                                          ? const Color(0xFF7B0997)
+                                              .withOpacity(0.2)
+                                          : Colors.black.withOpacity(0.1),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      trabajo['titulo'] ?? 'Sin título',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      trabajo['empresa'] ?? 'Empresa no registrada',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '\$${trabajo['precio'] ?? 'N/D'}',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                    if (distancia != null)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 6.0),
+                                        child: Text(
+                                          '${distancia.toStringAsFixed(1)} km de distancia',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         );
       },
     );
   }
+
 
   Widget _buildSelectorVista() {
     return Container(
