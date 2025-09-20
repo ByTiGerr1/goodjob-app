@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:goodjob_app/src/screens/postulante_detalle_screen.dart';
+
 
 class PostulantesTrabajoScreen extends StatelessWidget {
   final String trabajoId;
@@ -7,8 +9,7 @@ class PostulantesTrabajoScreen extends StatelessWidget {
   const PostulantesTrabajoScreen({super.key, required this.trabajoId});
 
   Future<Map<String, dynamic>> _obtenerDatosUsuario(String usuarioId) async {
-    final docSnapshot =
-        await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
+    final docSnapshot = await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
     return docSnapshot.data() ?? {};
   }
 
@@ -30,8 +31,7 @@ class PostulantesTrabajoScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            // Manejar errores de permisos o de carga de la base de datos.
-            return Center(child: Text('Error al cargar postulantes: \\${snapshot.error}'));
+            return Center(child: Text('Error al cargar postulantes: ${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text('No hay postulantes para este trabajo.'));
@@ -42,8 +42,9 @@ class PostulantesTrabajoScreen extends StatelessWidget {
           return ListView.builder(
             itemCount: postulaciones.length,
             itemBuilder: (context, index) {
-              final postulacionData =
-                  postulaciones[index].data() as Map<String, dynamic>;
+              // Obtén el ID del documento de postulación
+              final postId = postulaciones[index].id;
+              final postulacionData = postulaciones[index].data() as Map<String, dynamic>;
               final usuarioId = postulacionData['usuarioId'];
 
               if (usuarioId == null || usuarioId.isEmpty) {
@@ -68,25 +69,82 @@ class PostulantesTrabajoScreen extends StatelessWidget {
 
                   final usuarioData = usuarioSnapshot.data!;
                   final nombre = usuarioData['nombre'] ?? 'Nombre no disponible';
+                  final carrera = usuarioData['carrera'] ?? 'Carrera no disponible';
+                  final descripcion = usuarioData['descripcion'] ?? 'Sin descripción';
                   final estado = postulacionData['estado'] ?? 'Pendiente';
 
                   return Card(
                     elevation: 2,
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      title: Text(
-                        nombre,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Theme.of(context).colorScheme.onSurface, fontSize: 18),
-                      ),
-                      subtitle: Text(
-                        'Estado: $estado',
-                        style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                      ),
-                      trailing: const Icon(Icons.arrow_forward_ios),
+                    child: InkWell(
                       onTap: () {
-                        // Acción al seleccionar un postulante, como ver su perfil completo.
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => PostulanteDetalleScreen(
+                              usuarioId: usuarioId,
+                              trabajoId: trabajoId,
+                              postId: postId,
+                            ),
+                          ),
+                        );
                       },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              child: Text(
+                                nombre.substring(0, 1).toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    nombre,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    carrera,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    descripcion,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },
