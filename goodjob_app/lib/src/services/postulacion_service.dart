@@ -16,12 +16,12 @@ class PostulacionService {
   // Esta es la consulta que te permitirá ver los postulantes en la pantalla
   // 'PostulantesTrabajoScreen'.
   Stream<QuerySnapshot> obtenerPostulacionesDeTrabajo(String trabajoId) {
-  return _firestore
-    .collection('trabajos')
-    .doc(trabajoId)
-    .collection('postulaciones')
-    .orderBy('fechaPostulacion', descending: true)
-    .snapshots();
+    return _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .orderBy('fechaPostulacion', descending: true)
+        .snapshots();
   }
 
   Stream<QuerySnapshot> obtenerPostulacionesPendientes(String trabajoId) {
@@ -29,29 +29,40 @@ class PostulacionService {
         .collection('trabajos')
         .doc(trabajoId)
         .collection('postulaciones')
-        .where('estado', isEqualTo: 'Pendiente')
-        .orderBy('fechaPostulacion', descending: true)
+        .where('estado', whereIn: ['pendiente', 'Pendiente'])
         .snapshots();
   }
 
-  // Crea una nueva postulación en la subcolección del trabajo.
+  // Crea una nueva postulación tanto en la subcolección del trabajo como en la
+  // subcolección del usuario para evitar problemas de permisos en lecturas.
   Future<void> crearPostulacion({
     required String trabajoId,
     required String trabajoTitulo,
     required String usuarioId,
-  }) {
-    return _firestore
+  }) async {
+    final postulacionRef = _firestore
         .collection('trabajos')
         .doc(trabajoId)
         .collection('postulaciones')
+        .doc(usuarioId);
+    final postulacionesUsuarioRef = _firestore
+        .collection('usuarios')
         .doc(usuarioId)
-        .set({
+        .collection('postulaciones')
+        .doc(trabajoId);
+
+    final data = <String, dynamic>{
       'trabajoId': trabajoId,
       'trabajoTitulo': trabajoTitulo,
       'usuarioId': usuarioId,
-      'estado': 'Pendiente',
+      'estado': 'pendiente',
       'fechaPostulacion': FieldValue.serverTimestamp(),
-    });
+    };
+
+    final batch = _firestore.batch();
+    batch.set(postulacionRef, data);
+    batch.set(postulacionesUsuarioRef, data);
+    await batch.commit();
   }
 
   // Verifica si un usuario ya se postuló a un trabajo específico.
@@ -68,27 +79,47 @@ class PostulacionService {
     return doc.exists;
   }
 
-  // Actualiza el estado de una postulación específica dentro de su subcolección.
-  // Se ha cambiado a parámetros con nombre para mayor claridad.
+  // Actualiza el estado de una postulación tanto en el trabajo como en el
+  // registro del usuario.
   Future<void> actualizarEstado({
     required String trabajoId,
-    required String postulacionId,
+    required String postulanteId,
     required String nuevoEstado,
-  }) {
-    return _firestore
+    String? trabajoTitulo,
+  }) async {
+    final estadoNormalizado = nuevoEstado.toLowerCase();
+    final postulacionRef = _firestore
         .collection('trabajos')
         .doc(trabajoId)
         .collection('postulaciones')
-        .doc(postulacionId)
-        .update({'estado': nuevoEstado});
+        .doc(postulanteId);
+    final postulacionesUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(postulanteId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+
+    final batch = _firestore.batch();
+    batch.update(postulacionRef, {'estado': estadoNormalizado});
+    batch.set(
+      postulacionesUsuarioRef,
+      {
+        'estado': estadoNormalizado,
+        'trabajoId': trabajoId,
+        'usuarioId': postulanteId,
+        if (trabajoTitulo != null) 'trabajoTitulo': trabajoTitulo,
+      },
+      SetOptions(merge: true),
+    );
+    await batch.commit();
   }
 
-  // Obtiene las postulaciones de un usuario específico.
+  // Obtiene las postulaciones de un usuario específico desde su propio perfil.
   Stream<QuerySnapshot> obtenerPostulacionesDeUsuario(String uid) {
     return _firestore
-        .collectionGroup('postulaciones')
-        .where('usuarioId', isEqualTo: uid)
-        .orderBy('fechaPostulacion', descending: true)
+        .collection('usuarios')
+        .doc(uid)
+        .collection('postulaciones')
         .snapshots();
   }
 }

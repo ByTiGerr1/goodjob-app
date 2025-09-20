@@ -43,7 +43,6 @@ class PostulantesTrabajoScreen extends StatelessWidget {
             itemCount: postulaciones.length,
             itemBuilder: (context, index) {
               // Obtén el ID del documento de postulación
-              final postId = postulaciones[index].id;
               final postulacionData = postulaciones[index].data() as Map<String, dynamic>;
               final usuarioId = postulacionData['usuarioId'];
 
@@ -84,7 +83,6 @@ class PostulantesTrabajoScreen extends StatelessWidget {
                             builder: (context) => PostulanteDetalleScreen(
                               usuarioId: usuarioId,
                               trabajoId: trabajoId,
-                              postId: postId,
                             ),
                           ),
                         );

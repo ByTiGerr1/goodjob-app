@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/postulacion_service.dart';
 
 // Pantalla que muestra el perfil detallado de un postulante
 class PostulanteDetalleScreen extends StatelessWidget {
   final String usuarioId;
   final String trabajoId;
-  final String postId;
+  static final PostulacionService _postulacionService = PostulacionService();
 
   const PostulanteDetalleScreen({
     super.key,
     required this.usuarioId,
     required this.trabajoId,
-    required this.postId,
   });
 
   // Método para obtener los datos completos del usuario de Firestore
@@ -27,17 +27,22 @@ class PostulanteDetalleScreen extends StatelessWidget {
   }
 
   // Método para actualizar el estado de la postulación en Firestore
-  Future<void> _actualizarEstadoPostulacion(String estado, BuildContext context) async {
+  Future<void> _actualizarEstadoPostulacion(
+      String estado, BuildContext context) async {
+    final nuevoEstado = estado.toLowerCase();
     try {
-      await FirebaseFirestore.instance
-          .collection('trabajos')
-          .doc(trabajoId)
-          .collection('postulaciones')
-          .doc(postId)
-          .update({'estado': estado});
+      await _postulacionService.actualizarEstado(
+        trabajoId: trabajoId,
+        postulanteId: usuarioId,
+        nuevoEstado: nuevoEstado,
+      );
+
+      final estadoCapitalizado = nuevoEstado.isEmpty
+          ? nuevoEstado
+          : '${nuevoEstado[0].toUpperCase()}${nuevoEstado.substring(1)}';
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Postulación $estado con éxito')),
+        SnackBar(content: Text('Postulación $estadoCapitalizado con éxito')),
       );
       // Opcional: Volver a la pantalla anterior
       Navigator.of(context).pop();
@@ -62,7 +67,8 @@ class PostulanteDetalleScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('Error al cargar los datos del postulante.'));
+            return const Center(
+                child: Text('Error al cargar los datos del postulante.'));
           }
 
           final usuarioData = snapshot.data!;
@@ -179,7 +185,8 @@ class PostulanteDetalleScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => _actualizarEstadoPostulacion('Aceptado', context),
+                        onPressed: () =>
+                            _actualizarEstadoPostulacion('aceptado', context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
@@ -193,7 +200,8 @@ class PostulanteDetalleScreen extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => _actualizarEstadoPostulacion('Rechazado', context),
+                        onPressed: () =>
+                            _actualizarEstadoPostulacion('rechazado', context),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.red),
                           foregroundColor: Colors.red,

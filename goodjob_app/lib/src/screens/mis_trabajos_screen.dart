@@ -14,6 +14,9 @@ class MisTrabajosScreen extends StatefulWidget {
 class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final Auth _authService = Auth();
+  final PostulacionService _postulacionService = PostulacionService();
+
 
   @override
   void initState() {
@@ -72,14 +75,32 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
   }
 
   Future<void> _actualizarEstadoPostulacion(
-      String postId, String nuevoEstado) async {
+    BuildContext context,
+    String trabajoId,
+    String nuevoEstado,
+    {
+    String? trabajoTitulo,
+  }) async {
+    final uid = _authService.currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Usuario no autenticado.')),
+      );
+      return;
+    }
+
     try {
-      await FirebaseFirestore.instance
-          .collection('postulaciones')
-          .doc(postId)
-          .update({'estado': nuevoEstado});
+      await _postulacionService.actualizarEstado(
+        trabajoId: trabajoId,
+        postulanteId: uid,
+        nuevoEstado: nuevoEstado,
+        trabajoTitulo: trabajoTitulo,
+      );
     } catch (e) {
       print('Error al actualizar estado de la postulación: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo actualizar la postulación.')),
+      );
     }
   }
 
@@ -116,7 +137,9 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         final trabajoData = snapshot.data!.data() as Map<String, dynamic>;
         final titulo = postulacionData['trabajoTitulo'] ?? '';
         final precio = trabajoData['precio']?.toString() ?? 'N/D';
-        final estado = postulacionData['estado'] ?? 'pendiente';
+        final estadoRaw =
+            postulacionData['estado']?.toString() ?? 'pendiente';
+        final estado = estadoRaw.toLowerCase();
         final fechaTrabajoTs = trabajoData['fechaTrabajo'] as Timestamp?;
         final fechaTrabajo = fechaTrabajoTs?.toDate();
         final ahora = DateTime.now();
@@ -220,7 +243,9 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
 
         final trabajoData = snapshot.data!.data() as Map<String, dynamic>;
         final titulo = postulacionData['trabajoTitulo'] ?? '';
-        final estado = postulacionData['estado'] ?? 'pendiente';
+        final estadoRaw =
+            postulacionData['estado']?.toString() ?? 'pendiente';
+        final estado = estadoRaw.toLowerCase();
         final fechaTrabajoTs = trabajoData['fechaTrabajo'] as Timestamp?;
         final fechaTrabajo = fechaTrabajoTs?.toDate();
         final ahora = DateTime.now();
@@ -263,7 +288,11 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                       ElevatedButton(
                         onPressed: () async {
                           await _actualizarEstadoPostulacion(
-                              postulacionDoc.id, 'confirmado');
+                            context,
+                            trabajoId,
+                            'confirmado',
+                            trabajoTitulo: titulo,
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
@@ -275,7 +304,11 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                       OutlinedButton(
                         onPressed: () async {
                           await _actualizarEstadoPostulacion(
-                              postulacionDoc.id, 'rechazado');
+                            context,
+                            trabajoId,
+                            'rechazado',
+                            trabajoTitulo: titulo,
+                          );
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red,
@@ -322,14 +355,14 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
       itemBuilder: (context, index) {
         final post = postulaciones[index];
         final data = post.data() as Map<String, dynamic>;
-        final estado = data['estado'] ?? '';
+        final estado = (data['estado'] as String? ?? '').toLowerCase();
 
         if (isConfirmedTab == true) {
           return _buildConfirmedCard(context, post);
         } else if (isConfirmedTab == false) {
           return _buildPendingCard(context, post);
         } else { // 'Todos' tab
-          if (estado == 'aceptado' || estado == 'confirmado') {
+          if (estado == 'confirmado') {
             return _buildConfirmedCard(context, post);
           } else {
             return _buildPendingCard(context, post);
@@ -341,8 +374,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
 
   @override
   Widget build(BuildContext context) {
-    final auth = Auth();
-    final uid = auth.currentUser?.uid;
+    final uid = _authService.currentUser?.uid;
     if (uid == null) {
       return const Scaffold(
         body: Center(child: Text('Usuario no autenticado')),
@@ -362,7 +394,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: PostulacionService().obtenerPostulacionesDeUsuario(uid),
+        stream: _postulacionService.obtenerPostulacionesDeUsuario(uid),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             final error = snapshot.error;
@@ -382,7 +414,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             for (final cambio in snapshot.data!.docChanges) {
               if (cambio.type == DocumentChangeType.modified) {
                 final data = cambio.doc.data() as Map<String, dynamic>? ?? {};
-                final estado = data['estado'];
+                final estado = (data['estado'] as String? ?? '').toLowerCase();
                 if (estado == 'aceptado' || estado == 'rechazado') {
                   final titulo = data['trabajoTitulo'] ?? '';
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -400,27 +432,31 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             ..sort((a, b) {
               final aData = a.data() as Map<String, dynamic>;
               final bData = b.data() as Map<String, dynamic>;
-              final aTime = aData['creadoEn'] as Timestamp?;
-              final bTime = bData['creadoEn'] as Timestamp?;
+              final aTime = aData['fechaPostulacion'] as Timestamp?;
+              final bTime = bData['fechaPostulacion'] as Timestamp?;
               if (aTime == null || bTime == null) return 0;
               return bTime.compareTo(aTime);
             });
-          
+
           final confirmados = postulaciones
-              .where(
-                  (p) => (p.data() as Map<String, dynamic>)['estado'] == 'aceptado')
-              .toList();
-          final noAceptados = postulaciones
-              .where(
-                  (p) => (p.data() as Map<String, dynamic>)['estado'] != 'aceptado')
-              .toList();
+              .where((p) {
+                final data = p.data() as Map<String, dynamic>;
+                final estado = (data['estado'] as String? ?? '').toLowerCase();
+                return estado == 'confirmado';
+              }).toList();
+          final pendientes = postulaciones
+              .where((p) {
+                final data = p.data() as Map<String, dynamic>;
+                final estado = (data['estado'] as String? ?? '').toLowerCase();
+                return estado == 'pendiente' || estado == 'aceptado';
+              }).toList();
           final todos = postulaciones;
 
           return TabBarView(
             controller: _tabController,
             children: [
               _buildPostulacionList(confirmados, true),
-              _buildPostulacionList(noAceptados, false),
+              _buildPostulacionList(pendientes, false),
               _buildPostulacionList(todos, null),
             ],
           );
