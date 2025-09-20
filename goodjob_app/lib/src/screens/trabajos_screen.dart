@@ -114,6 +114,16 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         1000;
   }
 
+  List<Map<String, dynamic>> _filtrarTrabajosVigentes(
+      List<Map<String, dynamic>> trabajos) {
+    final ahora = DateTime.now();
+    return trabajos.where((trabajo) {
+      final fechaLimite = trabajo['fechaLimite'];
+      if (fechaLimite is! Timestamp) return true;
+      return !ahora.isAfter(fechaLimite.toDate());
+    }).toList();
+  }
+
   void _ordenar(List<Map<String, dynamic>> trabajos) {
     int compareDate(a, b) =>
         ((a['fechaTrabajo'] as Timestamp?)?.toDate() ?? DateTime(0)).compareTo(
@@ -156,10 +166,15 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           return const Center(child: Text('No hay trabajos disponibles'));
         }
 
-        final trabajos = snapshot.data!.docs.map((doc) {
+        var trabajos = snapshot.data!.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           return {...data, 'id': doc.id};
         }).toList();
+
+        trabajos = _filtrarTrabajosVigentes(trabajos);
+        if (trabajos.isEmpty) {
+          return const Center(child: Text('No hay trabajos disponibles'));
+        }
 
         final trabajosConDistancia = trabajos.map((trabajo) {
           final distancia = _calcularDistancia(trabajo);
@@ -479,10 +494,19 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                   );
                 }
 
-                final trabajosDestacados = snapshot.data!.docs.map((doc) {
+                var trabajosDestacados = snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   return {...data, 'id': doc.id};
                 }).toList();
+
+                trabajosDestacados =
+                    _filtrarTrabajosVigentes(trabajosDestacados);
+
+                if (trabajosDestacados.isEmpty) {
+                  return const Center(
+                    child: Text('No hay trabajos destacados.'),
+                  );
+                }
 
                 return ListView.builder(
                   scrollDirection: Axis.horizontal,
@@ -644,11 +668,24 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             ),
           );
         }
-        final trabajos = snapshot.data!.docs.map((doc) {
+        var trabajos = snapshot.data!.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final dist = _calcularDistancia(data);
           return {...data, 'distance': dist, 'id': doc.id};
         }).toList();
+
+        trabajos = _filtrarTrabajosVigentes(trabajos);
+        if (trabajos.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'No hay trabajos disponibles',
+                style: TextStyle(color: Theme.of(context).primaryColor),
+              ),
+            ),
+          );
+        }
 
         _ordenar(trabajos);
 

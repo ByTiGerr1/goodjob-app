@@ -117,6 +117,14 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         final titulo = postulacionData['trabajoTitulo'] ?? '';
         final precio = trabajoData['precio']?.toString() ?? 'N/D';
         final estado = postulacionData['estado'] ?? 'pendiente';
+        final fechaTrabajoTs = trabajoData['fechaTrabajo'] as Timestamp?;
+        final fechaTrabajo = fechaTrabajoTs?.toDate();
+        final ahora = DateTime.now();
+
+        if (fechaTrabajo != null &&
+            ahora.isAfter(fechaTrabajo.add(const Duration(days: 1)))) {
+          return const SizedBox.shrink();
+        }
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -215,6 +223,12 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         final estado = postulacionData['estado'] ?? 'pendiente';
         final fechaTrabajoTs = trabajoData['fechaTrabajo'] as Timestamp?;
         final fechaTrabajo = fechaTrabajoTs?.toDate();
+        final ahora = DateTime.now();
+
+        if (fechaTrabajo != null &&
+            ahora.isAfter(fechaTrabajo.add(const Duration(days: 1)))) {
+          return const SizedBox.shrink();
+        }
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
