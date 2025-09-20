@@ -23,6 +23,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   final MapController _mapController = MapController();
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
 
+  bool get _mapReady =>
+      _mapController is MapControllerImpl &&
+      (_mapController).value.options != null;
+
+
   @override
   void initState() {
     super.initState();
@@ -41,13 +46,13 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       }
       final pos = await Geolocator.getCurrentPosition();
       setState(() => _currentPosition = pos);
-      _centrarEnUbicacion();
+      if (_mapReady) _centrarEnUbicacion();
     } catch (_) {
       // Ignorar errores de ubicación
     }
   }
   void _centrarEnUbicacion() {
-    if (_currentPosition == null) return;
+    if (_currentPosition == null || !_mapReady) return;
     final dest =
         LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
     _mapController.move(dest, 16.0);
@@ -60,9 +65,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
   double? _calcularDistancia(Map<String, dynamic> trabajo) {
     if (_currentPosition == null) return null;
-    final origen = trabajo['origen'] as Map<String, dynamic>?;
-    final lat = origen?['lat'];
-    final lng = origen?['lng'];
+    final ubicacion = trabajo['ubicacion'] as Map<String, dynamic>?;
+    final lat = ubicacion?['lat'];
+    final lng = ubicacion?['lng'];
     if (lat == null || lng == null) return null;
     return Geolocator.distanceBetween(
           _currentPosition!.latitude,
@@ -123,9 +128,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         final markers = <Marker>[];
 
         for (final t in trabajos) {
-          final origen = t['origen'] as Map<String, dynamic>?;
-          final lat = origen?['lat'];
-          final lng = origen?['lng'];
+          final ubicacion = t['ubicacion'] as Map<String, dynamic>?;
+          final lat = ubicacion?['lat'];
+          final lng = ubicacion?['lng'];
           if (lat == null || lng == null) continue;
           final pos = LatLng((lat as num).toDouble(), (lng as num).toDouble());
           markers.add(
@@ -234,16 +239,18 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () {
-              setState(() => _vistaActual = 1);
-              _centrarEnUbicacion();
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: _vistaActual == 1
-                    ? const Color(0xFF7B0997)
+            GestureDetector(
+              onTap: () {
+                setState(() => _vistaActual = 1);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _centrarEnUbicacion();
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _vistaActual == 1
+                      ? const Color(0xFF7B0997)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
               ),

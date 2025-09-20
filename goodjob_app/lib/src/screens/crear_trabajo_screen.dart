@@ -26,15 +26,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   final _empresaController = TextEditingController();
 
-  final _origenDireccionCtrl = TextEditingController();
-  final _origenCiudadCtrl = TextEditingController();
-  final _origenPaisCtrl = TextEditingController();
-  LatLng? _origenLatLng;
-
-  final _destinoDireccionCtrl = TextEditingController();
-  final _destinoCiudadCtrl = TextEditingController();
-  final _destinoPaisCtrl = TextEditingController();
-  LatLng? _destinoLatLng;
+  final _ubicacionDireccionCtrl = TextEditingController();
+  final _ubicacionCiudadCtrl = TextEditingController();
+  final _ubicacionPaisCtrl = TextEditingController();
+  LatLng? _ubicacionLatLng;
 
   DateTime? _fechaLimite;
   DateTime? _fechaTrabajo;
@@ -51,12 +46,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     _descripcionController.dispose();
     _contactoNombreController.dispose();
     _contactoNumeroController.dispose();
-    _origenDireccionCtrl.dispose();
-    _origenCiudadCtrl.dispose();
-    _origenPaisCtrl.dispose();
-    _destinoDireccionCtrl.dispose();
-    _destinoCiudadCtrl.dispose();
-    _destinoPaisCtrl.dispose();
+    _ubicacionDireccionCtrl.dispose();
+    _ubicacionCiudadCtrl.dispose();
+    _ubicacionPaisCtrl.dispose();
     _precioCtrl.dispose();
     _instruccionesController.dispose(); // Dispose instrucciones controller
     _empresaController.dispose();
@@ -160,37 +152,38 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Origen', style: Theme.of(context).textTheme.titleMedium),
+              Text('Ubicación del trabajo',
+                  style: Theme.of(context).textTheme.titleMedium),
               TextFormField(
-                controller: _origenDireccionCtrl,
+                controller: _ubicacionDireccionCtrl,
                 decoration: const InputDecoration(labelText: 'Dirección'),
                 validator: (v) =>
-                    _origenLatLng == null && (v == null || v.isEmpty)
+                    _ubicacionLatLng == null && (v == null || v.isEmpty)
                         ? 'Requerido'
                         : null,
               ),
               TextFormField(
-                controller: _origenCiudadCtrl,
+                controller: _ubicacionCiudadCtrl,
                 decoration: const InputDecoration(labelText: 'Ciudad'),
                 validator: (v) =>
-                    _origenLatLng == null && (v == null || v.isEmpty)
+                    _ubicacionLatLng == null && (v == null || v.isEmpty)
                         ? 'Requerido'
                         : null,
               ),
               TextFormField(
-                controller: _origenPaisCtrl,
+                controller: _ubicacionPaisCtrl,
                 decoration: const InputDecoration(labelText: 'País'),
                 validator: (v) =>
-                    _origenLatLng == null && (v == null || v.isEmpty)
+                    _ubicacionLatLng == null && (v == null || v.isEmpty)
                         ? 'Requerido'
                         : null,
               ),
               Row(
                 children: [
                   Expanded(
-                    child: Text(_origenLatLng == null
+                    child: Text(_ubicacionLatLng == null
                         ? 'Ubicación no seleccionada'
-                        : 'Lat: ${_origenLatLng!.latitude.toStringAsFixed(4)}, Lng: ${_origenLatLng!.longitude.toStringAsFixed(4)}'),
+                        : 'Lat: ${_ubicacionLatLng!.latitude.toStringAsFixed(4)}, Lng: ${_ubicacionLatLng!.longitude.toStringAsFixed(4)}'),
                   ),
                   TextButton(
                     onPressed: () async {
@@ -198,13 +191,13 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => SeleccionarUbicacionScreen(
-                            initialPosition: _origenLatLng ??
+                            initialPosition: _ubicacionLatLng ??
                                 const LatLng(-33.447487, -70.673676),
                           ),
                         ),
                       );
                       if (result != null) {
-                        setState(() => _origenLatLng = result);
+                        setState(() => _ubicacionLatLng = result);
                       }
                     },
                     child: const Text('Mapa'),
@@ -212,79 +205,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                   TextButton(
                     onPressed: () async {
                       final coords = await _obtenerCoords(
-                        _origenDireccionCtrl.text,
-                        _origenCiudadCtrl.text,
-                        _origenPaisCtrl.text,
+                        _ubicacionDireccionCtrl.text,
+                        _ubicacionCiudadCtrl.text,
+                        _ubicacionPaisCtrl.text,
                       );
                       if (coords != null) {
-                        setState(() => _origenLatLng = coords);
-                      } else {
-                        _showError('Dirección no encontrada');
-                      }
-                    },
-                    child: const Text('Buscar'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('Destino', style: Theme.of(context).textTheme.titleMedium),
-              TextFormField(
-                controller: _destinoDireccionCtrl,
-                decoration: const InputDecoration(labelText: 'Dirección'),
-                validator: (v) =>
-                    _destinoLatLng == null && (v == null || v.isEmpty)
-                        ? 'Requerido'
-                        : null,
-              ),
-              TextFormField(
-                controller: _destinoCiudadCtrl,
-                decoration: const InputDecoration(labelText: 'Ciudad'),
-                validator: (v) =>
-                    _destinoLatLng == null && (v == null || v.isEmpty)
-                        ? 'Requerido'
-                        : null,
-              ),
-              TextFormField(
-                controller: _destinoPaisCtrl,
-                decoration: const InputDecoration(labelText: 'País'),
-                validator: (v) =>
-                    _destinoLatLng == null && (v == null || v.isEmpty)
-                        ? 'Requerido'
-                        : null,
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(_destinoLatLng == null
-                        ? 'Ubicación no seleccionada'
-                        : 'Lat: ${_destinoLatLng!.latitude.toStringAsFixed(4)}, Lng: ${_destinoLatLng!.longitude.toStringAsFixed(4)}'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final result = await Navigator.push<LatLng>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SeleccionarUbicacionScreen(
-                            initialPosition: _destinoLatLng ??
-                                const LatLng(-33.447487, -70.673676),
-                          ),
-                        ),
-                      );
-                      if (result != null) {
-                        setState(() => _destinoLatLng = result);
-                      }
-                    },
-                    child: const Text('Mapa'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final coords = await _obtenerCoords(
-                        _destinoDireccionCtrl.text,
-                        _destinoCiudadCtrl.text,
-                        _destinoPaisCtrl.text,
-                      );
-                      if (coords != null) {
-                        setState(() => _destinoLatLng = coords);
+                        setState(() => _ubicacionLatLng = coords);
                       } else {
                         _showError('Dirección no encontrada');
                       }
@@ -450,21 +376,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     }
   }
 
-  bool _direccionCompleta(TextEditingController d, TextEditingController c,
-      TextEditingController p) {
-    return d.text.isNotEmpty && c.text.isNotEmpty && p.text.isNotEmpty;
+  bool _ubicacionCompleta() {
+    return _ubicacionDireccionCtrl.text.isNotEmpty &&
+        _ubicacionCiudadCtrl.text.isNotEmpty &&
+        _ubicacionPaisCtrl.text.isNotEmpty;
   }
 
-  bool _validarDirecciones() {
-    if (!_direccionCompleta(
-            _origenDireccionCtrl, _origenCiudadCtrl, _origenPaisCtrl) ||
-        !_direccionCompleta(
-            _destinoDireccionCtrl, _destinoCiudadCtrl, _destinoPaisCtrl)) {
-      return true;
-    }
-    return _origenPaisCtrl.text.trim().toLowerCase() ==
-        _destinoPaisCtrl.text.trim().toLowerCase();
-  }
 
   Future<void> _guardarTrabajo() async {
     for (final key in _formKeys) {
@@ -480,16 +397,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (_contactoNumeroController.text.isEmpty)
       missing.add('número de contacto');
 
-    final origenCompleto =
-        _origenLatLng != null ||
-            _direccionCompleta(
-                _origenDireccionCtrl, _origenCiudadCtrl, _origenPaisCtrl);
-    final destinoCompleto =
-        _destinoLatLng != null ||
-            _direccionCompleta(
-                _destinoDireccionCtrl, _destinoCiudadCtrl, _destinoPaisCtrl);
-    if (!origenCompleto) missing.add('ubicación de origen');
-    if (!destinoCompleto) missing.add('ubicación de destino');
+    final ubicacionValida =
+        _ubicacionLatLng != null || _ubicacionCompleta();
+    if (!ubicacionValida) missing.add('ubicación del trabajo');
 
     if (_fechaLimite == null) missing.add('fecha límite');
     if (_fechaTrabajo == null) missing.add('fecha del trabajo');
@@ -514,22 +424,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       return;
     }
 
-    if (!_validarDirecciones()) {
-      _showError('Las direcciones deben pertenecer al mismo país.');
-      return;
-    }
-
-    if (_origenLatLng == null) {
-      _origenLatLng = await _obtenerCoords(
-          _origenDireccionCtrl.text,
-          _origenCiudadCtrl.text,
-          _origenPaisCtrl.text);
-    }
-    if (_destinoLatLng == null) {
-      _destinoLatLng = await _obtenerCoords(
-          _destinoDireccionCtrl.text,
-          _destinoCiudadCtrl.text,
-          _destinoPaisCtrl.text);
+    if (_ubicacionLatLng == null) {
+      _ubicacionLatLng = await _obtenerCoords(
+          _ubicacionDireccionCtrl.text,
+          _ubicacionCiudadCtrl.text,
+          _ubicacionPaisCtrl.text);
     }
 
     final servicio = TrabajoService();
@@ -538,22 +437,13 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         titulo: _tituloController.text,
         descripcion: _descripcionController.text,
         empresa: _empresaController.text,
-        origen: {
-          'direccion': _origenDireccionCtrl.text,
-          'ciudad': _origenCiudadCtrl.text,
-          'pais': _origenPaisCtrl.text,
-          if (_origenLatLng != null) ...{
-            'lat': _origenLatLng!.latitude,
-            'lng': _origenLatLng!.longitude,
-          },
-        },
-        destino: {
-          'direccion': _destinoDireccionCtrl.text,
-          'ciudad': _destinoCiudadCtrl.text,
-          'pais': _destinoPaisCtrl.text,
-          if (_destinoLatLng != null) ...{
-            'lat': _destinoLatLng!.latitude,
-            'lng': _destinoLatLng!.longitude,
+        ubicacion: {
+          'direccion': _ubicacionDireccionCtrl.text,
+          'ciudad': _ubicacionCiudadCtrl.text,
+          'pais': _ubicacionPaisCtrl.text,
+          if (_ubicacionLatLng != null) ...{
+            'lat': _ubicacionLatLng!.latitude,
+            'lng': _ubicacionLatLng!.longitude,
           },
         },
         fechaLimite: _fechaLimite!,

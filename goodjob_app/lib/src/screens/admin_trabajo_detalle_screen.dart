@@ -225,7 +225,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                               const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          _formatearUbicacion(widget.trabajo['origen']),
+                          _formatearUbicacion(widget.trabajo['ubicacion']),
                           style:
                               const TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
                         ),

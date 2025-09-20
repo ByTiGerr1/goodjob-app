@@ -30,8 +30,7 @@ class TrabajoService {
     required String titulo,
     required String descripcion,
     required String empresa,
-    required Map<String, dynamic> origen,
-    required Map<String, dynamic> destino,
+    required Map<String, dynamic> ubicacion,
     required DateTime fechaLimite,
     required DateTime fechaTrabajo,
     required TimeOfDay horaInicio,
@@ -44,8 +43,7 @@ class TrabajoService {
       'titulo': titulo,
       'descripcion': descripcion,
       'empresa': empresa,
-      'origen': origen,
-      'destino': destino,
+      'ubicacion': ubicacion,
       'fechaLimite': Timestamp.fromDate(fechaLimite),
       'fechaTrabajo': Timestamp.fromDate(fechaTrabajo),
       'horaInicio': {'h': horaInicio.hour, 'm': horaInicio.minute},
@@ -57,6 +55,7 @@ class TrabajoService {
       'creadoEn': FieldValue.serverTimestamp(),
     });
   }
+
 
   /// Cancels a job by updating its state to 'cancelado'.
   Future<void> cancelarTrabajo(String trabajoId) {
