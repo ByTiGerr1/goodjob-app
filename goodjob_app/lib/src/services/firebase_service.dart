@@ -57,6 +57,11 @@ class Auth {
       // Obtener el UID del usuario creado
       String uid = userCredential.user?.uid ?? '';
 
+      // Enviar correo de verificación
+      if (userCredential.user != null && !userCredential.user!.emailVerified) {
+        await userCredential.user!.sendEmailVerification();
+      }
+
       // Encriptar datos bancarios
       final encryptedBankName = await _encryptionService.encrypt(banco);
       final encryptedAccountNumber = await _encryptionService.encrypt(numeroCuenta);
@@ -99,6 +104,9 @@ class Auth {
       User? user = userCredential.user;
 
       if (user != null) {
+        if (!user.emailVerified) {
+          await user.sendEmailVerification();
+        }
         final userData = {
           'email': email,
           'nombre': name,
