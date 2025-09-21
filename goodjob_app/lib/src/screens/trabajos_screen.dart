@@ -8,7 +8,7 @@ import '../services/trabajo_service.dart';
 import '../services/user_eligibility_service.dart';
 import '../widgets/user_eligibility_gate.dart';
 import '../widgets/verification_required_view.dart';
-import 'configuracion_screen.dart';
+import 'account_verification_screen.dart';
 import 'detalle_trabajo_screen.dart';
 import 'login_screen.dart';
 
@@ -937,7 +937,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         if (authenticated) {
           _navigateAndRefresh(
             context,
-            const ConfiguracionScreen(),
+            const AccountVerificationScreen(),
             refresh,
           );
         } else {
