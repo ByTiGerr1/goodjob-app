@@ -19,7 +19,7 @@ service cloud.firestore {
 
       match /postulaciones/{postulacionId} {
         allow read: if isAdmin() ||
-          (isSignedIn() && resource.data.usuarioId == request.auth.uid);
+          (isSignedIn() && request.auth.uid == usuarioId);
         allow create: if isSignedIn() &&
           request.auth.uid == usuarioId &&
           request.resource.data.usuarioId == request.auth.uid &&
