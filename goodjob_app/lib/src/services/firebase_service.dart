@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'encryption_service.dart';
 
 // Manejo de la autenticación y registro de usuarios
 class Auth {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final EncryptionService _encryptionService = EncryptionService();
 
   // Obtener el usuario current
   User? get currentUser => _firebaseAuth.currentUser;
@@ -55,14 +57,19 @@ class Auth {
       // Obtener el UID del usuario creado
       String uid = userCredential.user?.uid ?? '';
 
+      // Encriptar datos bancarios
+      final encryptedBankName = await _encryptionService.encrypt(banco);
+      final encryptedAccountNumber = await _encryptionService.encrypt(numeroCuenta);
+      final encryptedAccountType = await _encryptionService.encrypt(tipoCuenta);
+
       // Crear documento en la colección "usuarios" en Firestore
       await FirebaseFirestore.instance.collection('usuarios').doc(uid).set({
         'nombre': nombre,
         'email': email,
         'rol': 'usuario',
-        'banco': banco,
-        'numeroCuenta': numeroCuenta,
-        'tipoCuenta': tipoCuenta,
+        'banco': encryptedBankName,
+        'numeroCuenta': encryptedAccountNumber,
+        'tipoCuenta': encryptedAccountType,
         'creadoEn': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -119,11 +126,11 @@ class Auth {
         if (aboutYou != null && aboutYou.isNotEmpty)
           userData['descripcion'] = aboutYou;
         if (bankName != null && bankName.isNotEmpty)
-          userData['banco'] = bankName;
+          userData['banco'] = await _encryptionService.encrypt(bankName);
         if (accountType != null && accountType.isNotEmpty)
-          userData['tipoCuenta'] = accountType;
+          userData['tipoCuenta'] = await _encryptionService.encrypt(accountType);
         if (bankAccountNumber != null && bankAccountNumber.isNotEmpty)
-          userData['numeroCuenta'] = bankAccountNumber;
+          userData['numeroCuenta'] = await _encryptionService.encrypt(bankAccountNumber);
         userData['siiIniciado'] = siiStarted;
 
         // 3. Save the user data to a new document in the 'usuarios' collection
