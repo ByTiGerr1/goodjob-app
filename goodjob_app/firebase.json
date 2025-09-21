@@ -1,1 +1,47 @@
-{"firestore":{"database":"(default)","location":"southamerica-west1","rules":"firestore.rules","indexes":"firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"good-job-1","appId":"1:84428417566:android:8313b204c7d91fbe711c0f","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"good-job-1","configurations":{"android":"1:84428417566:android:8313b204c7d91fbe711c0f","ios":"1:84428417566:ios:2361ce0f67f10cb1711c0f","macos":"1:84428417566:ios:2361ce0f67f10cb1711c0f","web":"1:84428417566:web:26eec331d38ce592711c0f","windows":"1:84428417566:web:b783364d05773f8e711c0f"}}}}}}
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "southamerica-west1",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "good-job-1",
+          "appId": "1:84428417566:android:8313b204c7d91fbe711c0f",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "good-job-1",
+          "configurations": {
+            "android": "1:84428417566:android:8313b204c7d91fbe711c0f",
+            "ios": "1:84428417566:ios:2361ce0f67f10cb1711c0f",
+            "macos": "1:84428417566:ios:2361ce0f67f10cb1711c0f",
+            "web": "1:84428417566:web:26eec331d38ce592711c0f",
+            "windows": "1:84428417566:web:b783364d05773f8e711c0f"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}
