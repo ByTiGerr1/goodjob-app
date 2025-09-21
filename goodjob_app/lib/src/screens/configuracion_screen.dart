@@ -26,16 +26,32 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   Future<void> _obtenerDatosPerfil() async {
     if (_user == null) return;
     try {
-      final docSnapshot = await _firestore.collection('perfiles').doc(_user!.uid).get();
+      final docSnapshot =
+          await _firestore.collection('usuarios').doc(_user!.uid).get();
+
+      if (!mounted) return;
+
       if (docSnapshot.exists) {
+        final data = docSnapshot.data();
         setState(() {
-          _perfilData = docSnapshot.data() as Map<String, dynamic>;
+          _perfilData =
+              data != null ? Map<String, dynamic>.from(data) : {};
         });
+      } else {
+        setState(() {
+          _perfilData = {};
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se encontraron datos del perfil del usuario.'),
+          ),
+        );
       }
     } catch (e) {
       print('Error al obtener datos del perfil: $e');
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -77,73 +77,54 @@ class Auth {
     }
   }
 
-  Future<void> registerUserWithOptionalData({
+  Future<void> registerUserWithDetails({
     required String email,
     required String password,
-    String? name,
-    String? lastName,
-    String? rut,
-    String? birthDate,
-    String? gender,
-    String? nationality,
-    String? activity,
-    String? career,
-    String? aboutYou,
-    String? bankName,
-    String? accountType,
-    String? bankAccountNumber,
-    required bool siiStarted,
+    required String name,
+    required String lastName,
+    required String rut,
+    required DateTime birthDate,
+    required String phoneNumber,
+    required String gender,
+    required String nationality,
+    required bool hasDisability,
+    required String region,
+    required String street,
+    required String streetNumber,
   }) async {
     try {
-      // 1. Create the user in Firebase Authentication
       UserCredential userCredential = await _firebaseAuth
           .createUserWithEmailAndPassword(email: email, password: password);
 
-      // Get the user's unique ID from the newly created account
       User? user = userCredential.user;
 
       if (user != null) {
-        // 2. Prepare the user data to save to Firestore
-        Map<String, dynamic> userData = {
+        final userData = {
           'email': email,
-          'rol': 'usuario', // Use 'rol' as per your schema
-          'creadoEn': FieldValue.serverTimestamp(), // Add timestamp field
+          'nombre': name,
+          'apellido': lastName,
+          'rut': rut,
+          'fechaNacimiento': Timestamp.fromDate(birthDate),
+          'telefono': phoneNumber,
+          'genero': gender,
+          'nacionalidad': nationality,
+          'discapacidad': hasDisability,
+          'region': region,
+          'calle': street,
+          'numero': streetNumber,
+          'rol': 'usuario',
+          'creadoEn': FieldValue.serverTimestamp(),
         };
 
-        // Add optional fields to the userData map only if they are not null
-        if (name != null && name.isNotEmpty) userData['nombre'] = name;
-        if (lastName != null && lastName.isNotEmpty)
-          userData['apellido'] = lastName;
-        if (rut != null && rut.isNotEmpty) userData['rut'] = rut;
-        if (birthDate != null && birthDate.isNotEmpty)
-          userData['fechaNacimiento'] = birthDate;
-        if (gender != null && gender.isNotEmpty) userData['genero'] = gender;
-        if (nationality != null && nationality.isNotEmpty)
-          userData['nacionalidad'] = nationality;
-        if (activity != null && activity.isNotEmpty)
-          userData['actividad'] = activity;
-        if (career != null && career.isNotEmpty) userData['carrera'] = career;
-        if (aboutYou != null && aboutYou.isNotEmpty)
-          userData['descripcion'] = aboutYou;
-        if (bankName != null && bankName.isNotEmpty)
-          userData['banco'] = await _encryptionService.encrypt(bankName);
-        if (accountType != null && accountType.isNotEmpty)
-          userData['tipoCuenta'] = await _encryptionService.encrypt(accountType);
-        if (bankAccountNumber != null && bankAccountNumber.isNotEmpty)
-          userData['numeroCuenta'] = await _encryptionService.encrypt(bankAccountNumber);
-        userData['siiIniciado'] = siiStarted;
-
-        // 3. Save the user data to a new document in the 'usuarios' collection
         await _firestore.collection('usuarios').doc(user.uid).set(userData);
       }
     } on FirebaseAuthException catch (e) {
-      // Handle specific Firebase Auth errors
       throw Exception(e.message);
     } catch (e) {
-      // Handle any other errors
       throw Exception('An error occurred during registration: $e');
     }
   }
+
 
   // Método para actualizar el token del admin antes de realizar consultas.
   Future<void> actualizarAdminToken() async {
