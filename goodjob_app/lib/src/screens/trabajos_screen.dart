@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../services/trabajo_service.dart';
+import '../services/user_eligibility_service.dart';
+import '../widgets/user_eligibility_gate.dart';
+import '../widgets/verification_required_view.dart';
+import 'configuracion_screen.dart';
 import 'detalle_trabajo_screen.dart';
+import 'login_screen.dart';
 
 enum DisplayOption { upcoming, recent }
 
@@ -14,6 +20,7 @@ class TrabajosScreen extends StatefulWidget {
   @override
   State<TrabajosScreen> createState() => _TrabajosScreenState();
 }
+
 
 class _TrabajosScreenState extends State<TrabajosScreen> {
   final _servicio = TrabajoService();
@@ -53,6 +60,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       // Ignorar errores de ubicación
     }
   }
+
   void _centrarEnUbicacion() {
     if (_currentPosition == null || !_mapReady) return;
     final dest =
@@ -60,7 +68,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     _mapController.move(dest, 16.0);
   }
 
-    void _centrarEnTrabajo(Map<String, dynamic> trabajo) {
+  void _centrarEnTrabajo(Map<String, dynamic> trabajo) {
     if (!_mapReady) return;
     final ubicacion = trabajo['ubicacion'] as Map<String, dynamic>?;
     final lat = ubicacion?['lat'];
@@ -895,6 +903,57 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 
+  void _navigateAndRefresh(
+    BuildContext context,
+    Widget screen,
+    Future<void> Function() refresh,
+  ) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => screen))
+        .then((_) {
+      if (!mounted) return;
+      refresh();
+    });
+  }
+
+  Widget _buildEligibilityNotice(
+    BuildContext context,
+    UserEligibilityStatus status,
+    Future<void> Function() refresh,
+  ) {
+    final authenticated = status.isAuthenticated;
+    final title =
+        authenticated ? 'Completa tu registro' : 'Tu sesión no está activa';
+    final description =
+        status.messageForAction('acceder a las ofertas disponibles');
+    final primaryLabel =
+        authenticated ? 'Completa tus datos' : 'Iniciar sesión';
+
+    return VerificationRequiredView(
+      title: title,
+      description: description,
+      primaryButtonLabel: primaryLabel,
+      onPrimaryPressed: () {
+        if (authenticated) {
+          _navigateAndRefresh(
+            context,
+            const ConfiguracionScreen(),
+            refresh,
+          );
+        } else {
+          _navigateAndRefresh(
+            context,
+            const LoginScreen(),
+            refresh,
+          );
+        }
+      },
+      secondaryButtonLabel:
+          authenticated ? 'Ya completé mis datos' : null,
+      onSecondaryPressed: authenticated ? () => refresh() : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -918,7 +977,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         title: _buildSelectorVista(),
         centerTitle: true,
       ),
-      body: _vistaActual == 0 ? _buildLista() : _buildMapa(),
+      body: UserEligibilityGate(
+        eligibleBuilder: (context, status, refresh) {
+          return _vistaActual == 0 ? _buildLista() : _buildMapa();
+        },
+        blockedBuilder: _buildEligibilityNotice,
+      ),
     );
   }
 }

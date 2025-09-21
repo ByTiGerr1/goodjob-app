@@ -3,6 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'detalle_trabajo_screen.dart';
 import '../services/firebase_service.dart';
 import '../services/postulacion_service.dart';
+import '../services/user_eligibility_service.dart';
+import '../widgets/user_eligibility_gate.dart';
+import '../widgets/verification_required_view.dart';
+import 'configuracion_screen.dart';
+import 'login_screen.dart';
 
 class MisTrabajosScreen extends StatefulWidget {
   const MisTrabajosScreen({super.key});
@@ -372,14 +377,130 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     );
   }
 
+  Widget _buildPostulacionesBody(String uid) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _postulacionService.obtenerPostulacionesDeUsuario(uid),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          final error = snapshot.error;
+          if (error is FirebaseException &&
+              error.code == 'failed-precondition') {
+            return const Center(
+                child: Text('Preparando índices, intenta más tarde'));
+          }
+          return const Center(
+              child: Text('Error al cargar las postulaciones'));
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.data != null) {
+          for (final cambio in snapshot.data!.docChanges) {
+            if (cambio.type == DocumentChangeType.modified) {
+              final data =
+                  cambio.doc.data() as Map<String, dynamic>? ?? {};
+              final estado = (data['estado'] as String? ?? '').toLowerCase();
+              if (estado == 'aceptado' || estado == 'rechazado') {
+                final titulo = data['trabajoTitulo'] ?? '';
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _mostrarNotificacion(context, titulo, estado);
+                });
+              }
+            }
+          }
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('No hay postulaciones.'));
+        }
+        final postulaciones = snapshot.data!.docs.toList()
+          ..sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final aTime = aData['fechaPostulacion'] as Timestamp?;
+            final bTime = bData['fechaPostulacion'] as Timestamp?;
+            if (aTime == null || bTime == null) return 0;
+            return bTime.compareTo(aTime);
+          });
+
+        final confirmados = postulaciones
+            .where((p) {
+              final data = p.data() as Map<String, dynamic>;
+              final estado = (data['estado'] as String? ?? '').toLowerCase();
+              return estado == 'confirmado';
+            }).toList();
+        final pendientes = postulaciones
+            .where((p) {
+              final data = p.data() as Map<String, dynamic>;
+              final estado = (data['estado'] as String? ?? '').toLowerCase();
+              return estado == 'pendiente' || estado == 'aceptado';
+            }).toList();
+        final todos = postulaciones;
+
+        return TabBarView(
+          controller: _tabController,
+          children: [
+            _buildPostulacionList(confirmados, true),
+            _buildPostulacionList(pendientes, false),
+            _buildPostulacionList(todos, null),
+          ],
+        );
+      },
+    );
+  }
+
+  void _navigateAndRefresh(
+    BuildContext context,
+    Widget screen,
+    Future<void> Function() refresh,
+  ) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => screen))
+        .then((_) {
+      if (!mounted) return;
+      refresh();
+    });
+  }
+
+  Widget _buildEligibilityNotice(
+    BuildContext context,
+    UserEligibilityStatus status,
+    Future<void> Function() refresh,
+  ) {
+    final authenticated = status.isAuthenticated;
+    final description =
+        status.messageForAction('visualizar tus postulaciones');
+    final primaryLabel =
+        authenticated ? 'Terminar registro' : 'Iniciar sesión';
+
+    return VerificationRequiredView(
+      title: 'Termina tu registro',
+      description: description,
+      primaryButtonLabel: primaryLabel,
+      onPrimaryPressed: () {
+        if (authenticated) {
+          _navigateAndRefresh(
+            context,
+            const ConfiguracionScreen(),
+            refresh,
+          );
+        } else {
+          _navigateAndRefresh(
+            context,
+            const LoginScreen(),
+            refresh,
+          );
+        }
+      },
+      secondaryButtonLabel:
+          authenticated ? 'Ya completé mi registro' : null,
+      onSecondaryPressed: authenticated ? () => refresh() : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final uid = _authService.currentUser?.uid;
-    if (uid == null) {
-      return const Scaffold(
-        body: Center(child: Text('Usuario no autenticado')),
-      );
-    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('JOBS'),
@@ -393,74 +514,17 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
           ],
         ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _postulacionService.obtenerPostulacionesDeUsuario(uid),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            final error = snapshot.error;
-            if (error is FirebaseException &&
-                error.code == 'failed-precondition') {
-              return const Center(
-                  child: Text('Preparando índices, intenta más tarde'));
-            }
+      body: UserEligibilityGate(
+        eligibleBuilder: (context, status, refresh) {
+          final uid = status.userId ?? _authService.currentUser?.uid;
+          if (uid == null) {
             return const Center(
-                child: Text('Error al cargar las postulaciones'));
+              child: Text('No se pudo obtener tu sesión actual.'),
+            );
           }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.data != null) {
-            for (final cambio in snapshot.data!.docChanges) {
-              if (cambio.type == DocumentChangeType.modified) {
-                final data = cambio.doc.data() as Map<String, dynamic>? ?? {};
-                final estado = (data['estado'] as String? ?? '').toLowerCase();
-                if (estado == 'aceptado' || estado == 'rechazado') {
-                  final titulo = data['trabajoTitulo'] ?? '';
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _mostrarNotificacion(context, titulo, estado);
-                  });
-                }
-              }
-            }
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No hay postulaciones.'));
-          }
-          final postulaciones = snapshot.data!.docs.toList()
-            ..sort((a, b) {
-              final aData = a.data() as Map<String, dynamic>;
-              final bData = b.data() as Map<String, dynamic>;
-              final aTime = aData['fechaPostulacion'] as Timestamp?;
-              final bTime = bData['fechaPostulacion'] as Timestamp?;
-              if (aTime == null || bTime == null) return 0;
-              return bTime.compareTo(aTime);
-            });
-
-          final confirmados = postulaciones
-              .where((p) {
-                final data = p.data() as Map<String, dynamic>;
-                final estado = (data['estado'] as String? ?? '').toLowerCase();
-                return estado == 'confirmado';
-              }).toList();
-          final pendientes = postulaciones
-              .where((p) {
-                final data = p.data() as Map<String, dynamic>;
-                final estado = (data['estado'] as String? ?? '').toLowerCase();
-                return estado == 'pendiente' || estado == 'aceptado';
-              }).toList();
-          final todos = postulaciones;
-
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _buildPostulacionList(confirmados, true),
-              _buildPostulacionList(pendientes, false),
-              _buildPostulacionList(todos, null),
-            ],
-          );
+          return _buildPostulacionesBody(uid);
         },
+        blockedBuilder: _buildEligibilityNotice,
       ),
     );
   }
