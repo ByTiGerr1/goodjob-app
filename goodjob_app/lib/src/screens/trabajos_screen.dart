@@ -170,19 +170,14 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No hay trabajos disponibles'));
-        }
 
-        var trabajos = snapshot.data!.docs.map((doc) {
+        final trabajosDocs = snapshot.data?.docs ?? [];
+        var trabajos = trabajosDocs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           return {...data, 'id': doc.id};
         }).toList();
 
         trabajos = _filtrarTrabajosVigentes(trabajos);
-        if (trabajos.isEmpty) {
-          return const Center(child: Text('No hay trabajos disponibles'));
-        }
 
         final trabajosConDistancia = trabajos.map((trabajo) {
           final distancia = _calcularDistancia(trabajo);
@@ -231,7 +226,6 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           );
         }
 
-
         if (_currentPosition != null) {
           markers.add(
             Marker(
@@ -254,6 +248,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         final zoom = _currentPosition != null ? 16.0 : 5.0;
 
         final double fabBottom = trabajosCercanos.isNotEmpty ? 180.0 : 16.0;
+        final bool hayTrabajosDisponibles = trabajos.isNotEmpty;
 
         return Stack(
           children: [
@@ -274,6 +269,37 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 MarkerLayer(markers: markers),
               ],
             ),
+            if (!hayTrabajosDisponibles)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Text(
+                        'No hay trabajos disponibles',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             if (_currentPosition != null)
               Positioned(
                 bottom: fabBottom,

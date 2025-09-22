@@ -20,6 +20,9 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   final String? _usuarioId = FirebaseAuth.instance.currentUser?.uid;
   Timer? _timer;
   String _countdownText = '';
+  bool _isConfirming = false;
+  bool _liberacionExpiracionEnCurso = false;
+  bool _liberacionExpiracionRealizada = false;
 
   @override
   void initState() {
@@ -100,6 +103,353 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         );
       }
     }
+  }
+  
+    Future<void> _confirmarTrabajo() async {
+    if (_usuarioId == null || _isConfirming) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar trabajo'),
+        content: const Text(
+          'Al confirmar el trabajo te comprometes a asistir y cumplir con las responsabilidades asignadas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) {
+      return;
+    }
+
+    setState(() => _isConfirming = true);
+
+    try {
+      await _postulacionService.confirmarAsignacion(
+        trabajoId: widget.trabajoId,
+        postulanteId: _usuarioId,
+        trabajoTitulo: widget.trabajo['titulo'] ?? '',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('¡Has confirmado el trabajo con éxito!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo confirmar el trabajo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isConfirming = false);
+      } else {
+        _isConfirming = false;
+      }
+    }
+  }
+
+  Future<void> _liberarAsignacionExpirada() async {
+    if (_usuarioId == null || _liberacionExpiracionEnCurso || _liberacionExpiracionRealizada) {
+      return;
+    }
+
+    setState(() => _liberacionExpiracionEnCurso = true);
+
+    try {
+      await _postulacionService.liberarAsignacionPorExpiracion(
+        trabajoId: widget.trabajoId,
+        postulanteId: _usuarioId,
+        trabajoTitulo: widget.trabajo['titulo'] ?? '',
+      );
+      if (mounted) {
+        setState(() => _liberacionExpiracionRealizada = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El plazo de confirmación expiró. El trabajo volvió a estar disponible para el administrador.',
+            ),
+          ),
+        );
+      } else {
+        _liberacionExpiracionRealizada = true;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo liberar la asignación expirada: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _liberacionExpiracionEnCurso = false);
+      } else {
+        _liberacionExpiracionEnCurso = false;
+      }
+    }
+  }
+
+  ButtonStyle get _primaryButtonStyle {
+    return ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF7B0997),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
+  String _formatFechaHora(DateTime fecha) {
+    final dia = fecha.day.toString().padLeft(2, '0');
+    final mes = fecha.month.toString().padLeft(2, '0');
+    final anio = fecha.year.toString();
+    final hora = fecha.hour.toString().padLeft(2, '0');
+    final minuto = fecha.minute.toString().padLeft(2, '0');
+    return '$dia/$mes/$anio $hora:$minuto';
+  }
+
+  Widget _buildBotonAccionPrincipal() {
+    if (_usuarioId == null) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: null,
+          style: _primaryButtonStyle,
+          child: const Text(
+            'Inicia sesión para postularte',
+            style: TextStyle(fontSize: 18, color: Colors.white),
+          ),
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _postulacionService.observarPostulacionDeUsuario(
+        trabajoId: widget.trabajoId,
+        usuarioId: _usuarioId,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              style: _primaryButtonStyle,
+              child: const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              style: _primaryButtonStyle,
+              child: const Text(
+                'No se pudo cargar tu postulación',
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          );
+        }
+
+        final postulacionDoc = snapshot.data;
+        if (postulacionDoc == null || !postulacionDoc.exists) {
+          return SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _postularse,
+              style: _primaryButtonStyle,
+              child: const Text(
+                'Postular',
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          );
+        }
+
+        final data = postulacionDoc.data() ?? <String, dynamic>{};
+        final estado = (data['estado'] as String? ?? '').toLowerCase();
+        final confirmarAntesDeTs = data['confirmarAntesDe'] as Timestamp?;
+        final aceptadoEnTs = data['aceptadoEn'] as Timestamp?;
+        DateTime? confirmarAntesDe;
+        if (confirmarAntesDeTs != null) {
+          confirmarAntesDe = confirmarAntesDeTs.toDate();
+        } else if (aceptadoEnTs != null) {
+          confirmarAntesDe = aceptadoEnTs.toDate().add(const Duration(hours: 24));
+        }
+        final plazoExpirado =
+            confirmarAntesDe != null && DateTime.now().isAfter(confirmarAntesDe);
+
+        if (estado == 'aceptado' && plazoExpirado) {
+          if (!_liberacionExpiracionRealizada && !_liberacionExpiracionEnCurso) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _liberarAsignacionExpirada();
+            });
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: const Text(
+                  'No confirmaste dentro del plazo. Esta asignación será liberada para que el administrador pueda reasignarla.',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: null,
+                style: _primaryButtonStyle,
+                child: const Text(
+                  'Plazo de confirmación expirado',
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          );
+        }
+
+        if (estado == 'aceptado') {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (confirmarAntesDe != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Tu postulación fue aceptada. Debes confirmar antes del ${_formatFechaHora(confirmarAntesDe)}.',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ElevatedButton(
+                onPressed: _isConfirming ? null : _confirmarTrabajo,
+                style: _primaryButtonStyle,
+                child: _isConfirming
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child:
+                            CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text(
+                        'Confirmar trabajo',
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
+              ),
+            ],
+          );
+        }
+
+        if (estado == 'confirmado') {
+          return SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              style: _primaryButtonStyle,
+              child: const Text(
+                'Trabajo confirmado',
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          );
+        }
+
+        if (estado == 'rechazado') {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: const Text(
+                  'Tu postulación fue rechazada para este trabajo.',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: null,
+                style: _primaryButtonStyle,
+                child: const Text(
+                  'Postulación rechazada',
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          );
+        }
+
+        if (estado == 'pendiente') {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: const Text(
+                  'Tu postulación está siendo revisada por el administrador.',
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: null,
+                style: _primaryButtonStyle,
+                child: const Text(
+                  'Postulación en revisión',
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: null,
+            style: _primaryButtonStyle,
+            child: Text(
+              'Estado: ${estado.isEmpty ? 'desconocido' : estado}',
+              style: const TextStyle(fontSize: 18, color: Colors.white),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {

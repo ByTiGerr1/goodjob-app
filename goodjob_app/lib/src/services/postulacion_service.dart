@@ -122,4 +122,147 @@ class PostulacionService {
         .collection('postulaciones')
         .snapshots();
   }
+  Stream<DocumentSnapshot<Map<String, dynamic>>> observarPostulacionDeUsuario({
+    required String trabajoId,
+    required String usuarioId,
+  }) {
+    return _firestore
+        .collection('usuarios')
+        .doc(usuarioId)
+        .collection('postulaciones')
+        .doc(trabajoId)
+        .snapshots();
+  }
+
+  Future<void> confirmarAsignacion({
+    required String trabajoId,
+    required String postulanteId,
+    required String trabajoTitulo,
+  }) async {
+    final postulacionRef = _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .doc(postulanteId);
+    final postulacionesUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(postulanteId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+    final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
+    final notificacionesRef =
+        _firestore.collection('notificaciones_admin').doc();
+
+    final timestamp = FieldValue.serverTimestamp();
+
+    final batch = _firestore.batch();
+    batch.set(
+      postulacionRef,
+      {
+        'estado': 'confirmado',
+        'confirmadoEn': timestamp,
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      postulacionesUsuarioRef,
+      {
+        'estado': 'confirmado',
+        'trabajoId': trabajoId,
+        'usuarioId': postulanteId,
+        'trabajoTitulo': trabajoTitulo,
+        'confirmadoEn': timestamp,
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      trabajoRef,
+      {
+        'trabajadorAsignadoId': postulanteId,
+        'estadoAsignacion': 'confirmado',
+        'confirmadoEn': timestamp,
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      notificacionesRef,
+      {
+        'tipo': 'confirmacion_trabajo',
+        'trabajoId': trabajoId,
+        'postulanteId': postulanteId,
+        'trabajoTitulo': trabajoTitulo,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'leido': false,
+      },
+    );
+
+    await batch.commit();
+  }
+
+  Future<void> liberarAsignacionPorExpiracion({
+    required String trabajoId,
+    required String postulanteId,
+    required String trabajoTitulo,
+  }) async {
+    final postulacionRef = _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .doc(postulanteId);
+    final postulacionesUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(postulanteId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+    final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
+    final notificacionesRef =
+        _firestore.collection('notificaciones_admin').doc();
+
+    final batch = _firestore.batch();
+    batch.set(
+      postulacionRef,
+      {
+        'estado': 'pendiente',
+        'confirmadoEn': FieldValue.delete(),
+        'confirmarAntesDe': FieldValue.delete(),
+        'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      postulacionesUsuarioRef,
+      {
+        'estado': 'pendiente',
+        'confirmadoEn': FieldValue.delete(),
+        'confirmarAntesDe': FieldValue.delete(),
+        'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      trabajoRef,
+      {
+        'trabajadorAsignadoId': FieldValue.delete(),
+        'estadoAsignacion': FieldValue.delete(),
+        'confirmadoEn': FieldValue.delete(),
+        'confirmacionExpiradaEn': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      notificacionesRef,
+      {
+        'tipo': 'confirmacion_expirada',
+        'trabajoId': trabajoId,
+        'postulanteId': postulanteId,
+        'trabajoTitulo': trabajoTitulo,
+        'creadoEn': FieldValue.serverTimestamp(),
+        'leido': false,
+      },
+    );
+
+    await batch.commit();
+  }
 }
+
+ 
