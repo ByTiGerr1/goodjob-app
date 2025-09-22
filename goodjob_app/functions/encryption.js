@@ -18,26 +18,31 @@ async function getEncryptionKey() {
 }
 
 exports.encryptData = functions.https.onCall(async (data, context) => {
+  if (!data?.text) {
+    throw new functions.https.HttpsError('invalid-argument', 'No text provided');
+  }
+
   const key = await getEncryptionKey();
   const text = data.text;
 
-  const iv = crypto.randomBytes(16); // IV aleatorio
+  const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
 
   let encrypted = cipher.update(text, "utf8", "base64");
   encrypted += cipher.final("base64");
 
-  // Concatenamos IV + ciphertext
   const payload = Buffer.concat([iv, Buffer.from(encrypted, "base64")]).toString("base64");
-
-  return {encrypted: payload};
+  return { encrypted: payload };
 });
 
 exports.decryptData = functions.https.onCall(async (data, context) => {
+  if (!data?.encrypted) {
+    throw new functions.https.HttpsError('invalid-argument', 'No encrypted data provided');
+  }
+
   const key = await getEncryptionKey();
   const payload = Buffer.from(data.encrypted, "base64");
 
-  // Usar subarray en lugar de slice
   const iv = payload.subarray(0, 16);
   const encryptedText = payload.subarray(16);
 
