@@ -4,7 +4,6 @@ class PostulacionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Realiza una consulta de grupo para obtener todas las postulaciones.
-  // Se usa para la pantalla general de postulaciones.
   Stream<QuerySnapshot> obtenerTodasLasPostulaciones() {
     return _firestore
         .collectionGroup('postulaciones')
@@ -12,9 +11,7 @@ class PostulacionService {
         .snapshots();
   }
 
-  // Obtiene las postulaciones para un trabajo específico desde la colección raíz.
-  // Esta es la consulta que te permitirá ver los postulantes en la pantalla
-  // 'PostulantesTrabajoScreen'.
+  // Obtiene las postulaciones para un trabajo específico
   Stream<QuerySnapshot> obtenerPostulacionesDeTrabajo(String trabajoId) {
     return _firestore
         .collection('trabajos')
@@ -33,8 +30,7 @@ class PostulacionService {
         .snapshots();
   }
 
-  // Crea una nueva postulación tanto en la subcolección del trabajo como en la
-  // subcolección del usuario para evitar problemas de permisos en lecturas.
+  // Crea una nueva postulación
   Future<void> crearPostulacion({
     required String trabajoId,
     required String trabajoTitulo,
@@ -65,7 +61,7 @@ class PostulacionService {
     await batch.commit();
   }
 
-  // Verifica si un usuario ya se postuló a un trabajo específico.
+  // Verifica si un usuario ya se postuló a un trabajo
   Future<bool> existePostulacion({
     required String trabajoId,
     required String usuarioId,
@@ -79,8 +75,7 @@ class PostulacionService {
     return doc.exists;
   }
 
-  // Actualiza el estado de una postulación tanto en el trabajo como en el
-  // registro del usuario.
+  // Actualiza el estado de una postulación
   Future<void> actualizarEstado({
     required String trabajoId,
     required String postulanteId,
@@ -99,22 +94,33 @@ class PostulacionService {
         .collection('postulaciones')
         .doc(trabajoId);
 
+    Map<String, dynamic> data = {
+      'estado': estadoNormalizado,
+    };
+
+    // Registrar fecha de aceptación si es aceptado o confirmado
+    if (estadoNormalizado == 'aceptado' || estadoNormalizado == 'confirmado') {
+      data['fechaAceptacion'] = FieldValue.serverTimestamp();
+    }
+
     final batch = _firestore.batch();
-    batch.update(postulacionRef, {'estado': estadoNormalizado});
+    batch.update(postulacionRef, data);
+
     batch.set(
       postulacionesUsuarioRef,
       {
-        'estado': estadoNormalizado,
+        ...data,
         'trabajoId': trabajoId,
         'usuarioId': postulanteId,
         if (trabajoTitulo != null) 'trabajoTitulo': trabajoTitulo,
       },
       SetOptions(merge: true),
     );
+
     await batch.commit();
   }
 
-  // Obtiene las postulaciones de un usuario específico desde su propio perfil.
+  // Obtiene las postulaciones de un usuario específico
   Stream<QuerySnapshot> obtenerPostulacionesDeUsuario(String uid) {
     return _firestore
         .collection('usuarios')
@@ -122,6 +128,7 @@ class PostulacionService {
         .collection('postulaciones')
         .snapshots();
   }
+
   Stream<DocumentSnapshot<Map<String, dynamic>>> observarPostulacionDeUsuario({
     required String trabajoId,
     required String usuarioId,
@@ -134,6 +141,7 @@ class PostulacionService {
         .snapshots();
   }
 
+  // Confirma la asignación de un trabajo
   Future<void> confirmarAsignacion({
     required String trabajoId,
     required String postulanteId,
@@ -160,6 +168,7 @@ class PostulacionService {
       postulacionRef,
       {
         'estado': 'confirmado',
+        'fechaAceptacion': timestamp,
         'confirmadoEn': timestamp,
       },
       SetOptions(merge: true),
@@ -171,6 +180,7 @@ class PostulacionService {
         'trabajoId': trabajoId,
         'usuarioId': postulanteId,
         'trabajoTitulo': trabajoTitulo,
+        'fechaAceptacion': timestamp,
         'confirmadoEn': timestamp,
       },
       SetOptions(merge: true),
@@ -191,7 +201,7 @@ class PostulacionService {
         'trabajoId': trabajoId,
         'postulanteId': postulanteId,
         'trabajoTitulo': trabajoTitulo,
-        'creadoEn': FieldValue.serverTimestamp(),
+        'creadoEn': timestamp,
         'leido': false,
       },
     );
@@ -199,6 +209,7 @@ class PostulacionService {
     await batch.commit();
   }
 
+  // Libera la asignación de un trabajo por expiración
   Future<void> liberarAsignacionPorExpiracion({
     required String trabajoId,
     required String postulanteId,
@@ -224,6 +235,7 @@ class PostulacionService {
       {
         'estado': 'pendiente',
         'confirmadoEn': FieldValue.delete(),
+        'fechaAceptacion': FieldValue.delete(),
         'confirmarAntesDe': FieldValue.delete(),
         'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
       },
@@ -234,6 +246,7 @@ class PostulacionService {
       {
         'estado': 'pendiente',
         'confirmadoEn': FieldValue.delete(),
+        'fechaAceptacion': FieldValue.delete(),
         'confirmarAntesDe': FieldValue.delete(),
         'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
       },
@@ -264,5 +277,3 @@ class PostulacionService {
     await batch.commit();
   }
 }
-
- 
