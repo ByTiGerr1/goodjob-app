@@ -1,12 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'encryption_service.dart';
+import 'notification_service.dart';
 
 // Manejo de la autenticación y registro de usuarios
 class Auth {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final EncryptionService _encryptionService = EncryptionService();
+  late final NotificationService _notificationService;
+
 
   // Obtener el usuario current
   User? get currentUser => _firebaseAuth.currentUser;
@@ -16,10 +19,18 @@ class Auth {
 
   // Login con correo electrónico y contraseña
   Future<void> login(String email, String password) async {
-    await _firebaseAuth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+    try{
+      await _firebaseAuth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = FirebaseAuth.instance.currentUser!;
+      _notificationService = NotificationService(uid: user.uid);
+      // Inicializar el servicio de notificaciones
+      _notificationService.init();
+    } catch (e) {
+      throw Exception('Error al iniciar sesión: $e');
+    }
   }
 
   // Método para cerrar sesión del usuario actual
