@@ -31,6 +31,31 @@ class PostulanteDetalleScreen extends StatelessWidget {
       String estado, BuildContext context) async {
     final nuevoEstado = estado.toLowerCase();
     try {
+      // Texto dinámico según el estado
+      final mensaje = nuevoEstado == "aceptado"
+          ? "Aceptando postulación..."
+          : "Rechazando postulación...";
+
+      // Mostrar loader con texto dinámico
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                mensaje,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+
       await _postulacionService.actualizarEstado(
         trabajoId: trabajoId,
         postulanteId: usuarioId,
@@ -39,6 +64,9 @@ class PostulanteDetalleScreen extends StatelessWidget {
 
       if (!context.mounted) return;
 
+      // Cerrar loader
+      Navigator.of(context).pop();
+
       final estadoCapitalizado = nuevoEstado.isEmpty
           ? nuevoEstado
           : '${nuevoEstado[0].toUpperCase()}${nuevoEstado.substring(1)}';
@@ -46,17 +74,18 @@ class PostulanteDetalleScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Postulación $estadoCapitalizado con éxito')),
       );
-      // Opcional: Volver a la pantalla anterior
+
+      // Opcional: volver a la pantalla anterior
       Navigator.of(context).pop();
     } catch (e) {
       print('Error al actualizar el estado: $e');
       if (!context.mounted) return;
+      Navigator.of(context).pop(); // Cerrar loader si hubo error
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error al actualizar el estado.')),
       );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +107,6 @@ class PostulanteDetalleScreen extends StatelessWidget {
           final usuarioData = snapshot.data!;
           final nombre = usuarioData['nombre'] ?? 'Sin nombre';
           final apellido = usuarioData['apellido'] ?? '';
-          final rut = usuarioData['rut'] ?? 'No disponible';
           final carrera = usuarioData['carrera'] ?? 'No disponible';
           final email = usuarioData['email'] ?? 'No disponible';
           final telefono = usuarioData['telefono'] ?? 'No disponible';
