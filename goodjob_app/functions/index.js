@@ -35,3 +35,14 @@ const {encryptData, decryptData} = require("./encryption");
 // Exportamos las funciones para Firebase
 exports.encryptData = encryptData;
 exports.decryptData = decryptData;
+
+const { liberarPostulacionesExpiradas } = require("./liberarPostulaciones");
+
+// Exporta la función programada.
+// En este caso, la función se ejecutará cada 15 minutos.
+exports.liberarPostulacionesExpiradas = functions.pubsub
+  .schedule("every 15 minutes")
+  .onRun(async (context) => {
+    console.log("Iniciando la función programada.");
+    return liberarPostulacionesExpiradas();
+  });
