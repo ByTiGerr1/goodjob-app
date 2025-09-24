@@ -116,16 +116,74 @@ class _PostulacionContent extends StatelessWidget {
     return '$horaTexto:$minutoTexto';
   }
 
-  int _indiceProgreso(Map<String, dynamic> postulacion, Map<String, dynamic> trabajo) {
-    final estado = (postulacion['estado'] as String? ?? '').toLowerCase();
-    final estadoTrabajo = (postulacion['estadoTrabajo'] ?? trabajo['estadoTrabajo'])
-            ?.toString()
-            .toLowerCase() ??
-        '';
-    final estadoPago = (postulacion['estadoPago'] ?? trabajo['estadoPago'])
-            ?.toString()
-            .toLowerCase() ??
-        '';
+  String _normalizarEstado(dynamic valor) {
+    if (valor is String) {
+      return valor.trim().toLowerCase();
+    }
+    return '';
+  }
+
+  String _estadoPostulacionPrincipal(Map<String, dynamic> postulacion) {
+    final candidatos = [
+      postulacion['estado'],
+      postulacion['estadoPostulacion'],
+      postulacion['estadoAsignacion'],
+    ];
+
+    for (final candidato in candidatos) {
+      final normalizado = _normalizarEstado(candidato);
+      if (normalizado.isNotEmpty) {
+        return normalizado;
+      }
+    }
+
+    return '';
+  }
+
+  bool _tieneConfirmacionRegistrada(
+    Map<String, dynamic> postulacion,
+    String estadoPrincipal,
+  ) {
+    if (estadoPrincipal == 'confirmado') {
+      return true;
+    }
+
+    final estadoAsignacion = _normalizarEstado(postulacion['estadoAsignacion']);
+    if (estadoAsignacion == 'confirmado') {
+      return true;
+    }
+
+    if (postulacion['asistenciaConfirmada'] == true) {
+      return true;
+    }
+
+    if (postulacion['confirmadoEn'] != null) {
+      return true;
+    }
+
+    return false;
+  }
+
+  int _indiceProgreso(
+    Map<String, dynamic> postulacion,
+    Map<String, dynamic> trabajo, {
+    String? estadoPrincipal,
+    bool? confirmacionRegistrada,
+  }) {
+    final estado = estadoPrincipal ?? _estadoPostulacionPrincipal(postulacion);
+    final estadoAsignacion = _normalizarEstado(postulacion['estadoAsignacion']);
+    final estadoTrabajo = _normalizarEstado(
+      postulacion['estadoTrabajo'] ??
+          trabajo['estadoTrabajo'] ??
+          trabajo['estado'],
+    );
+    final estadoPago = _normalizarEstado(
+      postulacion['estadoPago'] ??
+          trabajo['estadoPago'] ??
+          trabajo['pagoEstado'],
+    );
+    final confirmacion =
+        confirmacionRegistrada ?? _tieneConfirmacionRegistrada(postulacion, estado);
     final trabajoEnCurso = estadoTrabajo == 'en curso' ||
         estadoTrabajo == 'en_curso' ||
         estadoTrabajo == 'activo' ||
@@ -140,16 +198,16 @@ class _PostulacionContent extends StatelessWidget {
         estadoPago == 'en proceso';
     final pagoCompletado = estadoPago == 'completado' || estadoPago == 'pagado';
 
-    if (estado == 'rechazado') {
+    if (estado == 'rechazado' || estadoAsignacion == 'rechazado') {
       return -1;
     }
 
     int indice = 0;
 
-    if (estado == 'aceptado' || estado == 'confirmado') {
+    if (estado == 'aceptado' || confirmacion) {
       indice = 1;
     }
-    if (estado == 'confirmado') {
+    if (confirmacion) {
       indice = 2;
     }
     if (trabajoEnCurso || trabajoCompletado) {
@@ -184,9 +242,9 @@ class _PostulacionContent extends StatelessWidget {
   Color _colorPaso(_PasoEstado estado) {
     switch (estado) {
       case _PasoEstado.completado:
-        return Colors.green;
+        return Colors.green.shade600;
       case _PasoEstado.actual:
-        return const Color(0xFF7B0997);
+        return Colors.amber.shade600;
       case _PasoEstado.pendiente:
         return Colors.grey.shade400;
     }
@@ -215,7 +273,11 @@ class _PostulacionContent extends StatelessWidget {
               height: 34,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: estado == _PasoEstado.completado ? color : Colors.white,
+                color: estado == _PasoEstado.completado
+                    ? color
+                    : estado == _PasoEstado.actual
+                        ? color
+                        : Colors.white,
                 border: Border.all(color: color, width: 2),
               ),
               alignment: Alignment.center,
@@ -224,7 +286,9 @@ class _PostulacionContent extends StatelessWidget {
                   : Text(
                       '${indice + 1}',
                       style: TextStyle(
-                        color: estado == _PasoEstado.actual ? color : Colors.black87,
+                        color: estado == _PasoEstado.actual
+                            ? Colors.white
+                            : Colors.black87,
                         fontWeight: estado == _PasoEstado.actual
                             ? FontWeight.bold
                             : FontWeight.w600,
@@ -281,8 +345,17 @@ class _PostulacionContent extends StatelessWidget {
     final fechaTrabajo = fechaTrabajoTs?.toDate();
     final horaInicio = trabajo['horaInicio'] as Map<String, dynamic>?;
     final empresa = trabajo['empresa'] ?? '';
-    final estadoActual = (postulacion['estado'] as String? ?? '').toLowerCase();
-    final progreso = _indiceProgreso(postulacion, trabajo);
+    final estadoPrincipal = _estadoPostulacionPrincipal(postulacion);
+    final confirmacionRegistrada =
+        _tieneConfirmacionRegistrada(postulacion, estadoPrincipal);
+    final estadoActual =
+        confirmacionRegistrada ? 'confirmado' : estadoPrincipal;
+    final progreso = _indiceProgreso(
+      postulacion,
+      trabajo,
+      estadoPrincipal: estadoPrincipal,
+      confirmacionRegistrada: confirmacionRegistrada,
+    );
 
     final pasos = [
       (
