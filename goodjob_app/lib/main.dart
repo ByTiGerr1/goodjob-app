@@ -14,9 +14,7 @@ import 'src/services/firebase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(const MainApp());
 }
@@ -29,28 +27,34 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // Colores
-        scaffoldBackgroundColor: const Color(0xFFF5F5F5), 
-        primaryColor: const Color(0xFF7B0997), 
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+        primaryColor: const Color(0xFF601272),
+        fontFamily: 'Ubuntu',
 
         colorScheme: const ColorScheme(
-          primary: Color(0xFF7B0997),
+          primary: Color(0xFF601272),
           onPrimary: Colors.white,
-          secondary: Color(0xFFFFD900),
+          secondary: Color(0xFF00C896),
           onSecondary: Colors.black,
           surface: Color(0xFFF5F5F5),
           onSurface: Color(0xFF1E1E1E),
-          error: Color(0xFFFF0000),
+          error: Color(0xFFFF1507),
           onError: Colors.white,
           brightness: Brightness.light,
         ),
-        // Colores appbar
+
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFF5F5F5),
-          foregroundColor: Color.fromARGB(255, 0, 0, 0),
+          foregroundColor: Color(0xFF601272),
           elevation: 0,
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF601272),
+            fontFamily: 'Ubuntu',
+          ),
         ),
-        // Colores botones
+
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFFD900),
@@ -58,57 +62,99 @@ class MainApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Ubuntu',
+            ),
           ),
         ),
-        // Colores de texto
-        fontFamily: 'Roboto',
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(fontSize: 72.0, fontWeight: FontWeight.bold),
-          bodyMedium: TextStyle(color: Color.fromARGB(255, 16, 16, 17), fontSize: 14.0, fontFamily: 'Hind'),
-          bodySmall: TextStyle(color: Colors.white70),
-          headlineSmall: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        //Colores boton secundario con borde
+
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Color(0xFFBDBDBD), width: 2), // Color del borde
-            foregroundColor: const Color.fromARGB(255, 13, 13, 13), // Color del texto
+            side: const BorderSide(color: Color(0xFF00C896), width: 2),
+            foregroundColor: const Color(0xFF00C896),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Ubuntu',
+            ),
           ),
         ),
-        //Colores boton secundario texto
+
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFFBDBDBD),
+            foregroundColor: const Color(0xFF00C896),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Ubuntu',
+            ),
           ),
         ),
-        // Colores inputs
+
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Color(0xFFFAFAFA),
-          labelStyle: const TextStyle(color: Color(0xFF757575)),
-          hintStyle: const TextStyle(color: Color(0xFF757575)),
+          fillColor: const Color(0xFFFAFAFA),
+          labelStyle: const TextStyle(
+            color: Color(0xFF1A75D2),
+            fontFamily: 'Ubuntu',
+          ),
+          hintStyle: const TextStyle(
+            color: Color(0xFF757575),
+            fontFamily: 'Ubuntu',
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(5.0),
             borderSide: const BorderSide(color: Color(0xFF757575)),
           ),
-          
         ),
-        // Colores para la BottomNavigationBar
+
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Color(0xFF7B0997),
-          selectedItemColor: Color(0xFFFFD900), // El ícono/texto seleccionado
-          unselectedItemColor: Color.fromARGB(255, 255, 255, 255), // El ícono/texto no seleccionado
-          type: BottomNavigationBarType.fixed, // Permite tener más de 3 elementos
+          backgroundColor: Color(0xFF601272),
+          selectedItemColor: Color(0xFFFFD900),
+          unselectedItemColor: Colors.white,
+          type: BottomNavigationBarType.fixed,
           elevation: 8.0,
         ),
 
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(
+            fontSize: 32.0,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Ubuntu',
+          ),
+          headlineSmall: TextStyle(
+            fontSize: 24.0,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Ubuntu',
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 14.0,
+            fontWeight: FontWeight.w400,
+            fontFamily: 'Ubuntu',
+            color: Color(0xFF1E1E1E),
+          ),
+          bodySmall: TextStyle(
+            fontSize: 12.0,
+            fontWeight: FontWeight.w300,
+            fontFamily: 'Ubuntu',
+            color: Colors.white70,
+          ),
+          labelLarge: TextStyle(
+            fontSize: 16.0,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Ubuntu',
+          ),
+        ),
       ),
+
       home: const AuthGate(),
       routes: {
         'welcome': (_) => const WelcomeScreen(),
