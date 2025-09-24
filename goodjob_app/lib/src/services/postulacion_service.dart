@@ -81,6 +81,7 @@ class PostulacionService {
     required String postulanteId,
     required String nuevoEstado,
     String? trabajoTitulo,
+    bool limitarAUsuario = false,
   }) async {
     final estadoNormalizado = nuevoEstado.toLowerCase();
     final postulacionRef = _firestore
@@ -103,22 +104,33 @@ class PostulacionService {
       data['fechaAceptacion'] = FieldValue.serverTimestamp();
     }
 
+    final usuarioData = {
+      ...data,
+      'trabajoId': trabajoId,
+      'usuarioId': postulanteId,
+      if (trabajoTitulo != null) 'trabajoTitulo': trabajoTitulo,
+    };
+
+    if (limitarAUsuario) {
+      await postulacionesUsuarioRef.set(
+        usuarioData,
+        SetOptions(merge: true),
+      );
+      return;
+    }
+
     final batch = _firestore.batch();
     batch.update(postulacionRef, data);
 
     batch.set(
       postulacionesUsuarioRef,
-      {
-        ...data,
-        'trabajoId': trabajoId,
-        'usuarioId': postulanteId,
-        if (trabajoTitulo != null) 'trabajoTitulo': trabajoTitulo,
-      },
+      usuarioData,
       SetOptions(merge: true),
     );
 
     await batch.commit();
   }
+
 
   // Obtiene las postulaciones de un usuario específico
   Stream<QuerySnapshot> obtenerPostulacionesDeUsuario(String uid) {

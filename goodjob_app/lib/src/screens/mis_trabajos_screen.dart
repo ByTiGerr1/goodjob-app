@@ -61,12 +61,14 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     }
   }
 
-  void _mostrarNotificacion(
-      BuildContext context, String titulo, String estado) {
+  void _mostrarNotificacion(String titulo, String estado) {
+    if (!mounted) return;
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    if (scaffoldMessenger == null) return;
     final mensaje = estado == 'aceptado'
         ? 'Tu postulación a "$titulo" fue aceptada'
         : 'Tu postulación a "$titulo" fue rechazada';
-    ScaffoldMessenger.of(context).showSnackBar(
+    scaffoldMessenger.showSnackBar(
       SnackBar(content: Text(mensaje)),
     );
   }
@@ -100,6 +102,17 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         postulanteId: uid,
         nuevoEstado: nuevoEstado,
         trabajoTitulo: trabajoTitulo,
+        limitarAUsuario: true,
+      );
+      if (!mounted) return;
+      final estadoNormalizado = nuevoEstado.toLowerCase();
+      final mensaje = estadoNormalizado == 'confirmado'
+          ? 'Has confirmado tu asistencia.'
+          : estadoNormalizado == 'rechazado'
+              ? 'Has rechazado esta postulación.'
+              : 'Estado de postulación actualizado.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje)),
       );
     } catch (e) {
       print('Error al actualizar estado de la postulación: $e');
@@ -108,7 +121,6 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
       );
     }
   }
-
   Widget _buildConfirmedCard(
       BuildContext context, QueryDocumentSnapshot postulacionDoc) {
     final postulacionData = postulacionDoc.data() as Map<String, dynamic>;
@@ -404,7 +416,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
               if (estado == 'aceptado' || estado == 'rechazado') {
                 final titulo = data['trabajoTitulo'] ?? '';
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _mostrarNotificacion(context, titulo, estado);
+                  _mostrarNotificacion(titulo, estado);
                 });
               }
             }

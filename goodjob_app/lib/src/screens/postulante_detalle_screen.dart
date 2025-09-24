@@ -37,6 +37,8 @@ class PostulanteDetalleScreen extends StatelessWidget {
         nuevoEstado: nuevoEstado,
       );
 
+      if (!context.mounted) return;
+
       final estadoCapitalizado = nuevoEstado.isEmpty
           ? nuevoEstado
           : '${nuevoEstado[0].toUpperCase()}${nuevoEstado.substring(1)}';
@@ -48,11 +50,13 @@ class PostulanteDetalleScreen extends StatelessWidget {
       Navigator.of(context).pop();
     } catch (e) {
       print('Error al actualizar el estado: $e');
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error al actualizar el estado.')),
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
