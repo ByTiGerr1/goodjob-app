@@ -123,6 +123,22 @@ class _PostulacionContent extends StatelessWidget {
     return '';
   }
 
+  bool _esEstadoAceptado(String estado) {
+    switch (estado) {
+      case 'aceptado':
+      case 'aceptada':
+      case 'asignado':
+      case 'asignada':
+      case 'seleccionado':
+      case 'seleccionada':
+      case 'confirmado':
+      case 'confirmada':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   String _estadoPostulacionPrincipal(Map<String, dynamic> postulacion) {
     final candidatos = [
       postulacion['estado'],
@@ -142,6 +158,7 @@ class _PostulacionContent extends StatelessWidget {
 
   bool _tieneConfirmacionRegistrada(
     Map<String, dynamic> postulacion,
+    Map<String, dynamic> trabajo,
     String estadoPrincipal,
   ) {
     if (estadoPrincipal == 'confirmado') {
@@ -153,11 +170,25 @@ class _PostulacionContent extends StatelessWidget {
       return true;
     }
 
+    final estadoAsignacionTrabajo =
+        _normalizarEstado(trabajo['estadoAsignacion']);
+    if (estadoAsignacionTrabajo == 'confirmado') {
+      return true;
+    }
+
     if (postulacion['asistenciaConfirmada'] == true) {
       return true;
     }
 
+    if (trabajo['asistenciaConfirmada'] == true) {
+      return true;
+    }
+
     if (postulacion['confirmadoEn'] != null) {
+      return true;
+    }
+
+    if (trabajo['confirmadoEn'] != null) {
       return true;
     }
 
@@ -182,8 +213,13 @@ class _PostulacionContent extends StatelessWidget {
           trabajo['estadoPago'] ??
           trabajo['pagoEstado'],
     );
-    final confirmacion =
-        confirmacionRegistrada ?? _tieneConfirmacionRegistrada(postulacion, estado);
+    final confirmacion = confirmacionRegistrada ??
+        _tieneConfirmacionRegistrada(postulacion, trabajo, estado);
+    final aceptadoFlag = postulacion['aceptado'] == true ||
+        postulacion['asignado'] == true ||
+        trabajo['aceptado'] == true ||
+        trabajo['asignado'] == true;
+
     final trabajoEnCurso = estadoTrabajo == 'en curso' ||
         estadoTrabajo == 'en_curso' ||
         estadoTrabajo == 'activo' ||
@@ -202,30 +238,38 @@ class _PostulacionContent extends StatelessWidget {
       return -1;
     }
 
-    int indice = 0;
+    final aceptado = aceptadoFlag ||
+        _esEstadoAceptado(estado) ||
+        _esEstadoAceptado(estadoAsignacion) ||
+        confirmacion ||
+        trabajoEnCurso ||
+        trabajoCompletado ||
+        pagoEnCurso ||
+        pagoCompletado;
 
-    if (estado == 'aceptado' || confirmacion) {
-      indice = 1;
-    }
-    if (confirmacion) {
-      indice = 2;
-    }
-    if (trabajoEnCurso || trabajoCompletado) {
-      indice = 3;
-    }
-    if (trabajoCompletado) {
-      indice = 4;
-    }
-    if (pagoEnCurso || pagoCompletado) {
-      indice = 5;
-    }
-    if (pagoCompletado) {
-      indice = 6;
+    final etapasCompletadas = <bool>[
+      aceptado,
+      aceptado,
+      confirmacion ||
+          trabajoEnCurso ||
+          trabajoCompletado ||
+          pagoEnCurso ||
+          pagoCompletado,
+      trabajoCompletado || pagoEnCurso || pagoCompletado,
+      trabajoCompletado || pagoEnCurso || pagoCompletado,
+      pagoCompletado,
+      pagoCompletado,
+    ];
+
+    final siguientePendiente =
+        etapasCompletadas.indexWhere((completado) => !completado);
+
+    if (siguientePendiente == -1) {
+      return etapasCompletadas.length;
     }
 
-    return indice;
+    return siguientePendiente;
   }
-
   _PasoEstado _estadoPaso(int paso, int indiceActual) {
     if (indiceActual < 0) {
       return _PasoEstado.pendiente;
@@ -347,7 +391,7 @@ class _PostulacionContent extends StatelessWidget {
     final empresa = trabajo['empresa'] ?? '';
     final estadoPrincipal = _estadoPostulacionPrincipal(postulacion);
     final confirmacionRegistrada =
-        _tieneConfirmacionRegistrada(postulacion, estadoPrincipal);
+        _tieneConfirmacionRegistrada(postulacion, trabajo, estadoPrincipal);
     final estadoActual =
         confirmacionRegistrada ? 'confirmado' : estadoPrincipal;
     final progreso = _indiceProgreso(
