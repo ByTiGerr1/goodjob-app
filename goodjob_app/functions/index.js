@@ -31,13 +31,13 @@ setGlobalOptions({maxInstances: 10});
 // });
 
 const {encryptData, decryptData} = require("./encryption");
+const {notifyTrabajoCancelado} = require("./notifications");
+const { liberarPostulacionesExpiradas } = require("./liberarPostulaciones");
 
 // Exportamos las funciones para Firebase
 exports.encryptData = encryptData;
 exports.decryptData = decryptData;
-
-const { liberarPostulacionesExpiradas } = require("./liberarPostulaciones");
-
+exports.notifyTrabajoCancelado = notifyTrabajoCancelado;
 // Exporta la función programada.
 // En este caso, la función se ejecutará cada 15 minutos.
 exports.liberarPostulacionesExpiradas = functions.pubsub
