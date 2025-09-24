@@ -69,8 +69,37 @@ class PostulantesTrabajoScreen extends StatelessWidget {
                   final usuarioData = usuarioSnapshot.data!;
                   final nombre = usuarioData['nombre'] ?? 'Nombre no disponible';
                   final carrera = usuarioData['carrera'] ?? 'Carrera no disponible';
-                  final descripcion = usuarioData['descripcion'] ?? 'Sin descripción';
-                  final estado = postulacionData['estado'] ?? 'Pendiente';
+                  final descripcion = usuarioData['descripcion'] ?? 'Sin descripción';      
+                  final estado = (postulacionData['estado'] ?? 'pendiente')
+                      .toString()
+                      .toLowerCase();
+
+                  Color estadoColor;
+                  IconData estadoIcono;
+                  String estadoTexto;
+
+                  switch (estado) {
+                    case 'aceptado':
+                      estadoColor = Colors.green.shade600;
+                      estadoIcono = Icons.check_circle_outline;
+                      estadoTexto = 'Aceptado';
+                      break;
+                    case 'rechazado':
+                      estadoColor = Colors.red.shade600;
+                      estadoIcono = Icons.cancel_outlined;
+                      estadoTexto = 'Rechazado';
+                      break;
+                    case 'confirmado':
+                      estadoColor = Colors.blue.shade600;
+                      estadoIcono = Icons.task_alt;
+                      estadoTexto = 'Confirmado';
+                      break;
+                    default:
+                      estadoColor = Colors.orange.shade600;
+                      estadoIcono = Icons.hourglass_bottom;
+                      estadoTexto = 'Pendiente';
+                      break;
+                  }
 
                   return Card(
                     elevation: 2,
@@ -139,6 +168,41 @@ class PostulantesTrabajoScreen extends StatelessWidget {
                                   ),
                                 ],
                               ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: estadoColor.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: estadoColor.withOpacity(0.5)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        estadoIcono,
+                                        color: estadoColor,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        estadoTexto,
+                                        style: TextStyle(
+                                          color: estadoColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

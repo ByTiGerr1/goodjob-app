@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'detalle_trabajo_screen.dart';
 import '../services/firebase_service.dart';
 import '../services/postulacion_service.dart';
 import '../services/user_eligibility_service.dart';
@@ -8,6 +7,7 @@ import '../widgets/user_eligibility_gate.dart';
 import '../widgets/verification_required_view.dart';
 import 'account_verification_screen.dart';
 import 'login_screen.dart';
+import 'seguimiento_postulacion_screen.dart';
 
 class MisTrabajosScreen extends StatefulWidget {
   const MisTrabajosScreen({super.key});
@@ -206,7 +206,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => DetalleTrabajoScreen(
+                          builder: (context) => SeguimientoPostulacionScreen(
                             trabajoId: trabajoId,
                             trabajo: trabajoData,
                           ),
@@ -221,7 +221,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('Ver más'),
+                    child: const Text('Ver seguimiento'),
                   ),
                 ),
               ],
