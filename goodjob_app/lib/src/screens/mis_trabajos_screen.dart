@@ -82,7 +82,6 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
   }
 
   Future<void> _actualizarEstadoPostulacion(
-    BuildContext context,
     String trabajoId,
     String nuevoEstado,
     {
@@ -90,7 +89,9 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
   }) async {
     final uid = _authService.currentUser?.uid;
     if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
         const SnackBar(content: Text('Usuario no autenticado.')),
       );
       return;
@@ -105,22 +106,24 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         limitarAUsuario: true,
       );
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
       final estadoNormalizado = nuevoEstado.toLowerCase();
       final mensaje = estadoNormalizado == 'confirmado'
           ? 'Has confirmado tu asistencia.'
           : estadoNormalizado == 'rechazado'
               ? 'Has rechazado esta postulación.'
               : 'Estado de postulación actualizado.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensaje)),
-      );
+      messenger?.showSnackBar(SnackBar(content: Text(mensaje)));
     } catch (e) {
       print('Error al actualizar estado de la postulación: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
         const SnackBar(content: Text('No se pudo actualizar la postulación.')),
       );
     }
   }
+
   Widget _buildConfirmedCard(
       BuildContext context, QueryDocumentSnapshot postulacionDoc) {
     final postulacionData = postulacionDoc.data() as Map<String, dynamic>;
@@ -305,7 +308,6 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                       ElevatedButton(
                         onPressed: () async {
                           await _actualizarEstadoPostulacion(
-                            context,
                             trabajoId,
                             'confirmado',
                             trabajoTitulo: titulo,
@@ -321,7 +323,6 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                       OutlinedButton(
                         onPressed: () async {
                           await _actualizarEstadoPostulacion(
-                            context,
                             trabajoId,
                             'rechazado',
                             trabajoTitulo: titulo,

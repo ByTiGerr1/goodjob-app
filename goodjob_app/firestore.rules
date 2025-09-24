@@ -24,7 +24,15 @@ service cloud.firestore {
           request.auth.uid == usuarioId &&
           request.resource.data.usuarioId == request.auth.uid &&
           request.resource.data.trabajoId == postulacionId;
-        allow update, delete: if isAdmin();
+        allow update: if isAdmin() || (
+          isSignedIn() &&
+          request.auth.uid == usuarioId &&
+          request.resource.data.usuarioId == request.auth.uid &&
+          request.resource.data.trabajoId == postulacionId &&
+          request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(['estado', 'fechaAceptacion', 'trabajoTitulo'])
+        );
+        allow delete: if isAdmin();
       }
     }
 
