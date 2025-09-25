@@ -23,8 +23,7 @@ class EncryptionService {
     }
 
     try {
-      final result = await _encryptCallable
-          .call<Map<String, dynamic>>({'text': sanitized});
+      final result = await _encryptCallable.call({'text': sanitized});
       final data = result.data;
       final encrypted = data['encrypted'];
       if (encrypted is String) {
@@ -53,8 +52,7 @@ class EncryptionService {
     }
 
     try {
-      final result = await _decryptCallable
-          .call<Map<String, dynamic>>({'encrypted': sanitized});
+      final result = await _decryptCallable.call({'encrypted': sanitized});
       final data = result.data;
       final decrypted = data['decrypted'];
       if (decrypted is String) {

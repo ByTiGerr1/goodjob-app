@@ -7,6 +7,7 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
+const functions = require("firebase-functions/v1");
 const {setGlobalOptions} = require("firebase-functions");
 
 
@@ -30,6 +31,7 @@ setGlobalOptions({maxInstances: 10});
 //   response.send("Hello from Firebase!");
 // });
 
+const admin = require('./firebaseAdmin');
 const {encryptData, decryptData} = require("./encryption");
 const {notifyTrabajoCancelado} = require("./notifications");
 const { liberarPostulacionesExpiradas } = require("./liberarPostulaciones");

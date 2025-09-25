@@ -1,7 +1,6 @@
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
+const functions = require("firebase-functions/v1");
+const admin = require('./firebaseAdmin');
 
-admin.initializeApp();
 // Notificaciones cuando un trabajo es cancelado
 exports.notifyTrabajoCancelado = functions.firestore
   .document('trabajos/{trabajoId}')

@@ -1,9 +1,16 @@
-const functions = require("firebase-functions");
-const {SecretManagerServiceClient} = require("@google-cloud/secret-manager");
-const crypto = require("crypto");
+import { onCall } from "firebase-functions/v2/https";
+import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
+import crypto from "crypto";
 
 // Cliente de Secret Manager
 const client = new SecretManagerServiceClient();
+
+// Configuración para las funciones
+const functionOptions = {
+  region: "us-central1",
+  timeoutSeconds: 60,
+  memory: "256MiB",
+};
 
 // Reemplazar YOUR_PROJECT_ID por el ID de tu proyecto Firebase
 const PROJECT_ID = "good-job-1";
@@ -23,21 +30,20 @@ async function getEncryptionKey() {
 
 /**
  * Cifra texto plano utilizando AES-256-CBC.
- * @param {{text: unknown}} data Datos recibidos desde el cliente.
+ * @param {Object} request - Request object from Firebase Functions v2
  * @return {Promise<{encrypted: string}>} Texto cifrado en base64.
  */
-exports.encryptData = functions.https.onCall(async (data, context) => {
-  const text = data?.text;
-  if (text === undefined || text === null) {
-    throw new functions.https.HttpsError(
-        "invalid-argument", "No text provided",
-    );
+export const encryptData = onCall(functionOptions, async (request) => {
+  const text = request.data?.text;
+  console.log("Texto recibido:", text);
+
+  if (!text) {
+    throw new Error("invalid-argument: No text provided");
   }
 
   const plainText = typeof text === "string" ? text : String(text);
 
   const key = await getEncryptionKey();
-
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
 
@@ -47,20 +53,21 @@ exports.encryptData = functions.https.onCall(async (data, context) => {
   const payload = Buffer
       .concat([iv, Buffer.from(encrypted, "base64")])
       .toString("base64");
-  return {encrypted: payload};
+  
+  console.log("Encriptación exitosa");
+  return { encrypted: payload };
 });
 
 /**
  * Desencripta texto cifrado generado por encryptData.
- * @param {{encrypted: unknown}} data Datos recibidos desde el cliente.
+ * @param {Object} request - Request object from Firebase Functions v2
  * @return {Promise<{decrypted: string}>} Texto desencriptado.
  */
-exports.decryptData = functions.https.onCall(async (data, context) => {
-  const encrypted = data?.encrypted;
+export const decryptData = onCall(functionOptions, async (request) => {
+  const encrypted = request.data?.encrypted;
+  
   if (typeof encrypted !== "string" || encrypted.length === 0) {
-    throw new functions.https.HttpsError(
-        "invalid-argument", "No encrypted data provided",
-    );
+    throw new Error("invalid-argument: No encrypted data provided");
   }
 
   const key = await getEncryptionKey();
@@ -73,5 +80,5 @@ exports.decryptData = functions.https.onCall(async (data, context) => {
   let decrypted = decipher.update(encryptedText, undefined, "utf8");
   decrypted += decipher.final("utf8");
 
-  return {decrypted};
+  return { decrypted };
 });
