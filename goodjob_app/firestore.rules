@@ -17,6 +17,11 @@ service cloud.firestore {
       allow read, update: if isSignedIn() && request.auth.uid == usuarioId;
       allow read, update, delete: if isAdmin();
 
+      match /fcm_tokens/{tokenId} {
+        allow read: if isSignedIn() && request.auth.uid == usuarioId;
+        allow create, update, delete: if isSignedIn() && request.auth.uid == usuarioId;
+      }
+
       match /postulaciones/{postulacionId} {
         allow read: if isAdmin() ||
           (isSignedIn() && request.auth.uid == usuarioId);
