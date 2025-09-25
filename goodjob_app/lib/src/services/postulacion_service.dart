@@ -46,6 +46,8 @@ class PostulacionService {
         .doc(usuarioId)
         .collection('postulaciones')
         .doc(trabajoId);
+      // Calcular el tiempo actual + 24 horas
+    final confirmarAntesDe = Timestamp.now().toDate().add(Duration(hours: 24));
 
     final data = <String, dynamic>{
       'trabajoId': trabajoId,
@@ -53,6 +55,7 @@ class PostulacionService {
       'usuarioId': usuarioId,
       'estado': 'pendiente',
       'fechaPostulacion': FieldValue.serverTimestamp(),
+      'confirmarAntesDe': Timestamp.fromDate(confirmarAntesDe), // Agregado
     };
 
     final batch = _firestore.batch();
