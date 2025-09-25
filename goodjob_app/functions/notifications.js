@@ -1,21 +1,30 @@
-const functions = require("firebase-functions/v1");
-const admin = require('./firebaseAdmin');
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import admin from './firebaseAdmin.js';
 
-// Notificaciones cuando un trabajo es cancelado
-exports.notifyTrabajoCancelado = functions.firestore
-  .document('trabajos/{trabajoId}')
-  .onUpdate(async (change, context) => {
-    const trabajoId = context.params.trabajoId;
-    const before = change.before.data();
-    const after = change.after.data();
+/**
+ * Notificaciones cuando un trabajo es cancelado
+ */
+export const notifyTrabajoCancelado = onDocumentUpdated({
+  document: 'trabajos/{trabajoId}',
+}, async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    console.log('No data associated with the event');
+    return;
+  }
 
-    // Solo continuar si el estado cambió a "cancelado"
-    if (before.estado === 'cancelado' || after.estado !== 'cancelado') {
-      return null;
-    }
+  const before = snapshot.before.data();
+  const after = snapshot.after.data();
+  const trabajoId = event.params.trabajoId;
 
-    const titulo = after.titulo || "este trabajo";
+  if (before.estado === 'cancelado' || after.estado !== 'cancelado') {
+    console.log('El estado no cambió a cancelado o ya estaba cancelado');
+    return null;
+  }
 
+  const titulo = after.titulo || "este trabajo";
+
+  try {
     // Obtener todas las postulaciones del trabajo
     const postulacionesSnap = await admin
       .firestore()
@@ -75,10 +84,14 @@ exports.notifyTrabajoCancelado = functions.firestore
     // Opcional: limpiar tokens inválidos automáticamente
     response.responses.forEach((resp, idx) => {
       if (!resp.success) {
-        console.log(`Token inválido: ${tokens[idx]}, eliminando...`);
-        // Aquí podrías borrar el token de Firestore
+        console.log(`Token inválido: ${tokens[idx]}, error:`, resp.error);
+        // Agregar lógica para borrar el token de Firestore si es necesario
       }
     });
 
     return null;
-  });
+  } catch (error) {
+    console.error('Error en notifyTrabajoCancelado:', error);
+    return null;
+  }
+});

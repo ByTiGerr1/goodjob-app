@@ -42,9 +42,4 @@ exports.decryptData = decryptData;
 exports.notifyTrabajoCancelado = notifyTrabajoCancelado;
 // Exporta la función programada.
 // En este caso, la función se ejecutará cada 15 minutos.
-exports.liberarPostulacionesExpiradas = functions.pubsub
-  .schedule("every 15 minutes")
-  .onRun(async (context) => {
-    console.log("Iniciando la función programada.");
-    return liberarPostulacionesExpiradas();
-  });
+exports.liberarPostulacionesExpiradas = liberarPostulacionesExpiradas;

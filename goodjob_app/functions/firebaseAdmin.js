@@ -1,7 +1,7 @@
-const admin = require('firebase-admin');
+import admin from 'firebase-admin';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-module.exports = admin;
+export default admin;
