@@ -413,8 +413,34 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       return;
     }
 
-    if (_fechaLimite!.isAfter(_fechaTrabajo!)) {
-      _showError('La fecha límite no puede ser posterior a la fecha del trabajo.');
+    final fechaTrabajoConHora = DateTime(
+      _fechaTrabajo!.year,
+      _fechaTrabajo!.month,
+      _fechaTrabajo!.day,
+      _horaInicio!.hour,
+      _horaInicio!.minute,
+    );
+
+    final bool mismaFechaLimiteQueTrabajo =
+        _fechaLimite!.year == _fechaTrabajo!.year &&
+            _fechaLimite!.month == _fechaTrabajo!.month &&
+            _fechaLimite!.day == _fechaTrabajo!.day;
+
+    final fechaLimiteConHora = DateTime(
+      _fechaLimite!.year,
+      _fechaLimite!.month,
+      _fechaLimite!.day,
+      _horaInicio!.hour,
+      _horaInicio!.minute,
+    );
+
+    final fechaLimiteFinal = mismaFechaLimiteQueTrabajo
+        ? fechaTrabajoConHora.subtract(const Duration(hours: 1))
+        : fechaLimiteConHora;
+
+    if (!fechaLimiteFinal.isBefore(fechaTrabajoConHora)) {
+      _showError(
+          'La fecha límite debe ser al menos una hora antes de la hora de inicio.');
       return;
     }
     final ini = _horaInicio!.hour * 60 + _horaInicio!.minute;
@@ -446,8 +472,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             'lng': _ubicacionLatLng!.longitude,
           },
         },
-        fechaLimite: _fechaLimite!,
-        fechaTrabajo: _fechaTrabajo!,
+        fechaLimite: fechaLimiteFinal,
+        fechaTrabajo: fechaTrabajoConHora,
         horaInicio: _horaInicio!,
         horaFin: _horaFin!,
         precio: double.tryParse(_precioCtrl.text) ?? 0,
