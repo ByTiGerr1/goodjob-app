@@ -46,14 +46,6 @@ class WelcomeScreen extends StatelessWidget {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Y comienza a hacer dinero fácil',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color.fromARGB(179, 255, 255, 255),
-                    ),
-                  ),
                   const SizedBox(height: 44),
                   SizedBox(
                     width: double.infinity,
@@ -68,7 +60,6 @@ class WelcomeScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      
                       onPressed: () => Navigator.pushNamed(context, 'login'),
                       child: const Text('Iniciar sesión'),
                     ),

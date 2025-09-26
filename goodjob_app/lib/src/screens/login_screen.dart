@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
               width: double.infinity,
               decoration: const BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage('assets/images/monachina.webp'), // Asegúrate de que esta sea la ruta correcta a tu imagen
+                  image: AssetImage('assets/images/onboarding.jpg'), // Asegúrate de que esta sea la ruta correcta a tu imagen
                   fit: BoxFit.cover,
                 ),
               ),
