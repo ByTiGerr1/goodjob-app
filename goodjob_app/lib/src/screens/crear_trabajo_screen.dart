@@ -153,7 +153,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Ubicación del trabajo',
-                  style: Theme.of(context).textTheme.titleMedium),
+                  style: Theme.of(context).textTheme.headlineSmall),
               TextFormField(
                 controller: _ubicacionDireccionCtrl,
                 decoration: const InputDecoration(labelText: 'Dirección'),

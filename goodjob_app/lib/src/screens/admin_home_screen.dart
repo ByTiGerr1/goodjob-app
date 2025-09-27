@@ -217,11 +217,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Estado: $estado',
-                                        style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.grey),
+                                        '$estado',
+                                        style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        // 👇 Lógica de color condicional
+                        color: estado == 'Activo'
+                            ? const Color.fromARGB(255, 0, 0, 0)
+                            : const Color.fromARGB(255, 134, 134, 134), 
+                      ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
@@ -237,7 +241,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                       Row(
                                         children: [
                                           Text(
-                                            'Disponible hasta: ',
+                                            '',
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodyMedium
@@ -345,68 +349,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       body: _currentIndex == 0
           ? _buildTrabajosPublicados()
           : const AdminPagosScreen(),
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6.0,
-        color: Theme.of(context).colorScheme.primary,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: () => setState(() => _currentIndex = 0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.work,
-                        color: _currentIndex == 0
-                            ? Theme.of(context).colorScheme.secondary
-                            : Theme.of(context).colorScheme.onPrimary,
-                      ),
-                      Text(
-                        'Trabajos publicados',
-                        style: TextStyle(
-                          color: _currentIndex == 0
-                              ? Theme.of(context).colorScheme.secondary
-                              : Theme.of(context).colorScheme.onPrimary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 48),
-              Expanded(
-                child: TextButton(
-                  onPressed: () => setState(() => _currentIndex = 1),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.assignment,
-                        color: _currentIndex == 1
-                            ? Theme.of(context).colorScheme.secondary
-                            : Theme.of(context).colorScheme.onPrimary,
-                      ),
-                      Text(
-                        'Pagos',
-                        style: TextStyle(
-                          color: _currentIndex == 1
-                              ? Theme.of(context).colorScheme.secondary
-                              : Theme.of(context).colorScheme.onPrimary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Trabajos'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.assignment), label: 'Mis pagos'),
+        ],
       ),
     );
   }

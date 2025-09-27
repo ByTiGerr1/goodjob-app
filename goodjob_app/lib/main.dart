@@ -87,7 +87,6 @@ class MainApp extends StatelessWidget {
 
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: const Color.fromARGB(255, 254, 254, 254),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
@@ -101,9 +100,9 @@ class MainApp extends StatelessWidget {
 
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: const Color.fromARGB(255, 215, 209, 209),
           labelStyle: const TextStyle(
-            color: Color(0xFF1A75D2),
+            color: Color.fromARGB(255, 27, 27, 28),
             fontFamily: 'Ubuntu',
           ),
           hintStyle: const TextStyle(
@@ -139,13 +138,11 @@ class MainApp extends StatelessWidget {
             fontSize: 14.0,
             fontWeight: FontWeight.w400,
             fontFamily: 'Ubuntu',
-            color: Color(0xFF1E1E1E),
           ),
           bodySmall: TextStyle(
             fontSize: 12.0,
             fontWeight: FontWeight.w300,
             fontFamily: 'Ubuntu',
-            color: Colors.white70,
           ),
           labelLarge: TextStyle(
             fontSize: 16.0,
