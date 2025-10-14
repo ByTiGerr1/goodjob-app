@@ -1,24 +1,188 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:goodjob_app/src/screens/postulante_detalle_screen.dart';
+import '../services/postulacion_service.dart';
+import 'postulante_detalle_screen.dart'; // Asegúrate de que esta importación sea correcta
 
+// --- WIDGET AUXILIAR: Tarjeta de Postulante (Maneja FutureBuilder internamente) ---
+
+class _PostulanteCard extends StatelessWidget {
+  final String usuarioId;
+  final String trabajoId;
+  final Map<String, dynamic> postulacionData;
+  final Future<Map<String, dynamic>> Function(String) obtenerDatosUsuario;
+  
+  // Colores de estado basados en el Theme
+  final Color primaryColor;
+  final Color successColor = Colors.green.shade600;
+  final Color rejectColor = Colors.red.shade600;
+  final Color pendingColor; // Usaremos el secondaryColor del tema
+
+  _PostulanteCard({
+    required this.usuarioId,
+    required this.trabajoId,
+    required this.postulacionData,
+    required this.obtenerDatosUsuario,
+    required this.primaryColor,
+    required Color secondaryColor,
+  }) : pendingColor = secondaryColor; // Asignamos secondaryColor a pendingColor
+
+  // Mapeo de estado a colores y texto
+  Map<String, dynamic> _getEstadoInfo() {
+    final estado = (postulacionData['estado'] ?? 'pendiente').toString().toLowerCase();
+
+    switch (estado) {
+      case 'aceptado':
+        return {'color': successColor, 'icono': Icons.check_circle_outline, 'texto': 'Aceptado'};
+      case 'rechazado':
+        return {'color': rejectColor, 'icono': Icons.cancel_outlined, 'texto': 'Rechazado'};
+      case 'confirmado':
+        return {'color': primaryColor, 'icono': Icons.task_alt, 'texto': 'Confirmado'};
+      default:
+        // Usamos el color de acento (amarillo) para pendiente
+        return {'color': pendingColor, 'icono': Icons.hourglass_bottom, 'texto': 'Pendiente'};
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final estadoInfo = _getEstadoInfo();
+    final estadoColor = estadoInfo['color'] as Color;
+    final estadoIcono = estadoInfo['icono'] as IconData;
+    final estadoTexto = estadoInfo['texto'] as String;
+
+    return FutureBuilder<Map<String, dynamic>>(
+      future: obtenerDatosUsuario(usuarioId),
+      builder: (context, usuarioSnapshot) {
+        if (usuarioSnapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            elevation: 1,
+            child: ListTile(title: Text('Cargando postulante...')),
+          );
+        }
+        
+        final usuarioData = usuarioSnapshot.data ?? {};
+        final nombre = usuarioData['nombre'] ?? 'Nombre N/D';
+        final carrera = usuarioData['carrera'] ?? 'Carrera N/D';
+        final inicial = nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?';
+
+        return Card(
+          elevation: 3,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => PostulanteDetalleScreen(
+                    usuarioId: usuarioId,
+                    trabajoId: trabajoId,
+                  ),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Avatar de Perfil
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: primaryColor.withOpacity(0.15),
+                    child: Text(
+                      inicial,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  
+                  // Información Principal
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nombre,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          carrera,
+                          style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Chip de Estado
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: estadoColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(estadoIcono, size: 16, color: estadoColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          estadoTexto,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: estadoColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// --- PANTALLA PRINCIPAL ---
 
 class PostulantesTrabajoScreen extends StatelessWidget {
   final String trabajoId;
 
   const PostulantesTrabajoScreen({super.key, required this.trabajoId});
 
+  // Reubicación y simplificación del método de obtención de datos del usuario
   Future<Map<String, dynamic>> _obtenerDatosUsuario(String usuarioId) async {
-    final docSnapshot = await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
-    return docSnapshot.data() ?? {};
+    try {
+      final docSnapshot = await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
+      return docSnapshot.data() ?? {};
+    } catch (e) {
+      print('Error al obtener datos del usuario: $e');
+      return {};
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Acceso a los colores del tema
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Postulantes'),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        title: const Text('Gestión de Postulantes'),
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -34,182 +198,62 @@ class PostulantesTrabajoScreen extends StatelessWidget {
             return Center(child: Text('Error al cargar postulantes: ${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No hay postulantes para este trabajo.'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_off_outlined, size: 80, color: Colors.grey.shade400),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Aún no hay postulantes para este trabajo.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 18, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Comparte la oferta para recibir más solicitudes.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
 
-          final postulaciones = snapshot.data!.docs;
+          // Ordenar por estado (Pendiente primero, luego Aceptado/Confirmado, luego Rechazado)
+          final postulaciones = snapshot.data!.docs.toList();
+          postulaciones.sort((a, b) {
+            final aData = a.data() as Map<String, dynamic>;
+            final bData = b.data() as Map<String, dynamic>;
+            final estadoA = (aData['estado'] ?? 'pendiente').toString().toLowerCase();
+            final estadoB = (bData['estado'] ?? 'pendiente').toString().toLowerCase();
+
+            const order = ['pendiente', 'aceptado', 'confirmado', 'rechazado'];
+            return order.indexOf(estadoA).compareTo(order.indexOf(estadoB));
+          });
+
 
           return ListView.builder(
             itemCount: postulaciones.length,
             itemBuilder: (context, index) {
-              // Obtén el ID del documento de postulación
-              final postulacionData = postulaciones[index].data() as Map<String, dynamic>;
+              final postulacionDoc = postulaciones[index];
+              final postulacionData = postulacionDoc.data() as Map<String, dynamic>;
               final usuarioId = postulacionData['usuarioId'];
 
               if (usuarioId == null || usuarioId.isEmpty) {
-                return const ListTile(
-                  title: Text('Error: ID de usuario no válido.'),
-                );
+                return const SizedBox.shrink(); 
               }
 
-              return FutureBuilder<Map<String, dynamic>>(
-                future: _obtenerDatosUsuario(usuarioId),
-                builder: (context, usuarioSnapshot) {
-                  if (usuarioSnapshot.connectionState == ConnectionState.waiting) {
-                    return const ListTile(
-                      title: Text('Cargando postulante...'),
-                    );
-                  }
-                  if (usuarioSnapshot.hasError || !usuarioSnapshot.hasData) {
-                    return const ListTile(
-                      title: Text('Error al cargar datos del usuario.'),
-                    );
-                  }
-
-                  final usuarioData = usuarioSnapshot.data!;
-                  final nombre = usuarioData['nombre'] ?? 'Nombre no disponible';
-                  final carrera = usuarioData['carrera'] ?? 'Carrera no disponible';
-                  final descripcion = usuarioData['descripcion'] ?? 'Sin descripción';      
-                  final estado = (postulacionData['estado'] ?? 'pendiente')
-                      .toString()
-                      .toLowerCase();
-
-                  Color estadoColor;
-                  IconData estadoIcono;
-                  String estadoTexto;
-
-                  switch (estado) {
-                    case 'aceptado':
-                      estadoColor = Colors.green.shade600;
-                      estadoIcono = Icons.check_circle_outline;
-                      estadoTexto = 'Aceptado';
-                      break;
-                    case 'rechazado':
-                      estadoColor = Colors.red.shade600;
-                      estadoIcono = Icons.cancel_outlined;
-                      estadoTexto = 'Rechazado';
-                      break;
-                    case 'confirmado':
-                      estadoColor = Colors.blue.shade600;
-                      estadoIcono = Icons.task_alt;
-                      estadoTexto = 'Confirmado';
-                      break;
-                    default:
-                      estadoColor = Colors.orange.shade600;
-                      estadoIcono = Icons.hourglass_bottom;
-                      estadoTexto = 'Pendiente';
-                      break;
-                  }
-
-                  return Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => PostulanteDetalleScreen(
-                              usuarioId: usuarioId,
-                              trabajoId: trabajoId,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              radius: 30,
-                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                              child: Text(
-                                nombre.substring(0, 1).toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    nombre,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    carrera,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    descripcion,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: estadoColor.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: estadoColor.withOpacity(0.5)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        estadoIcono,
-                                        color: estadoColor,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        estadoTexto,
-                                        style: TextStyle(
-                                          color: estadoColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              return _PostulanteCard(
+                usuarioId: usuarioId,
+                trabajoId: trabajoId,
+                postulacionData: postulacionData,
+                obtenerDatosUsuario: _obtenerDatosUsuario,
+                primaryColor: primaryColor,
+                secondaryColor: secondaryColor,
               );
             },
           );

@@ -11,6 +11,7 @@ import 'src/screens/crear_trabajo_screen.dart';
 import 'src/screens/account_verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'src/services/firebase_service.dart';
+import 'theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,13 +29,12 @@ class MainApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
-        primaryColor: const Color(0xFF601272),
         fontFamily: 'Ubuntu',
-
+        primaryColor: AppColors.primary,
         colorScheme: const ColorScheme(
           primary: Color(0xFF601272),
           onPrimary: Colors.white,
-          secondary: Color(0xFF00C896),
+          secondary: Color(0xFFFFD900),
           onSecondary: Colors.black,
           surface: Color(0xFFF5F5F5),
           onSurface: Color(0xFF1E1E1E),
@@ -44,8 +44,6 @@ class MainApp extends StatelessWidget {
         ),
 
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF5F5F5),
-          foregroundColor: Color(0xFF601272),
           elevation: 0,
           titleTextStyle: TextStyle(
             fontSize: 20,
@@ -53,6 +51,7 @@ class MainApp extends StatelessWidget {
             color: Color(0xFF601272),
             fontFamily: 'Ubuntu',
           ),
+          
         ),
 
         elevatedButtonTheme: ElevatedButtonThemeData(
@@ -72,8 +71,8 @@ class MainApp extends StatelessWidget {
 
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Color(0xFF00C896), width: 2),
-            foregroundColor: const Color(0xFF00C896),
+            side: const BorderSide(color: Color(0xFF601272), width: 2),
+            foregroundColor: const Color(0xFF601272),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
@@ -100,7 +99,7 @@ class MainApp extends StatelessWidget {
 
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color.fromARGB(255, 215, 209, 209),
+          fillColor: const Color.fromARGB(255, 255, 255, 255),
           labelStyle: const TextStyle(
             color: Color.fromARGB(255, 27, 27, 28),
             fontFamily: 'Ubuntu',

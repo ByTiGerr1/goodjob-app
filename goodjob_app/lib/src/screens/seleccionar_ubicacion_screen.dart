@@ -20,6 +20,7 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
   void initState() {
     super.initState();
     _mapController = MapController();
+    // Usa la posición inicial proporcionada o una ubicación por defecto
     _selected = widget.initialPosition;
   }
 
@@ -39,8 +40,17 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
         final point = LatLng(loc.latitude, loc.longitude);
         _mapController.move(point, 15);
         setState(() => _selected = point);
+      } else {
+        // Muestra un mensaje si no se encuentra la dirección
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dirección no encontrada.')),
+        );
       }
-    } catch (_) {}
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al buscar la dirección.')),
+      );
+    }
   }
 
   @override
@@ -56,14 +66,18 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
                 Expanded(
                   child: TextField(
                     controller: _searchCtrl,
-                    decoration: const InputDecoration(
-                      hintText: 'Dirección exacta',
+                    decoration: InputDecoration(
+                      hintText: 'Buscar dirección exacta...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
                     onSubmitted: (_) => _buscarDireccion(),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.search),
+                  icon: const Icon(Icons.search, color: Color(0xFF7B0997)),
                   onPressed: _buscarDireccion,
                 )
               ],
@@ -73,7 +87,7 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: widget.initialPosition,
+                initialCenter: _selected ?? widget.initialPosition,
                 initialZoom: 13,
                 onTap: (tapPosition, point) {
                   setState(() => _selected = point);
@@ -89,10 +103,14 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
                   MarkerLayer(
                     markers: [
                       Marker(
-                        width: 40,
-                        height: 40,
+                        width: 50,
+                        height: 50,
                         point: _selected!,
-                        child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                        child: const Icon(
+                          Icons.location_pin, 
+                          color: Colors.red, 
+                          size: 50
+                        ),
                       ),
                     ],
                   ),
@@ -101,14 +119,21 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF7B0997),
         onPressed: _selected == null
             ? null
             : () {
+                // Devuelve la ubicación seleccionada a la pantalla anterior
                 Navigator.of(context).pop(_selected);
               },
-        child: const Icon(Icons.check),
+        label: const Text(
+          'Confirmar Ubicación',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        icon: const Icon(Icons.check, color: Colors.white),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

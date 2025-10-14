@@ -12,6 +12,7 @@ import 'account_verification_screen.dart';
 import 'detalle_trabajo_screen.dart';
 import 'login_screen.dart';
 
+// Opciones de ordenamiento
 enum DisplayOption { upcoming, recent }
 
 class TrabajosScreen extends StatefulWidget {
@@ -32,6 +33,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   String? _ultimoTrabajoSeleccionadoId;
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
 
+  // Color primario utilizado en los selectores/marcadores
+  static const Color _primaryAppColor = Color(0xFF7B0997);
+  static const Color _secondaryAppColor = Color(0xFFE91E63);
+
   bool get _mapReady =>
       _mapController is MapControllerImpl &&
       (_mapController).value.options != null;
@@ -42,6 +47,69 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     super.initState();
     _obtenerUbicacion();
   }
+
+  // --- LÓGICA DE TIEMPO (SOPORTE DUAL-SCHEMA) ---
+
+  /// Función auxiliar para convertir dinámicamente cualquier Map genérico
+  /// a Map<String, dynamic> de forma segura, evitando errores de tipado.
+  Map<String, dynamic>? _safeMapCast(dynamic value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return null;
+  }
+  
+  /// Obtiene la fecha y hora de inicio del trabajo de forma robusta (Dual-Schema).
+  DateTime? _getTrabajoStartDateTime(Map<String, dynamic> trabajo) {
+    // 1. Probar campo nuevo (Timestamp combinado)
+    final newStartTs = trabajo['fechaInicioTrabajo'] as Timestamp?;
+    if (newStartTs != null) return newStartTs.toDate();
+
+    // 2. Probar esquema antiguo (Timestamp de fecha + Map de hora)
+    final oldDateTs = trabajo['fechaTrabajo'] as Timestamp?;
+    final oldHourMap = _safeMapCast(trabajo['horaInicio']);
+
+    if (oldDateTs != null && oldHourMap != null) {
+      final date = oldDateTs.toDate();
+      final h = oldHourMap['h'] as int? ?? 0;
+      final m = oldHourMap['m'] as int? ?? 0;
+      return DateTime(date.year, date.month, date.day, h, m);
+    }
+
+    return null;
+  }
+  
+  /// Obtiene la fecha límite de postulación (Dual-Schema).
+  DateTime? _getFechaLimite(Map<String, dynamic> trabajo) {
+    // Intentar leer el campo principal (fechaLimite)
+    final fechaLimiteTs = trabajo['fechaLimite'] as Timestamp? ??
+        trabajo['fechaLimitePostulacion'] as Timestamp?; // Campo de respaldo
+
+    return fechaLimiteTs?.toDate();
+  }
+  
+  /// Obtiene la fecha y hora de fin del trabajo de forma robusta (Dual-Schema).
+  DateTime? _getTrabajoEndDateTime(Map<String, dynamic> trabajo) {
+    // 1. Probar campo nuevo (Timestamp combinado)
+    final newEndTs = trabajo['fechaFinTrabajo'] as Timestamp?;
+    if (newEndTs != null) return newEndTs.toDate();
+
+    // 2. Probar esquema antiguo (Timestamp de fecha + Map de hora)
+    final oldDateTs = trabajo['fechaTrabajo'] as Timestamp?;
+    final oldHourMap = _safeMapCast(trabajo['horaFin']);
+
+    if (oldDateTs != null && oldHourMap != null) {
+      final date = oldDateTs.toDate();
+      final h = oldHourMap['h'] as int? ?? 0;
+      final m = oldHourMap['m'] as int? ?? 0;
+      return DateTime(date.year, date.month, date.day, h, m);
+    }
+
+    return null;
+  }
+
+
+  // --- LÓGICA DE UBICACIÓN Y MAPA ---
 
   Future<void> _obtenerUbicacion() async {
     try {
@@ -126,17 +194,20 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       List<Map<String, dynamic>> trabajos) {
     final ahora = DateTime.now();
     return trabajos.where((trabajo) {
-      final fechaLimite = trabajo['fechaLimite'];
-      if (fechaLimite is! Timestamp) return true;
-      return !ahora.isAfter(fechaLimite.toDate());
+      final fechaLimite = _getFechaLimite(trabajo);
+      if (fechaLimite == null) return true; // Si no hay fecha límite, se considera vigente
+      return !ahora.isAfter(fechaLimite);
     }).toList();
   }
 
   void _ordenar(List<Map<String, dynamic>> trabajos) {
-    int compareDate(a, b) =>
-        ((a['fechaTrabajo'] as Timestamp?)?.toDate() ?? DateTime(0)).compareTo(
-          (b['fechaTrabajo'] as Timestamp?)?.toDate() ?? DateTime(0),
-        );
+    int compareDate(a, b) {
+      final dateA = _getTrabajoStartDateTime(a);
+      final dateB = _getTrabajoStartDateTime(b);
+      // Usar fecha actual si es nula para forzar el orden
+      return (dateA ?? DateTime.now()).compareTo(dateB ?? DateTime.now());
+    }
+      
     int compareCreated(a, b) =>
         ((a['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0)).compareTo(
           (b['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0),
@@ -144,7 +215,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
     switch (_selectedDisplay) {
       case DisplayOption.upcoming:
-        trabajos.sort(compareDate); // Ordena por fecha de trabajo ascendente
+        trabajos.sort(compareDate); // Ordena por fecha de trabajo ascendente (usando nueva lógica)
         break;
       case DisplayOption.recent:
         trabajos.sort(
@@ -154,13 +225,283 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     }
   }
 
-
   String _formatFecha(DateTime? fecha) {
     if (fecha == null) return 'N/D';
     final day = fecha.day.toString().padLeft(2, '0');
     final month = fecha.month.toString().padLeft(2, '0');
     final year = (fecha.year % 100).toString().padLeft(2, '0');
     return '$day/$month/$year';
+  }
+  
+  // --- WIDGETS DE VISTA ---
+
+  Widget _buildSelectorVista() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSelectorButton(
+            label: 'Lista',
+            isSelected: _vistaActual == 0,
+            onTap: () => setState(() => _vistaActual = 0),
+          ),
+          const SizedBox(width: 8),
+          _buildSelectorButton(
+            label: 'Mapa',
+            isSelected: _vistaActual == 1,
+            onTap: () {
+              setState(() => _vistaActual = 1);
+              // Centrar en ubicación solo cuando el mapa esté listo
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _centrarEnUbicacion();
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectorButton({required String label, required bool isSelected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? _primaryAppColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // WIDGET DE ORDENADOR MEJORADO
+  Widget _buildOrdenador() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildOrdenadorButton(
+            title: 'Próximas',
+            icon: Icons.calendar_today, // Ícono para "Próximas"
+            option: DisplayOption.upcoming,
+          ),
+          const SizedBox(width: 12),
+          _buildOrdenadorButton(
+            title: 'Recientes',
+            icon: Icons.access_time, // Ícono para "Recientes"
+            option: DisplayOption.recent,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildOrdenadorButton({
+    required String title,
+    required IconData icon, 
+    required DisplayOption option,
+  }) {
+    final isSelected = _selectedDisplay == option;
+    final color = isSelected ? _primaryAppColor : Colors.grey[200];
+    final contentColor = isSelected ? Colors.white : Colors.black87;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedDisplay = option),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          // Padding ajustado
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected ? [
+              BoxShadow(
+                color: _primaryAppColor.withOpacity(0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ] : null,
+          ),
+          child: Row( // Uso de Row para ícono y texto
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: contentColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16, 
+                  fontWeight: FontWeight.bold,
+                  color: contentColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLista() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _servicio.obtenerTrabajos(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        var trabajosDocs = snapshot.data?.docs ?? [];
+        if (snapshot.hasError) {
+          // Mejorar el manejo de errores
+          return const Center(child: Text('Error al cargar las ofertas de trabajo.'));
+        }
+        
+        var trabajos = trabajosDocs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final dist = _calcularDistancia(data);
+          return {...data, 'distance': dist, 'id': doc.id};
+        }).toList();
+
+        trabajos = _filtrarTrabajosVigentes(trabajos);
+        _ordenar(trabajos);
+        
+        if (trabajos.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Text(
+                '¡Vaya! No hay ofertas de trabajo vigentes en este momento. Intenta más tarde.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.black54),
+              ),
+            ),
+          );
+        }
+
+        // Se utiliza CustomScrollView para una experiencia de scroll unificada
+        return CustomScrollView(
+          slivers: [
+            // Ordenador fijo en la parte superior
+            SliverToBoxAdapter(child: _buildOrdenador()),
+            
+            // Lista de elementos
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final data = trabajos[index];
+                
+                // --- LECTURA DUAL DE FECHAS (NUEVO) ---
+                final fechaInicio = _getTrabajoStartDateTime(data);
+                final fechaFin = _getTrabajoEndDateTime(data);
+                final fechaLimite = _getFechaLimite(data); // Usado para mostrar si es fecha límite
+                
+                final distancia = data['distance'] as double?;
+                
+                String fechaTxt = _formatFecha(fechaInicio);
+
+                if (fechaInicio != null && fechaFin != null && fechaFin.day != fechaInicio.day) {
+                    fechaTxt = 'Del ${_formatFecha(fechaInicio)} al ${_formatFecha(fechaFin)}';
+                } else if (fechaLimite != null && fechaInicio == null) {
+                    // Si solo tenemos fecha límite y no fecha de inicio (trabajo antiguo/incompleto)
+                    fechaTxt = 'Postula antes del ${_formatFecha(fechaLimite)}';
+                }
+                // Si solo tenemos fecha de inicio, ya se muestra en _formatFecha(fechaInicio)
+
+                return GestureDetector(
+                  onTap: () {
+                    // Asegurar que el objeto de trabajo pasado contenga todos los datos.
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DetalleTrabajoScreen(
+                          trabajoId: data['id'],
+                          trabajo: data,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor: _primaryAppColor,
+                            child: const Icon(Icons.work_outline, size: 28, color: Colors.white),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  data['titulo'] ?? 'Sin título',
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis, maxLines: 2,
+                                ),
+                                Text(
+                                  data['empresa'] ?? 'Empresa N/D',
+                                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '\$${data['precio'] ?? 'N/D'}',
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.event, size: 14, color: Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Text(fechaTxt, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                  ],
+                                ),
+                                if (distancia != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.near_me_outlined, size: 14, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text('${distancia.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+              childCount: trabajos.length,
+            ),
+          )],
+        );
+      },
+    );
   }
 
   Widget _buildMapa() {
@@ -187,23 +528,28 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         final trabajosCercanos = trabajosConDistancia
             .where((trabajo) {
               final distancia = trabajo['distance'] as double?;
-              return distancia != null && distancia <= 10;
+              // Mostrar todos si no se puede obtener la ubicación, o solo cercanos (dentro de 10km)
+              return _currentPosition == null || (distancia != null && distancia <= 10);
             })
             .toList()
-          ..sort((a, b) {
-            final distanciaA = a['distance'] as double? ?? double.infinity;
-            final distanciaB = b['distance'] as double? ?? double.infinity;
-            return distanciaA.compareTo(distanciaB);
-          });
+            ..sort((a, b) {
+              final distanciaA = a['distance'] as double? ?? double.infinity;
+              final distanciaB = b['distance'] as double? ?? double.infinity;
+              return distanciaA.compareTo(distanciaB);
+            });
 
         final markers = <Marker>[];
 
+        // Añadir marcadores de trabajos
         for (final t in trabajos) {
           final ubicacion = t['ubicacion'] as Map<String, dynamic>?;
           final lat = ubicacion?['lat'];
           final lng = ubicacion?['lng'];
           if (lat == null || lng == null) continue;
           final pos = LatLng((lat as num).toDouble(), (lng as num).toDouble());
+          
+          final isSelected = t['id'] == _ultimoTrabajoSeleccionadoId;
+          
           markers.add(
             Marker(
               width: 40,
@@ -211,21 +557,29 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               point: pos,
               child: GestureDetector(
                 onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      content: Text(
-                          '${t['titulo']} - ${String.fromCharCode(36)}${t['precio']}'),
-                    ),
-                  );
+                    setState(() => _ultimoTrabajoSeleccionadoId = t['id']);
+                    _centrarEnTrabajo(t);
+                    // Navegar al carrusel al elemento seleccionado (UX)
+                    final index = trabajosCercanos.indexWhere((tc) => tc['id'] == t['id']);
+                    if (index != -1 && _carouselController.hasClients) {
+                        _carouselController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                        );
+                    }
                 },
-                child:
-                    const Icon(Icons.location_on, color: Colors.red, size: 40),
+                child: Icon(
+                    Icons.location_on, 
+                    color: isSelected ? _secondaryAppColor : _primaryAppColor, 
+                    size: isSelected ? 45 : 35
+                ),
               ),
             ),
           );
         }
 
+        // Marcador de ubicación actual del usuario
         if (_currentPosition != null) {
           markers.add(
             Marker(
@@ -245,7 +599,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 _currentPosition!.latitude, _currentPosition!.longitude)
             : _defaultLocation;
 
-        final zoom = _currentPosition != null ? 16.0 : 5.0;
+        final zoom = _currentPosition != null ? 14.0 : 5.0;
 
         final double fabBottom = trabajosCercanos.isNotEmpty ? 180.0 : 16.0;
         final bool hayTrabajosDisponibles = trabajos.isNotEmpty;
@@ -259,6 +613,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 initialZoom: zoom,
                 maxZoom: 40,
                 minZoom: 9,
+                onMapReady: () {
+                    // Si la ubicación ya está, centramos al iniciar el mapa
+                    if (_currentPosition != null) {
+                        _centrarEnUbicacion();
+                    }
+                }
               ),
               children: [
                 TileLayer(
@@ -269,37 +629,26 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 MarkerLayer(markers: markers),
               ],
             ),
+            
+            // Mensaje de que no hay trabajos
             if (!hayTrabajosDisponibles)
               Positioned.fill(
                 child: IgnorePointer(
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
                       ),
-                      child: const Text(
-                        'No hay trabajos disponibles',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: const Text('No hay trabajos disponibles', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ),
               ),
+            
+            // Botón para centrar en ubicación
             if (_currentPosition != null)
               Positioned(
                 bottom: fabBottom,
@@ -307,9 +656,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 child: FloatingActionButton(
                   mini: true,
                   onPressed: _centrarEnUbicacion,
-                  child: const Icon(Icons.my_location),
+                  backgroundColor: _primaryAppColor,
+                  child: const Icon(Icons.my_location, color: Colors.white),
                 ),
               ),
+              
+            // Carrusel de trabajos cercanos
             if (trabajosCercanos.isNotEmpty)
               Positioned(
                 left: 0,
@@ -318,27 +670,18 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Indicación UX más limpia
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: const Text(
-                        'Selecciona una tarjeta para ver su ubicación y toca nuevamente para ver detalles',
+                        'Selecciona el pin o desliza para ver los trabajos cercanos',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: 12, color: Colors.white),
                       ),
                     ),
                     SizedBox(
@@ -346,18 +689,22 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                       child: PageView.builder(
                         controller: _carouselController,
                         itemCount: trabajosCercanos.length,
+                        onPageChanged: (index) {
+                            // Centrar el mapa en el trabajo seleccionado al deslizar
+                            final trabajo = trabajosCercanos[index];
+                            setState(() => _ultimoTrabajoSeleccionadoId = trabajo['id']);
+                            _centrarEnTrabajo(trabajo);
+                        },
                         itemBuilder: (context, index) {
                           final trabajo = trabajosCercanos[index];
                           final id = trabajo['id'] as String?;
-                          final seleccionado =
-                              id != null && id == _ultimoTrabajoSeleccionadoId;
+                          final seleccionado = id != null && id == _ultimoTrabajoSeleccionadoId;
                           final distancia = trabajo['distance'] as double?;
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: GestureDetector(
-                              onTap: () =>
-                                  _onTrabajoCarruselTap(context, trabajo),
+                              onTap: () => _onTrabajoCarruselTap(context, trabajo),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 padding: const EdgeInsets.all(16),
@@ -365,17 +712,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: seleccionado
-                                        ? const Color(0xFF7B0997)
-                                        : Colors.transparent,
-                                    width: 2,
+                                    color: seleccionado ? _secondaryAppColor : Colors.transparent,
+                                    width: 3,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: seleccionado
-                                          ? const Color(0xFF7B0997)
-                                              .withOpacity(0.2)
-                                          : Colors.black.withOpacity(0.1),
+                                      color: seleccionado ? _secondaryAppColor.withOpacity(0.4) : Colors.black.withOpacity(0.1),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
@@ -387,42 +729,25 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                   children: [
                                     Text(
                                       trabajo['titulo'] ?? 'Sin título',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(height: 6),
                                     Text(
                                       trabajo['empresa'] ?? 'Empresa no registrada',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
                                       '\$${trabajo['precio'] ?? 'N/D'}',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
-                                      ),
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
                                     ),
                                     if (distancia != null)
                                       Padding(
-                                        padding:
-                                            const EdgeInsets.only(top: 6.0),
+                                        padding: const EdgeInsets.only(top: 6.0),
                                         child: Text(
                                           '${distancia.toStringAsFixed(1)} km de distancia',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.black54,
-                                          ),
+                                          style: const TextStyle(fontSize: 12, color: Colors.black54),
                                         ),
                                       ),
                                   ],
@@ -442,492 +767,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 
-
-  Widget _buildSelectorVista() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () => setState(() => _vistaActual = 0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: _vistaActual == 0
-                    ? const Color(0xFF7B0997)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Lista',
-                style: TextStyle(
-                  color: _vistaActual == 0 ? Colors.white : Colors.black,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                setState(() => _vistaActual = 1);
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _centrarEnUbicacion();
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _vistaActual == 1
-                      ? const Color(0xFF7B0997)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Mapa',
-                style: TextStyle(
-                  color: _vistaActual == 1 ? Colors.white : Colors.black,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDestacados() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Trabajos destacados',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Aumentamos la altura de la lista y el ancho de las tarjetas
-          SizedBox(
-            height: 200, // Altura fija para el carrusel de tarjetas
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _servicio.obtenerTrabajosDestacados(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text('No hay trabajos destacados.'),
-                  );
-                }
-
-                var trabajosDestacados = snapshot.data!.docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  return {...data, 'id': doc.id};
-                }).toList();
-
-                trabajosDestacados =
-                    _filtrarTrabajosVigentes(trabajosDestacados);
-
-                if (trabajosDestacados.isEmpty) {
-                  return const Center(
-                    child: Text('No hay trabajos destacados.'),
-                  );
-                }
-
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: trabajosDestacados.length,
-                  itemBuilder: (context, index) {
-                    final data = trabajosDestacados[index];
-                    final titulo = data['titulo'] ?? 'Sin título';
-                    final empresa = data['empresa'] ?? '';
-                    final precio = data['precio'] ?? 'N/D';
-                    final fechaInicio = (data['fechaTrabajo'] as Timestamp?)
-                        ?.toDate();
-                    final fechaTxt = _formatFecha(fechaInicio);
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Container(
-                        width: 250, 
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              titulo,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSecondary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Imagen de avatar a la izquierda
-                                  CircleAvatar(
-                                    radius: 30,
-                                    backgroundColor: Theme.of(context).colorScheme.primary,
-                                    child: const Icon(
-                                      Icons.business_center,
-                                      size: 30,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Contenido de texto a la derecha
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          empresa,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
-                                        Text(
-                                          fechaTxt,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
-                                        Text(
-                                          '\$$precio',
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: TextButton(
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      DetalleTrabajoScreen(
-                                                        trabajoId: data['id'],
-                                                        trabajo: data,
-                                                      ),
-                                                ),
-                                              );
-                                            },
-                                            style: TextButton.styleFrom(
-                                              backgroundColor:
-                                                  Colors.yellow[700],
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 8,
-                                                  ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                              ),
-                                            ),
-                                            child: const Text(
-                                              'Ver más',
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLista() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _servicio.obtenerTrabajos(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'No hay trabajos disponibles',
-                style: TextStyle(color: Theme.of(context).primaryColor),
-              ),
-            ),
-          );
-        }
-        var trabajos = snapshot.data!.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final dist = _calcularDistancia(data);
-          return {...data, 'distance': dist, 'id': doc.id};
-        }).toList();
-
-        trabajos = _filtrarTrabajosVigentes(trabajos);
-        if (trabajos.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'No hay trabajos disponibles',
-                style: TextStyle(color: Theme.of(context).primaryColor),
-              ),
-            ),
-          );
-        }
-
-        _ordenar(trabajos);
-
-        // Se utiliza CustomScrollView para una experiencia de scroll unificada,
-        // combinando la sección de trabajos destacados con la lista principal.
-        return CustomScrollView(
-          slivers: [
-            // SliverToBoxAdapter se usa para widgets que no son listas, como la sección de destacados.
-            SliverToBoxAdapter(child: _buildDestacados()),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () => setState(
-                        () => _selectedDisplay = DisplayOption.upcoming,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _selectedDisplay == DisplayOption.upcoming
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Próximas',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    _selectedDisplay == DisplayOption.upcoming
-                                    ? Colors.white
-                                    : Colors.black,
-                              ),
-                            ),
-                            Text(
-                              'más próximas a iniciar',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color:
-                                    _selectedDisplay == DisplayOption.upcoming
-                                    ? Colors.white70
-                                    : Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(
-                        () => _selectedDisplay = DisplayOption.recent,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _selectedDisplay == DisplayOption.recent
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Recientes',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: _selectedDisplay == DisplayOption.recent
-                                    ? Colors.white
-                                    : Colors.black,
-                              ),
-                            ),
-                            Text(
-                              'recientemente publicadas',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: _selectedDisplay == DisplayOption.recent
-                                    ? Colors.white70
-                                    : Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // SliverList construye la lista de elementos de manera eficiente.
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final data = trabajos[index];
-                final fechaInicio = (data['fechaTrabajo'] as Timestamp?)
-                    ?.toDate();
-                final fechaFin = (data['fechaLimite'] as Timestamp?)?.toDate();
-                final fechaTxt =
-                    '${_formatFecha(fechaInicio)}${fechaFin != null ? ' - ${_formatFecha(fechaFin)}' : ''}';
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor:Theme.of(context).colorScheme.primary,
-                          child: const Icon(Icons.business_center, size: 30),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                data['titulo'] ?? 'Sin título',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                fechaTxt,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '\$${data['precio'] ?? 'N/D'}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DetalleTrabajoScreen(
-                                  trabajoId: data['id'],
-                                  trabajo: data,
-                                ),
-                              ),
-                            );
-                          },
-                          style: TextButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.secondary,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          child: Text(
-                            'Ver más',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }, childCount: trabajos.length),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // --- LÓGICA DE NAVEGACIÓN Y ELEGIBILIDAD ---
 
   void _navigateAndRefresh(
     BuildContext context,
@@ -980,28 +820,21 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 
+  // --- BUILD PRINCIPAL ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: ImageIcon(
-            const AssetImage(
-              'assets/images/GoodJob_con_margen_en_logo_sin_nombre.png',
-            ),
-            color: Theme.of(context).colorScheme.secondary, // Color del ícono
-            size: 24, // Tamaño del ícono
-          ),
-          onPressed: () {},
-        ),
+        // Removiendo la imagen del leading, usando solo un título simple y el selector
+        title: const Text('Explorar Trabajos', style: TextStyle(fontWeight: FontWeight.bold)), 
+        centerTitle: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {},
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: _buildSelectorVista(),
           ),
         ],
-        title: _buildSelectorVista(),
-        centerTitle: true,
       ),
       body: UserEligibilityGate(
         eligibleBuilder: (context, status, refresh) {

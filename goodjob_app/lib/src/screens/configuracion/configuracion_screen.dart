@@ -1,0 +1,608 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:goodjob_app/src/screens/configuracion/editar_datos_bancarios_screen.dart';
+import 'package:goodjob_app/src/screens/configuracion/editar_perfil.dart';
+import 'package:goodjob_app/src/screens/login_screen.dart';
+
+// Asegúrate de que tu Auth service esté disponible.
+import '../../services/firebase_service.dart';
+
+class ConfiguracionScreen extends StatefulWidget {
+  const ConfiguracionScreen({super.key});
+
+  @override
+  State<ConfiguracionScreen> createState() => _ConfiguracionScreenState();
+}
+
+class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
+  final auth = Auth();
+  User? _user;
+  Map<String, dynamic> _perfilData = {};
+  final _firestore = FirebaseFirestore.instance;
+
+  bool _isEmailVerified = false;
+  bool _isSendingVerification = false;
+  bool _isCheckingVerification = false;
+  bool _verificationEmailSent = false;
+
+  // Colores consistentes
+  static const Color _primaryColor = Color(0xFF7B0997);
+  static const Color _secondaryColor = Color(0xFFFFD900);
+  static const Color _verifiedColor = Color(0xFF4CAF50);
+  static const Color _pendingColor = Color(0xFFFFC107);
+  static const Color _dangerColor = Color(0xFFFF5252);
+
+  @override
+  void initState() {
+    super.initState();
+    _user = auth.currentUser;
+    _isEmailVerified = _user?.emailVerified ?? false;
+    _obtenerDatosPerfil();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isEmailVerified && _user != null) {
+        Timer.periodic(const Duration(seconds: 3), (timer) {
+          if (!mounted || _isEmailVerified) {
+            timer.cancel();
+          } else {
+            _refreshUser();
+          }
+        });
+      }
+    });
+  }
+
+  // --- LÓGICA DE DATOS Y VERIFICACIÓN (Mantenida) ---
+
+  Future<void> _obtenerDatosPerfil() async {
+    if (_user == null) return;
+    try {
+      final docSnapshot = await _firestore
+          .collection('usuarios')
+          .doc(_user!.uid)
+          .get();
+      if (!mounted) return;
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data();
+        setState(() {
+          _perfilData = data != null ? Map<String, dynamic>.from(data) : {};
+        });
+      }
+    } catch (e) {
+      print('Error al obtener datos del perfil: $e');
+    }
+  }
+
+  Future<void> _refreshUser() async {
+    if (_user == null) return;
+    try {
+      await _user!.reload();
+      final refreshedUser = auth.currentUser;
+      if (!mounted) return;
+      setState(() {
+        _user = refreshedUser;
+        _isEmailVerified = refreshedUser?.emailVerified ?? false;
+      });
+      if (_isEmailVerified && _verificationEmailSent) {
+        _verificationEmailSent = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('¡Tu correo ya está verificado! 🎉'),
+              backgroundColor: _verifiedColor,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Manejo de errores
+    }
+  }
+
+  Future<void> _sendVerificationEmail() async {
+    if (_user == null || _isSendingVerification) return;
+    setState(() {
+      _isSendingVerification = true;
+      _verificationEmailSent = false;
+    });
+    try {
+      await _user!.sendEmailVerification();
+      if (!mounted) return;
+      setState(() {
+        _verificationEmailSent = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Correo de verificación enviado. Revisa tu bandeja de entrada.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo enviar el correo de verificación: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingVerification = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _checkVerificationStatus() async {
+    if (_user == null || _isCheckingVerification) return;
+    setState(() {
+      _isCheckingVerification = true;
+    });
+
+    await _refreshUser();
+
+    if (!mounted) return;
+    setState(() {
+      _isCheckingVerification = false;
+    });
+
+    if (_isEmailVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Tu correo ya está verificado!'),
+          backgroundColor: _verifiedColor,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Aún no se ha verificado el correo. Por favor, haz clic en el enlace del email.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _handleNavigation(String title) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Navegando a: $title')));
+  }
+
+  // --- WIDGETS DE COMPONENTES DE VISTA ---
+
+  Widget _buildUserProfileSection() {
+    final nombreCompleto = _perfilData['nombre'] ?? 'Usuario';
+    final inicial = nombreCompleto.isNotEmpty
+        ? nombreCompleto[0].toUpperCase()
+        : 'U';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 20),
+        Stack(
+          children: [
+            CircleAvatar(
+              radius: 60,
+              backgroundColor: _primaryColor.withOpacity(0.8),
+              child: Text(
+                inicial,
+                style: const TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: FloatingActionButton.small(
+                onPressed: () => _handleNavigation('Cambiar Foto de Perfil'),
+                backgroundColor: _secondaryColor,
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          nombreCompleto,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _user?.email ?? 'No hay correo registrado',
+          style: const TextStyle(fontSize: 16, color: Colors.white70),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildVerificationCard() {
+    final icon = _isEmailVerified
+        ? Icons.verified_user
+        : Icons.warning_amber_rounded;
+    final color = _isEmailVerified ? _verifiedColor : _pendingColor;
+    final title = _isEmailVerified
+        ? '¡Cuenta Verificada!'
+        : 'Verificación Pendiente';
+    final subtitle = _isEmailVerified
+        ? 'Tu correo ha sido verificado. Esto asegura que puedes recuperar tu cuenta sin problemas.'
+        : 'Tu correo aún no está verificado. Haz clic en "Enviar correo" y luego en el enlace que recibirás.';
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 30),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              subtitle,
+              style: TextStyle(color: Colors.grey[700], fontSize: 14.5),
+            ),
+
+            if (!_isEmailVerified) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isSendingVerification
+                          ? null
+                          : _sendVerificationEmail,
+                      icon: _isSendingVerification
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.send,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                      label: Text(
+                        _isSendingVerification
+                            ? 'Enviando...'
+                            : 'Enviar correo',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _pendingColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isCheckingVerification
+                          ? null
+                          : _checkVerificationStatus,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        side: BorderSide(color: Colors.grey[400]!),
+                      ),
+                      child: _isCheckingVerification
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Ya verifiqué'),
+                    ),
+                  ),
+                ],
+              ),
+              if (_verificationEmailSent)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Text(
+                    'Si no lo ves, revisa la carpeta de spam o promociones.',
+                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget de cabecera de sección más estilizado
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade300, width: 2),
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900, // Fuente más pesada
+            color: Colors.grey[800],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Lista de opciones con Cards y separadores sutiles
+  Widget _buildSettingsListCard(List<Widget> items) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        children: List.generate(items.length, (index) {
+          final item = items[index];
+          return Column(
+            children: [
+              item,
+              if (index < items.length - 1)
+                const Divider(
+                  height: 0,
+                  indent: 20,
+                  endIndent: 20,
+                  color: Colors.black12,
+                ), // Separador sutil
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  // ListTile con jerarquía de texto mejorada
+  ListTile _buildHierarchicalListTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color iconColor = _primaryColor,
+    Color titleColor = Colors.black,
+    Color subtitleColor = Colors.grey,
+    Widget? trailing,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: iconColor),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold, // Título en negrita
+          fontSize: 16,
+          color: titleColor,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontWeight: FontWeight.w400,
+          fontSize: 13,
+          color: subtitleColor, // Subtítulo en color apagado
+        ),
+      ),
+      trailing:
+          trailing ?? const Icon(Icons.chevron_right, color: Colors.black54),
+      onTap: onTap,
+    );
+  }
+
+  ListTile _buildLogoutTile() {
+    return _buildHierarchicalListTile(
+      icon: Icons.logout,
+      title: 'Cerrar Sesión',
+      subtitle: 'Cierra tu sesión actual de forma segura.',
+      onTap: () async {
+        await auth.logout();
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
+      },
+      trailing: const Icon(Icons.chevron_right, color: Colors.black54),
+    );
+  }
+
+  ListTile _buildDeleteAccountTile() {
+    return _buildHierarchicalListTile(
+      icon: Icons.delete_forever_outlined,
+      title: 'Eliminar Cuenta',
+      subtitle: 'Elimina tu cuenta y todos tus datos de forma permanente.',
+      onTap: () => _handleNavigation('Eliminar Cuenta (Confirmación)'),
+      iconColor: _dangerColor,
+      titleColor: _dangerColor,
+      subtitleColor: Colors.grey.shade600,
+      trailing: const Icon(Icons.chevron_right, color: Colors.black54),
+    );
+  }
+
+  // --- BUILD PRINCIPAL ---
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 280.0,
+            floating: false,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              titlePadding: const EdgeInsets.only(bottom: 16.0),
+              title: Text(
+                _perfilData['nombre'] ?? 'Configuración',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_primaryColor, _secondaryColor],
+                  ),
+                ),
+                child: _buildUserProfileSection(),
+              ),
+            ),
+          ),
+
+          SliverList(
+            delegate: SliverChildListDelegate([
+              const SizedBox(height: 16),
+
+              // 1. Tarjeta de Seguridad y Verificación
+              _buildVerificationCard(),
+
+              const SizedBox(height: 24),
+
+              // 2. SECCIÓN: Configuración de Cuenta
+              _buildSectionHeader('Configuración de Cuenta'),
+              _buildSettingsListCard([
+                _buildHierarchicalListTile(
+                  icon: Icons.account_circle_outlined,
+                  title: 'Editar Perfil',
+                  subtitle: 'Información personal, habilidades, etc.',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditarPerfilScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildHierarchicalListTile(
+                  icon: Icons.credit_card,
+                  title: 'Métodos de Pago',
+                  subtitle: 'Gestiona tus tarjetas y pagos.',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditarDatosBancariosScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ]),
+
+              const SizedBox(height: 24),
+
+              // // 3. SECCIÓN: Preferencias
+              // _buildSectionHeader('Preferencias'),
+              // _buildSettingsListCard([
+              //   _buildHierarchicalListTile(
+              //     icon: Icons.notifications_none,
+              //     title: 'Notificaciones',
+              //     subtitle: 'Configura tus alertas y avisos.',
+              //     onTap: () => _handleNavigation('Notificaciones'),
+              //   ),
+              //   _buildHierarchicalListTile(
+              //     icon: Icons.language,
+              //     title: 'Idioma',
+              //     subtitle: 'Selecciona el idioma de la aplicación.',
+              //     onTap: () => _handleNavigation('Idioma'),
+              //   ),
+              // ]),
+
+              // const SizedBox(height: 24),
+
+              // // 4. SECCIÓN: Soporte y Legal
+              // _buildSectionHeader('Soporte y Legal'),
+              // _buildSettingsListCard([
+              //   _buildHierarchicalListTile(
+              //     icon: Icons.help_outline,
+              //     title: 'Ayuda y Soporte',
+              //     subtitle: 'Preguntas frecuentes, contacto, tutoriales.',
+              //     onTap: () => _handleNavigation('Ayuda y Soporte'),
+              //   ),
+              //   _buildHierarchicalListTile(
+              //     icon: Icons.description_outlined,
+              //     title: 'Términos y Condiciones',
+              //     subtitle: 'Nuestras políticas de uso.',
+              //     onTap: () => _handleNavigation('Términos y Condiciones'),
+              //   ),
+              //   _buildHierarchicalListTile(
+              //     icon: Icons.privacy_tip_outlined,
+              //     title: 'Política de Privacidad',
+              //     subtitle: 'Cómo usamos y protegemos tus datos.',
+              //     onTap: () => _handleNavigation('Política de Privacidad'),
+              //   ),
+              // ]),
+
+              // const SizedBox(height: 24),
+
+              // 5. SECCIÓN: Acciones de Sesión
+              _buildSectionHeader('Acciones'),
+              _buildSettingsListCard([
+                _buildLogoutTile(),
+                // _buildDeleteAccountTile(),
+              ]),
+
+              const SizedBox(height: 40),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // Necesario para TimeOfDay
 
 enum EstadoTrabajo {
   abierto,
@@ -9,6 +9,7 @@ enum EstadoTrabajo {
 }
 
 class TrabajoService {
+  // Nota: Deberías inicializar Firebase y Firestore adecuadamente en tu proyecto.
   final CollectionReference _trabajos =
       FirebaseFirestore.instance.collection('trabajos');
 
@@ -26,30 +27,39 @@ class TrabajoService {
   }
 
   /// Creates a new job document in Firestore.
+  /// Acepta los DateTime combinados y los nuevos campos de contacto/uniforme.
   Future<void> crearTrabajo({
     required String titulo,
     required String descripcion,
     required String empresa,
     required Map<String, dynamic> ubicacion,
     required DateTime fechaLimite,
-    required DateTime fechaTrabajo,
-    required TimeOfDay horaInicio,
-    required TimeOfDay horaFin,
+    required DateTime fechaInicioTrabajo,
+    required DateTime fechaFinTrabajo,
     required double precio,
     required String instrucciones,
+    required bool requiereUniforme, // Nuevo campo
+    required List<String> implementosUniforme, // Nuevo campo
+    required Map<String, String> contacto, // Nuevo campo
     bool destacado = false,
   }) {
+    // Usamos Timestamp.fromDate() con los DateTime no nulos que vienen del Canvas
     return _trabajos.add({
       'titulo': titulo,
       'descripcion': descripcion,
       'empresa': empresa,
       'ubicacion': ubicacion,
       'fechaLimite': Timestamp.fromDate(fechaLimite),
-      'fechaTrabajo': Timestamp.fromDate(fechaTrabajo),
-      'horaInicio': {'h': horaInicio.hour, 'm': horaInicio.minute},
-      'horaFin': {'h': horaFin.hour, 'm': horaFin.minute},
+      'fechaInicioTrabajo': Timestamp.fromDate(fechaInicioTrabajo),
+      'fechaFinTrabajo': Timestamp.fromDate(fechaFinTrabajo),
       'precio': precio,
       'instrucciones': instrucciones,
+      
+      // Nuevos campos de contacto y requisitos
+      'contacto': contacto,
+      'requiereUniforme': requiereUniforme,
+      'implementosUniforme': implementosUniforme,
+      
       'destacado': destacado,
       'estado': EstadoTrabajo.abierto.name, // Estado default
       'creadoEn': FieldValue.serverTimestamp(),
@@ -71,7 +81,7 @@ class TrabajoService {
           .get();
       return querySnapshot.docs.length;
     } catch (e) {
-      print('Error al contar postulaciones: $e');
+      debugPrint('Error al contar postulaciones: $e'); 
       return 0;
     }
   }

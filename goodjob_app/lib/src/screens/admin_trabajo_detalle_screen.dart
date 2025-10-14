@@ -16,7 +16,13 @@ class AdminTrabajoDetalleScreen extends StatefulWidget {
 
 class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   Timer? _timer;
+  // Esta variable sigue guardando la cuenta regresiva completa (d/h/m/s)
   String _countdownText = '';
+
+  // --- COLORES Y CONSTANTES UI/UX ---
+  static const Color primaryColor = Color(0xFF7B0997); // Púrpura principal
+  static const Color secondaryColor = Color(0xFFE91E63); // Rosa/Rojo de acento
+  static const Color alertColor = Color(0xFFD32F2F); // Rojo para estados críticos
 
   @override
   void initState() {
@@ -30,31 +36,66 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     super.dispose();
   }
 
-  /// Inicia el temporizador para la cuenta regresiva de la fecha límite.
+  // --- LÓGICA DE DATOS Y TIEMPO ---
+
+  Map<String, dynamic>? _safeMapCast(dynamic value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return null;
+  }
+
+  DateTime? _getTrabajoStartDateTime() {
+    final newStartTs = widget.trabajo['fechaInicioTrabajo'] as Timestamp?;
+    if (newStartTs != null) return newStartTs.toDate();
+
+    final oldDateTs = widget.trabajo['fechaTrabajo'] as Timestamp?;
+    final oldHourMap = _safeMapCast(widget.trabajo['horaInicio']);
+
+    if (oldDateTs != null && oldHourMap != null) {
+      final date = oldDateTs.toDate();
+      final h = oldHourMap['h'] as int? ?? 0;
+      final m = oldHourMap['m'] as int? ?? 0;
+      return DateTime(date.year, date.month, date.day, h, m);
+    }
+    return null;
+  }
+
+  DateTime? _getTrabajoEndDateTime() {
+    final newEndTs = widget.trabajo['fechaFinTrabajo'] as Timestamp?;
+    if (newEndTs != null) return newEndTs.toDate();
+
+    final oldDateTs = widget.trabajo['fechaTrabajo'] as Timestamp?;
+    final oldHourMap = _safeMapCast(widget.trabajo['horaFin']);
+
+    if (oldDateTs != null && oldHourMap != null) {
+      final date = oldDateTs.toDate();
+      final h = oldHourMap['h'] as int? ?? 0;
+      final m = oldHourMap['m'] as int? ?? 0;
+      return DateTime(date.year, date.month, date.day, h, m);
+    }
+    return null;
+  }
+
   void _startCountdown() {
-    final fechaFinTs = widget.trabajo['fechaLimite'];
-    if (fechaFinTs is! Timestamp) {
+    final fechaFinTs = widget.trabajo['fechaLimite'] as Timestamp? ??
+        widget.trabajo['fechaLimitePostulacion'] as Timestamp?;
+
+    if (fechaFinTs == null) {
       setState(() {
         _countdownText = 'Fecha límite no disponible';
       });
       return;
     }
 
-    _updateCountdown();
+    _updateCountdown(fechaFinTs);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _updateCountdown();
+      _updateCountdown(fechaFinTs);
     });
   }
 
-  /// Actualiza el texto de la cuenta regresiva cada segundo.
-  void _updateCountdown() {
-    final fechaFin = widget.trabajo['fechaLimite'];
-    if (fechaFin is! Timestamp) {
-      _timer?.cancel();
-      return;
-    }
-
-    final remaining = fechaFin.toDate().difference(DateTime.now());
+  void _updateCountdown(Timestamp fechaFinTs) {
+    final remaining = fechaFinTs.toDate().difference(DateTime.now());
 
     if (remaining.isNegative) {
       setState(() {
@@ -67,27 +108,18 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
       final minutes = remaining.inMinutes % 60;
       final seconds = remaining.inSeconds % 60;
       setState(() {
-        _countdownText =
-            '${days}d ${hours}h ${minutes}m ${seconds}s';
+        // Guardamos el formato completo, aunque solo mostremos el simplificado
+        _countdownText = '${days}d ${hours}h ${minutes}m ${seconds}s';
       });
     }
   }
 
-  /// Simula la navegación a la pantalla de edición.
-  /// En una aplicación real, se navegaría a una pantalla de `EditarTrabajoScreen`.
   void _editarTrabajo() {
-    // Aquí puedes agregar la lógica de navegación real, por ejemplo:
-    // Navigator.of(context).push(
-    //   MaterialPageRoute(
-    //     builder: (context) => EditarTrabajoScreen(trabajoId: widget.trabajoId),
-    //   ),
-    // );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Simulando la edición del trabajo...')),
     );
   }
 
-  /// Formatea la ubicación para mostrarla de forma legible.
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
     if (ubicacion == null) return 'N/D';
     final partes = [
@@ -98,21 +130,13 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     return partes.isEmpty ? 'N/D' : partes;
   }
 
-  /// Formatea la hora de forma legible.
-  String _formatHora(Map<String, dynamic>? hora) {
-    if (hora == null) return 'N/D';
-    final h = hora['h'];
-    final m = hora['m'];
-    final hour = (h is int ? h : int.tryParse(h?.toString() ?? '0') ?? 0)
-        .toString()
-        .padLeft(2, '0');
-    final min = (m is int ? m : int.tryParse(m?.toString() ?? '0') ?? 0)
-        .toString()
-        .padLeft(2, '0');
+  String _formatHora(DateTime? dateTime) {
+    if (dateTime == null) return 'N/D';
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final min = dateTime.minute.toString().padLeft(2, '0');
     return '$hour:$min';
   }
 
-  /// Formatea la fecha de forma legible.
   String _formatFecha(DateTime? fecha) {
     if (fecha == null) return 'N/D';
     final day = fecha.day.toString().padLeft(2, '0');
@@ -121,258 +145,322 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     return '$day/$month/$year';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final Timestamp? fechaInicioTs = widget.trabajo['fechaTrabajo'];
-    final fechaInicio = fechaInicioTs?.toDate();
-    final horaInicio = widget.trabajo['horaInicio'] as Map<String, dynamic>?;
-    final horaFin = widget.trabajo['horaFin'] as Map<String, dynamic>?;
+  // --- WIDGETS DE VISTA ---
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Detalle del Trabajo (Admin)')),
-      body: ListView(
+  Widget _buildDetalleItem(IconData icon, String title, String value) {
+    return ListTile(
+      leading: Icon(icon, color: primaryColor, size: 28),
+      title: Text(
+        title,
+        style: const TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w400, color: Colors.black54),
+      ),
+      subtitle: Text(
+        value,
+        style: const TextStyle(
+            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+      minLeadingWidth: 20,
+    );
+  }
+
+  Widget _buildLogisticaSection(
+      DateTime? fechaInicio, DateTime? fechaFin, Map<String, dynamic>? ubicacion) {
+    final hora = (fechaInicio != null && fechaFin != null)
+        ? '${_formatHora(fechaInicio)} - ${_formatHora(fechaFin)} hrs'
+        : 'N/D';
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
-        children: [
-          // Ícono del trabajo con forma cuadrada y bordes redondeados
-          Center(
-            child: Container(
-              height: 180,
-              width: 420,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Logística y Pago',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+            const Divider(color: Colors.black12, height: 16),
+            _buildDetalleItem(
+              Icons.location_on_outlined,
+              'Ubicación del trabajo',
+              _formatearUbicacion(ubicacion),
+            ),
+            _buildDetalleItem(
+              Icons.calendar_today,
+              'Día de trabajo',
+              _formatFecha(fechaInicio),
+            ),
+            _buildDetalleItem(
+              Icons.access_time_filled,
+              'Horario',
+              hora,
+            ),
+            _buildDetalleItem(
+              Icons.payments,
+              'Pago total',
+              '\$${widget.trabajo['precio']?.toString() ?? 'N/D'}',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequisitosContactoSection(Map<String, dynamic>? contacto,
+      bool requiereUniforme, List<String> implementosUniforme, String instrucciones) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Requisitos y Contacto',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+            const Divider(color: Colors.black12, height: 16),
+
+            // Requisitos
+            _buildDetalleItem(
+              requiereUniforme ? Icons.check_circle_outline : Icons.cancel_outlined,
+              'Uniforme Requerido',
+              requiereUniforme ? 'Sí' : 'No',
+            ),
+
+            if (requiereUniforme && implementosUniforme.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 44.0, bottom: 12.0),
+                child: Wrap(
+                  spacing: 8.0,
+                  runSpacing: 4.0,
+                  children: implementosUniforme
+                      .map((item) => Chip(
+                            label: Text(item, style: const TextStyle(fontSize: 14)),
+                            backgroundColor: primaryColor.withOpacity(0.1),
+                            labelStyle: const TextStyle(
+                                color: primaryColor, fontWeight: FontWeight.w500),
+                          ))
+                      .toList(),
+                ),
               ),
-              child:
-                  const Icon(Icons.business_center, color: Colors.black54, size: 60),
-            ),
-          ),
-          const SizedBox(height: 16),
 
-          // Título del trabajo
+            _buildDetalleItem(
+              Icons.info_outline,
+              'Instrucciones Específicas',
+              instrucciones,
+            ),
+
+            const SizedBox(height: 10),
+
+            // Contacto
+            const Text('Información de Contacto',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+            const Divider(color: Colors.black12, height: 16),
+            _buildDetalleItem(
+              Icons.person,
+              'Nombre de contacto',
+              contacto?['nombre'] ?? 'N/D',
+            ),
+            _buildDetalleItem(
+              Icons.phone,
+              'Número de contacto',
+              contacto?['numero'] ?? 'N/D',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGET DE ADMINISTRACIÓN (Panel de Alerta) ---
+  Widget _buildAdministracionSection() {
+    final bool isFinished = _countdownText == 'Ya acabó';
+    final Color countdownColor = isFinished ? alertColor : secondaryColor;
+    
+    // Nuevo Título
+    const String panelTitle = 'Tiempo Límite para Postulación';
+
+    // Cálculo del formato de tiempo simplificado (Días y Horas)
+    String simplifiedCountdownText = _countdownText;
+    if (!isFinished && _timer != null) {
+      final fechaFinTs = widget.trabajo['fechaLimite'] as Timestamp? ?? 
+                         widget.trabajo['fechaLimitePostulacion'] as Timestamp?;
+                         
+      if (fechaFinTs != null) {
+        final remaining = fechaFinTs.toDate().difference(DateTime.now());
+        final days = remaining.inDays;
+        final hours = remaining.inHours % 24;
+        simplifiedCountdownText = '${days}d ${hours}h';
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20, top: 10),
+      decoration: BoxDecoration(
+        color:
+            isFinished ? alertColor.withOpacity(0.1) : primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isFinished ? alertColor : primaryColor.withOpacity(0.2),
+          width: 1.5,
+        ),
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Título actualizado
           Text(
-            widget.trabajo['titulo'] ?? 'Título no disponible',
+            panelTitle,
             style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
+                fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor),
           ),
-          const SizedBox(height: 16),
+          const Divider(color: Colors.black12, height: 16),
 
-          // Sección de la descripción
-          Card(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
+          // --- BLOQUE DE CUENTA REGRESIVA (CRÍTICO) ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.timer_outlined, color: countdownColor, size: 30),
+              const SizedBox(width: 12),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Descripción:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
                   Text(
-                    widget.trabajo['descripcion'] ?? 'Descripción no disponible.',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w300,
-                    ),
+                    isFinished ? 'ESTADO' : 'QUEDAN',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: countdownColor.withOpacity(0.8)),
+                  ),
+                  Text(
+                    isFinished ? _countdownText : simplifiedCountdownText,
+                    style: TextStyle(
+                        fontSize: 20, // Tamaño de fuente reducido
+                        fontWeight: FontWeight.w900,
+                        color: countdownColor),
                   ),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 34),
-
-          // Título de "Detalles de la oferta"
-          const Text(
-            'Detalles de la oferta:',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 22),
-
-          // Tarjeta de Ubicación (fila completa)
-          Card(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on_outlined, color: Color(0xFF7B0997), size: 24),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Ubicación',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.trabajo['empresa'] ?? 'N/D',
-                          style:
-                              const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          _formatearUbicacion(widget.trabajo['ubicacion']),
-                          style:
-                              const TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Cards de Horario y Día (mitad y mitad)
-          Row(
-            children: [
-              Expanded(
-                child: Card(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.access_time_filled, color: Color(0xFF7B0997), size: 24),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Horario',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_formatHora(horaInicio)} - ${_formatHora(horaFin)} hrs',
-                          style:
-                              const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Card(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.calendar_today, color: Color(0xFF7B0997), size: 24),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Día',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatFecha(fechaInicio),
-                          style:
-                              const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                    
-                  ),
-                ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          // ID del trabajo ha sido ELIMINADO según tu solicitud
+        ],
+      ),
+    );
+  }
 
-          // Fecha límite de la oferta con cuenta regresiva
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.event_busy, color: Colors.orange, size: 24),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Esta oferta termina en:',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
+  // --- BUILD PRINCIPAL ---
+
+  @override
+  Widget build(BuildContext context) {
+    // --- EXTRACCIÓN ROBUSTA DE DATOS ---
+    final fechaInicio = _getTrabajoStartDateTime();
+    final fechaFin = _getTrabajoEndDateTime();
+
+    final Map<String, dynamic>? ubicacion = _safeMapCast(widget.trabajo['ubicacion']);
+    final Map<String, dynamic>? contacto = _safeMapCast(widget.trabajo['contacto']);
+
+    final bool requiereUniforme = widget.trabajo['requiereUniforme'] as bool? ?? false;
+    final List<String> implementosUniforme =
+        (widget.trabajo['implementosUniforme'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [];
+    final String instrucciones =
+        widget.trabajo['instrucciones'] as String? ?? 'No hay requisitos específicos.';
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 180.0,
+            floating: false,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+              centerTitle: false,
+              title: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.trabajo['titulo'] ?? 'Título no disponible',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _countdownText,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-              ],
+                  ),
+                  Text(
+                    widget.trabajo['empresa'] ?? 'Empresa N/D',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+              background: Container(
+                color: primaryColor,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.only(top: 40),
+                child: const Icon(Icons.business_center,
+                    size: 80, color: Colors.white70),
+              ),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.white),
+                tooltip: 'Editar Trabajo',
+                onPressed: _editarTrabajo,
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+          SliverList(
+            delegate: SliverChildListDelegate(
+              [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- DESCRIPCIÓN ---
+                      const Text('Descripción del Trabajo',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87)),
+                      const Divider(height: 16),
+                      Text(
+                        widget.trabajo['descripcion'] ?? 'Descripción no disponible.',
+                        style: const TextStyle(
+                            fontSize: 16, color: Colors.black87, height: 1.5),
+                      ),
+                      const SizedBox(height: 30),
 
-          // Precio
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.payments, color: Colors.green, size: 24),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Pago',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '\$${widget.trabajo['precio']?.toString() ?? 'N/D'} Bruto por oferta',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Colors.green,
+                      // --- SECCIONES ESTRUCTURADAS EN TARJETAS ---
+                      _buildLogisticaSection(fechaInicio, fechaFin, ubicacion),
+                      _buildRequisitosContactoSection(
+                          contacto, requiereUniforme, implementosUniforme, instrucciones),
+                          
+                      // --- PANEL DE ADMINISTRACIÓN MEJORADO ---
+                      _buildAdministracionSection(),
+
+                      const SizedBox(height: 32),
+                    ],
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 52),
-
-          // Botón de "Editar" para el administrador
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _editarTrabajo,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7B0997),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'Editar',
-                style: TextStyle(fontSize: 18, color: Colors.white)),
             ),
           ),
         ],

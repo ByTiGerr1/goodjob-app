@@ -30,32 +30,32 @@ class PostulanteDetalleScreen extends StatelessWidget {
   Future<void> _actualizarEstadoPostulacion(
       String estado, BuildContext context) async {
     final nuevoEstado = estado.toLowerCase();
-    try {
-      // Texto dinámico según el estado
-      final mensaje = nuevoEstado == "aceptado"
-          ? "Aceptando postulación..."
-          : "Rechazando postulación...";
+    
+    // --- Lógica de Loader con AlertDialog (Mantenida) ---
+    final mensaje = nuevoEstado == "aceptado"
+        ? "Aceptando postulación..."
+        : "Rechazando postulación...";
 
-      // Mostrar loader con texto dinámico
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                mensaje,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
-          ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              mensaje,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ],
         ),
-      );
+      ),
+    );
 
+    try {
       await _postulacionService.actualizarEstado(
         trabajoId: trabajoId,
         postulanteId: usuarioId,
@@ -72,7 +72,10 @@ class PostulanteDetalleScreen extends StatelessWidget {
           : '${nuevoEstado[0].toUpperCase()}${nuevoEstado.substring(1)}';
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Postulación $estadoCapitalizado con éxito')),
+        SnackBar(
+          content: Text('Postulación $estadoCapitalizado con éxito'),
+          backgroundColor: nuevoEstado == "aceptado" ? Colors.green : Colors.red,
+        ),
       );
 
       // Opcional: volver a la pantalla anterior
@@ -87,11 +90,30 @@ class PostulanteDetalleScreen extends StatelessWidget {
     }
   }
 
+  // --- WIDGET AUXILIAR: Ítem de Detalle (Jerarquía mejorada) ---
+  Widget _buildDetailItem(BuildContext context, IconData icon, String title, String value) {
+    return ListTile(
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 28),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
+      ),
+      subtitle: Text(
+        value,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Usamos el Builder para acceder al Context y pasar las acciones al contenido
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalle del Postulante'),
+        title: const Text('Perfil del Postulante'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
       ),
       body: FutureBuilder<Map<String, dynamic>?>(
         future: _obtenerDatosUsuario(),
@@ -107,149 +129,168 @@ class PostulanteDetalleScreen extends StatelessWidget {
           final usuarioData = snapshot.data!;
           final nombre = usuarioData['nombre'] ?? 'Sin nombre';
           final apellido = usuarioData['apellido'] ?? '';
+          final nombreCompleto = '$nombre $apellido';
           final carrera = usuarioData['carrera'] ?? 'No disponible';
           final email = usuarioData['email'] ?? 'No disponible';
           final telefono = usuarioData['telefono'] ?? 'No disponible';
           final descripcion = usuarioData['descripcion'] ?? 'Sin descripción.';
+          final primaryColor = Theme.of(context).colorScheme.primary;
+          final successColor = Colors.green.shade600;
+          final rejectColor = Colors.red.shade600;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    child: Text(
-                      nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?',
-                      style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    '$nombre $apellido',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Text(
-                    carrera,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Acerca de mí',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(descripcion),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Información de contacto',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        ListTile(
-                          leading: const Icon(Icons.email),
-                          title: Text(email),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.phone),
-                          title: Text(telefono),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Contactando a $nombre...')),
-                      );
-                    },
-                    icon: const Icon(Icons.message),
-                    label: const Text('Contactar Postulante'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
+          return Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 120.0), // Padding extra para el CTA fijo
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () =>
-                            _actualizarEstadoPostulacion('aceptado', context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    // --- 1. ENCABEZADO Y DATOS PRINCIPALES ---
+                    Center(
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 60,
+                            backgroundColor: primaryColor.withOpacity(0.1),
+                            child: Text(
+                              nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?',
+                              style: TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                              ),
+                            ),
                           ),
-                        ),
-                        child: const Text('Aceptar'),
+                          const SizedBox(height: 16),
+                          Text(
+                            nombreCompleto,
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            carrera,
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () =>
-                            _actualizarEstadoPostulacion('rechazado', context),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red),
-                          foregroundColor: Colors.red,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                    const SizedBox(height: 32),
+                    
+                    // --- 2. ACERCA DE MÍ (DESCRIPCIÓN) ---
+                    _buildSectionCard(
+                      context,
+                      title: 'Acerca de mí',
+                      children: [
+                        Text(descripcion, style: const TextStyle(fontSize: 15, height: 1.5)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // --- 3. INFORMACIÓN DE CONTACTO ---
+                    _buildSectionCard(
+                      context,
+                      title: 'Información de contacto',
+                      children: [
+                        _buildDetailItem(context, Icons.email_outlined, 'Correo electrónico', email),
+                        const Divider(indent: 16, endIndent: 16),
+                        _buildDetailItem(context, Icons.phone_outlined, 'Teléfono', telefono),
+                        // Aquí podrías añadir más datos relevantes como Experiencia, Habilidades, etc.
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // --- 4. ACCIÓN RÁPIDA (CONTACTAR) ---
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Simulando chat/llamada con $nombre...')),
+                          );
+                          // Lógica para abrir chat o hacer llamada
+                        },
+                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                        label: const Text('Abrir Chat/Contactar', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text('Rechazar'),
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // --- BOTONES DE ACCIÓN FIJOS EN EL BOTTOM (UX CRÍTICA) ---
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).padding.bottom + 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -5))],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _actualizarEstadoPostulacion('aceptado', context),
+                          icon: const Icon(Icons.check, color: Colors.white),
+                          label: const Text('Aceptar', style: TextStyle(color: Colors.white, fontSize: 18)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: successColor,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _actualizarEstadoPostulacion('rechazado', context),
+                          icon: Icon(Icons.close, color: rejectColor),
+                          label: Text('Rechazar', style: TextStyle(color: rejectColor, fontSize: 18)),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: rejectColor, width: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           );
         },
+      ),
+    );
+  }
+  
+  // Widget auxiliar para crear tarjetas de sección
+  Widget _buildSectionCard(BuildContext context, {required String title, required List<Widget> children}) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 18, 
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const Divider(height: 20, thickness: 1),
+            ...children,
+          ],
+        ),
       ),
     );
   }

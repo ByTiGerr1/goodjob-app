@@ -46,7 +46,7 @@ class PostulacionService {
         .doc(usuarioId)
         .collection('postulaciones')
         .doc(trabajoId);
-    final confirmarAntesDe = Timestamp.now().toDate().add(Duration(hours: 24));
+    final confirmarAntesDe = Timestamp.now().toDate().add(const Duration(hours: 24));
 
     final data = <String, dynamic>{
       'trabajoId': trabajoId,
@@ -60,6 +60,34 @@ class PostulacionService {
     final batch = _firestore.batch();
     batch.set(postulacionRef, data);
     batch.set(postulacionesUsuarioRef, data);
+    await batch.commit();
+  }
+
+  // *** NUEVO MÉTODO ***
+  // Cancela la postulación, eliminando el registro de ambos lados.
+  Future<void> cancelarPostulacion({
+    required String trabajoId,
+    required String usuarioId,
+  }) async {
+    final postulacionRef = _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .doc(usuarioId);
+    final postulacionesUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(usuarioId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+
+    final batch = _firestore.batch();
+    
+    // 1. Eliminar la postulación de la subcolección del trabajo
+    batch.delete(postulacionRef);
+
+    // 2. Eliminar el registro de postulación del usuario
+    batch.delete(postulacionesUsuarioRef);
+
     await batch.commit();
   }
 
@@ -132,7 +160,6 @@ class PostulacionService {
 
     await batch.commit();
   }
-
 
   // Obtiene las postulaciones de un usuario específico
   Stream<QuerySnapshot> obtenerPostulacionesDeUsuario(String uid) {

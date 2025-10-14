@@ -9,6 +9,12 @@ import 'account_verification_screen.dart';
 import 'login_screen.dart';
 import 'seguimiento_postulacion_screen.dart';
 
+// Definición de colores de estado centralizados (CONFIRMADO actualizado a Verde Azulado)
+const Color _COLOR_ACEPTADO = Color(0xFF4CAF50);    // Verde (Aceptado por Admin)
+const Color _COLOR_RECHAZADO = Color(0xFFF44336);  // Rojo (Rechazado)
+const Color _COLOR_CONFIRMADO = Color(0xFF00897B); // VERDE AZULADO (Confirmado por Usuario - Compromiso)
+const Color _COLOR_PENDIENTE = Color(0xFF9C27B0);  // Púrpura (Pendiente de Revisión)
+
 class MisTrabajosScreen extends StatefulWidget {
   const MisTrabajosScreen({super.key});
 
@@ -35,42 +41,32 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     super.dispose();
   }
 
+  // --- Funciones de Utilidad de Estado ---
+
   Color _colorEstado(String estado) {
     switch (estado) {
       case 'aceptado':
-        return Colors.green;
+        return _COLOR_ACEPTADO;
       case 'rechazado':
-        return Colors.red;
+        return _COLOR_RECHAZADO;
       case 'confirmado':
-        return Colors.blue;
+        return _COLOR_CONFIRMADO;
       default:
-        return Colors.orange;
+        return _COLOR_PENDIENTE;
     }
   }
 
   IconData _iconEstado(String estado) {
     switch (estado) {
       case 'aceptado':
-        return Icons.check_circle_outline;
+        return Icons.verified_user_outlined; // Verde
       case 'rechazado':
-        return Icons.cancel_outlined;
+        return Icons.cancel_outlined; // Rojo
       case 'confirmado':
-        return Icons.task_alt_outlined;
+        return Icons.task_alt; // Verde Azulado
       default:
-        return Icons.pending_outlined;
+        return Icons.access_time_filled; // Púrpura
     }
-  }
-
-  void _mostrarNotificacion(String titulo, String estado) {
-    if (!mounted) return;
-    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
-    if (scaffoldMessenger == null) return;
-    final mensaje = estado == 'aceptado'
-        ? 'Tu postulación a "$titulo" fue aceptada'
-        : 'Tu postulación a "$titulo" fue rechazada';
-    scaffoldMessenger.showSnackBar(
-      SnackBar(content: Text(mensaje)),
-    );
   }
 
   String _formatFecha(DateTime? fecha) {
@@ -81,6 +77,8 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     return '$day/$month/$year';
   }
 
+  // --- Lógica de Acciones ---
+
   Future<void> _actualizarEstadoPostulacion(
     String trabajoId,
     String nuevoEstado,
@@ -90,8 +88,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     final uid = _authService.currentUser?.uid;
     if (uid == null) {
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(content: Text('Usuario no autenticado.')),
       );
       return;
@@ -106,33 +103,31 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         limitarAUsuario: true,
       );
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
       final estadoNormalizado = nuevoEstado.toLowerCase();
       final mensaje = estadoNormalizado == 'confirmado'
-          ? 'Has confirmado tu asistencia.'
+          ? '¡Trabajo confirmado! ¡Prepárate!'
           : estadoNormalizado == 'rechazado'
-              ? 'Has rechazado esta postulación.'
+              ? 'Postulación rechazada con éxito.'
               : 'Estado de postulación actualizado.';
-      messenger?.showSnackBar(SnackBar(content: Text(mensaje)));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(mensaje)));
     } catch (e) {
-      print('Error al actualizar estado de la postulación: $e');
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(content: Text('No se pudo actualizar la postulación.')),
       );
     }
   }
+  
+  // --- Widgets de Tarjeta Unificados ---
 
-  Widget _buildConfirmedCard(
+  Widget _buildJobCard(
       BuildContext context, QueryDocumentSnapshot postulacionDoc) {
     final postulacionData = postulacionDoc.data() as Map<String, dynamic>;
     final trabajoId = postulacionData['trabajoId'];
 
-    if (trabajoId == null) {
-      return const SizedBox.shrink();
-    }
-    
+    if (trabajoId == null) return const SizedBox.shrink();
+
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('trabajos')
@@ -140,35 +135,87 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
           .get(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Card(
-            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              title: Text('Cargando detalles del trabajo...'),
-            ),
-          );
+          return _buildLoadingCard();
         }
-        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
           return const SizedBox.shrink();
         }
 
         final trabajoData = snapshot.data!.data() as Map<String, dynamic>;
-        final titulo = postulacionData['trabajoTitulo'] ?? '';
+        final titulo = postulacionData['trabajoTitulo'] ?? trabajoData['titulo'] ?? 'Título no disponible';
+        final empresa = trabajoData['empresa'] ?? 'Empresa N/D';
         final precio = trabajoData['precio']?.toString() ?? 'N/D';
-        final estadoRaw =
-            postulacionData['estado']?.toString() ?? 'pendiente';
+        
+        final estadoRaw = postulacionData['estado']?.toString() ?? 'pendiente';
         final estado = estadoRaw.toLowerCase();
+        
         final fechaTrabajoTs = trabajoData['fechaTrabajo'] as Timestamp?;
         final fechaTrabajo = fechaTrabajoTs?.toDate();
-        final ahora = DateTime.now();
+        
+        final fechaPostulacionTs = postulacionData['fechaPostulacion'] as Timestamp?;
+        final fechaPostulacion = fechaPostulacionTs?.toDate();
 
-        if (fechaTrabajo != null &&
-            ahora.isAfter(fechaTrabajo.add(const Duration(days: 1)))) {
-          return const SizedBox.shrink();
+        if (estado == 'confirmado' && fechaTrabajo != null && DateTime.now().isAfter(fechaTrabajo.add(const Duration(days: 1)))) {
+            return const SizedBox.shrink();
         }
 
+        Widget subtitleContent;
+        Widget actionButtons = const SizedBox.shrink();
+
+        if (estado == 'confirmado') {
+          subtitleContent = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Fecha: ${_formatFecha(fechaTrabajo)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87)),
+              // Color de pago ahora es Verde Azulado
+              Text('Pago: \$$precio', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _COLOR_CONFIRMADO)), 
+            ],
+          );
+          actionButtons = ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SeguimientoPostulacionScreen(
+                    trabajoId: trabajoId,
+                    trabajo: trabajoData,
+                  ),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text('Ver Detalles'),
+          );
+        } else if (estado == 'aceptado') {
+           // Si está aceptado, forzamos la acción de Confirmar/Rechazar
+          subtitleContent = Text('¡Seleccionado! Pendiente de tu confirmación.', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _COLOR_ACEPTADO));
+          
+          actionButtons = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                onPressed: () => _actualizarEstadoPostulacion(trabajoId, 'confirmado', trabajoTitulo: titulo),
+                style: ElevatedButton.styleFrom(backgroundColor: _COLOR_ACEPTADO, foregroundColor: Colors.white),
+                child: const Text('Confirmar'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () => _actualizarEstadoPostulacion(trabajoId, 'rechazado', trabajoTitulo: titulo),
+                style: OutlinedButton.styleFrom(foregroundColor: _COLOR_RECHAZADO, side: BorderSide(color: _COLOR_RECHAZADO)),
+                child: const Text('Rechazar'),
+              ),
+            ],
+          );
+        } else { // Pendiente, Rechazado
+          subtitleContent = Text('Postulado el ${_formatFecha(fechaPostulacion)}', style: const TextStyle(fontSize: 14, color: Colors.black54));
+          actionButtons = const SizedBox.shrink(); // No hay acción directa
+        }
+
+        // --- Layout de la Tarjeta ---
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           elevation: 3,
@@ -178,51 +225,47 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  titulo,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.w500),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(titulo, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text(empresa, style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                        ],
+                      ),
+                    ),
+                    // Etiqueta de Estado (Chip)
+                    Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: _colorEstado(estado).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(_iconEstado(estado), size: 16, color: _colorEstado(estado)),
+                            const SizedBox(width: 4),
+                            Text(estado.toUpperCase(),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _colorEstado(estado))),
+                          ],
+                        )),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  estado.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _colorEstado(estado),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Pago: \$$precio',
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600),
-                ),
+                
+                const SizedBox(height: 12), 
+                
+                subtitleContent,
                 const SizedBox(height: 12),
+                
                 Align(
                   alignment: Alignment.centerRight,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SeguimientoPostulacionScreen(
-                            trabajoId: trabajoId,
-                            trabajo: trabajoData,
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: const Text('Ver seguimiento'),
-                  ),
+                  child: actionButtons,
                 ),
               ],
             ),
@@ -231,161 +274,48 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
       },
     );
   }
-
-  Widget _buildPendingCard(BuildContext context, QueryDocumentSnapshot postulacionDoc) {
-    final postulacionData = postulacionDoc.data() as Map<String, dynamic>;
-    final trabajoId = postulacionData['trabajoId'];
-
-    if (trabajoId == null) {
-      return const SizedBox.shrink();
-    }
-
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('trabajos')
-          .doc(trabajoId)
-          .get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Card(
-            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              title: Text('Cargando detalles del trabajo...'),
+  
+  Widget _buildLoadingCard() {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-          );
-        }
-        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
-          return const SizedBox.shrink();
-        }
-
-        final trabajoData = snapshot.data!.data() as Map<String, dynamic>;
-        final titulo = postulacionData['trabajoTitulo'] ?? '';
-        final estadoRaw =
-            postulacionData['estado']?.toString() ?? 'pendiente';
-        final estado = estadoRaw.toLowerCase();
-        final fechaTrabajoTs = trabajoData['fechaTrabajo'] as Timestamp?;
-        final fechaTrabajo = fechaTrabajoTs?.toDate();
-        final ahora = DateTime.now();
-
-        if (fechaTrabajo != null &&
-            ahora.isAfter(fechaTrabajo.add(const Duration(days: 1)))) {
-          return const SizedBox.shrink();
-        }
-
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        titulo,
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Fecha: ${_formatFecha(fechaTrabajo)}',
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w400),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                if (estado == 'aceptado')
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () async {
-                          await _actualizarEstadoPostulacion(
-                            trabajoId,
-                            'confirmado',
-                            trabajoTitulo: titulo,
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Confirmar'),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: () async {
-                          await _actualizarEstadoPostulacion(
-                            trabajoId,
-                            'rechazado',
-                            trabajoTitulo: titulo,
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                        child: const Text('Rechazar'),
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Icon(
-                        _iconEstado(estado),
-                        color: _colorEstado(estado),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        estado.toUpperCase(),
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: _colorEstado(estado)),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+            SizedBox(width: 16),
+            Text('Cargando detalles del trabajo...'),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildPostulacionList(List<QueryDocumentSnapshot> postulaciones, bool? isConfirmedTab) {
+  // --- Widgets de Lista y Cuerpo ---
+
+  Widget _buildPostulacionList(List<QueryDocumentSnapshot> postulaciones) {
     if (postulaciones.isEmpty) {
-      return const Center(child: Text('No hay postulaciones en esta categoría.'));
+      return const Center(
+          child: Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Text(
+          'No tienes trabajos o postulaciones en esta categoría. ¡Es momento de buscar nuevas oportunidades!', 
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16, color: Colors.black54),
+        ),
+      ));
     }
 
     return ListView.builder(
       itemCount: postulaciones.length,
       itemBuilder: (context, index) {
-        final post = postulaciones[index];
-        final data = post.data() as Map<String, dynamic>;
-        final estado = (data['estado'] as String? ?? '').toLowerCase();
-
-        if (isConfirmedTab == true) {
-          return _buildConfirmedCard(context, post);
-        } else if (isConfirmedTab == false) {
-          return _buildPendingCard(context, post);
-        } else { // 'Todos' tab
-          if (estado == 'confirmado') {
-            return _buildConfirmedCard(context, post);
-          } else {
-            return _buildPendingCard(context, post);
-          }
-        }
+        return _buildJobCard(context, postulaciones[index]);
       },
     );
   }
@@ -396,37 +326,19 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           final error = snapshot.error;
-          if (error is FirebaseException &&
-              error.code == 'failed-precondition') {
-            return const Center(
-                child: Text('Preparando índices, intenta más tarde'));
+          if (error is FirebaseException && error.code == 'failed-precondition') {
+            return const Center(child: Text('Preparando índices, intenta más tarde'));
           }
-          return const Center(
-              child: Text('Error al cargar las postulaciones'));
+          return const Center(child: Text('Error al cargar las postulaciones'));
         }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.data != null) {
-          for (final cambio in snapshot.data!.docChanges) {
-            if (cambio.type == DocumentChangeType.modified) {
-              final data =
-                  cambio.doc.data() as Map<String, dynamic>? ?? {};
-              final estado = (data['estado'] as String? ?? '').toLowerCase();
-              if (estado == 'aceptado' || estado == 'rechazado') {
-                final titulo = data['trabajoTitulo'] ?? '';
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _mostrarNotificacion(titulo, estado);
-                });
-              }
-            }
-          }
-        }
-
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No hay postulaciones.'));
+          return const Center(child: Text('Aún no tienes postulaciones.'));
         }
+        
         final postulaciones = snapshot.data!.docs.toList()
           ..sort((a, b) {
             final aData = a.data() as Map<String, dynamic>;
@@ -438,30 +350,30 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
           });
 
         final confirmados = postulaciones
-            .where((p) {
-              final data = p.data() as Map<String, dynamic>;
-              final estado = (data['estado'] as String? ?? '').toLowerCase();
-              return estado == 'confirmado';
-            }).toList();
+            .where((p) => (p.data() as Map<String, dynamic>)['estado']?.toLowerCase() == 'confirmado')
+            .toList();
+            
         final pendientes = postulaciones
             .where((p) {
-              final data = p.data() as Map<String, dynamic>;
-              final estado = (data['estado'] as String? ?? '').toLowerCase();
+              final estado = (p.data() as Map<String, dynamic>)['estado']?.toLowerCase();
               return estado == 'pendiente' || estado == 'aceptado';
             }).toList();
+        
         final todos = postulaciones;
 
         return TabBarView(
           controller: _tabController,
           children: [
-            _buildPostulacionList(confirmados, true),
-            _buildPostulacionList(pendientes, false),
-            _buildPostulacionList(todos, null),
+            _buildPostulacionList(confirmados),
+            _buildPostulacionList(pendientes),
+            _buildPostulacionList(todos),
           ],
         );
       },
     );
   }
+
+  // --- Lógica de Navegación/Elegibilidad ---
 
   void _navigateAndRefresh(
     BuildContext context,
@@ -512,18 +424,24 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     );
   }
 
+  // --- Build Principal ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('JOBS'),
+        title: const Text('Mis Trabajos'),
+        elevation: 0, 
+        centerTitle: false,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Theme.of(context).colorScheme.primary,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
           tabs: const [
             Tab(text: 'Confirmados'),
             Tab(text: 'Pendientes'),
-            Tab(text: 'Todos'),
+            Tab(text: 'Historial'),
           ],
         ),
       ),

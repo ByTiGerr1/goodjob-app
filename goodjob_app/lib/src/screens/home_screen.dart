@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'trabajos_screen.dart';
 import 'mis_trabajos_screen.dart';
 import 'mis_pagos.dart';
-import 'configuracion_screen.dart';
+import 'configuracion/configuracion_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
