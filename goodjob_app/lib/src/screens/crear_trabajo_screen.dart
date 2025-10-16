@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
@@ -8,7 +6,7 @@ import 'seleccionar_ubicacion_screen.dart'; // Asumiendo que existe
 import '../services/trabajo_service.dart'; // Asumiendo que existe
 import '../services/plantilla_trabajo_service.dart';
 
-enum _MenuPlantillaOption { aplicar, guardar, crear }
+enum _MenuPlantillaOption { aplicar, crear }
 
 class _PlantillaDialogResult {
   const _PlantillaDialogResult._(this.plantilla, this.crearNueva);
@@ -37,8 +35,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   final PlantillaTrabajoService _plantillaService = PlantillaTrabajoService();
   List<TrabajoPlantilla> _plantillas = [];
   bool _cargandoPlantillas = false;
-  bool _modoPlantilla = false;
-  bool _guardandoPlantilla = false;
 
   // Paso 1: Información básica
   final _tituloController = TextEditingController();
@@ -135,6 +131,13 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     }
   }
 
+  Future<void> _abrirCrearPlantilla() async {
+    final created = await Navigator.of(context).pushNamed('crear_plantilla');
+    if (created == true) {
+      await _cargarPlantillas(silent: true);
+    }
+  }
+
   TimeOfDay? _timeOfDayFromData(dynamic value) {
     if (value is Map) {
       final hour = value['hour'];
@@ -228,209 +231,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     );
   }
 
-  void _limpiarFormulario() {
-    _tituloController.clear();
-    _descripcionController.clear();
-    _empresaController.clear();
-    _ubicacionDireccionCtrl.clear();
-    _ubicacionCiudadCtrl.clear();
-    _ubicacionPaisCtrl.clear();
-    _contactoNombreController.clear();
-    _contactoNumeroController.clear();
-    _instruccionesController.clear();
-    _precioCtrl.clear();
-    _requiereUniforme = false;
-    _implementosSeleccionados.clear();
-    _ubicacionLatLng = null;
-    _fechaTrabajo = null;
-    _horaInicio = null;
-    _horaFin = null;
-  }
-
-  void _iniciarCreacionPlantilla() {
-    if (_modoPlantilla) {
-      _showError('Ya estás creando una plantilla.');
-      return;
-    }
-    setState(() {
-      _limpiarFormulario();
-      _modoPlantilla = true;
-      _currentStep = 0;
-    });
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(
-      const SnackBar(content: Text('Modo creación de plantilla activado.')),
-    );
-  }
-
-  void _salirModoPlantilla({bool mostrarMensaje = true}) {
-    if (!_modoPlantilla) return;
-    setState(() {
-      _modoPlantilla = false;
-    });
-    if (mostrarMensaje) {
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        const SnackBar(content: Text('Creación de plantilla cancelada.')),
-      );
-    }
-  }
-
-  Map<String, dynamic>? _obtenerDatosParaPlantilla() {
-    final data = <String, dynamic>{
-      'titulo': _tituloController.text.trim(),
-      'descripcion': _descripcionController.text.trim(),
-      'empresa': _empresaController.text.trim(),
-      'ubicacionDireccion': _ubicacionDireccionCtrl.text.trim(),
-      'ubicacionCiudad': _ubicacionCiudadCtrl.text.trim(),
-      'ubicacionPais': _ubicacionPaisCtrl.text.trim(),
-      'contactoNombre': _contactoNombreController.text.trim(),
-      'contactoNumero': _contactoNumeroController.text.trim(),
-      'instrucciones': _instruccionesController.text.trim(),
-      'requiereUniforme': _requiereUniforme,
-      'implementosUniforme': _implementosSeleccionados.toList(),
-    };
-
-    if (_ubicacionLatLng != null) {
-      data['ubicacionLat'] = _ubicacionLatLng!.latitude;
-      data['ubicacionLng'] = _ubicacionLatLng!.longitude;
-    }
-
-    if (_fechaTrabajo != null) {
-      data['fechaTrabajo'] = Timestamp.fromDate(_fechaTrabajo!);
-    }
-
-    if (_horaInicio != null) {
-      data['horaInicio'] = {
-        'hour': _horaInicio!.hour,
-        'minute': _horaInicio!.minute,
-      };
-    }
-
-    if (_horaFin != null) {
-      data['horaFin'] = {
-        'hour': _horaFin!.hour,
-        'minute': _horaFin!.minute,
-      };
-    }
-
-    final precioTexto = _precioCtrl.text.trim();
-    final precioNumero = double.tryParse(precioTexto);
-    if (precioNumero != null) {
-      data['precio'] = precioNumero;
-    } else if (precioTexto.isNotEmpty) {
-      data['precio'] = precioTexto;
-    }
-
-    data.removeWhere(
-      (key, value) =>
-          value == null || (value is String && value.trim().isEmpty),
-    );
-
-    if (data.isEmpty) {
-      _showError('Agrega al menos un dato antes de guardar la plantilla.');
-      return null;
-    }
-
-    return data;
-  }
-
-  Future<String?> _solicitarNombrePlantilla() async {
-    final controller = TextEditingController(text: _tituloController.text.trim());
-    final formKey = GlobalKey<FormState>();
-
-    final nombre = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Guardar como plantilla'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Nombre de la plantilla'),
-            validator: (value) =>
-                value == null || value.trim().isEmpty ? 'Ingrese un nombre' : null,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.of(ctx).pop(controller.text.trim());
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-
-    controller.dispose();
-    if (nombre == null || nombre.trim().isEmpty) {
-      return null;
-    }
-    return nombre.trim();
-  }
-
-  Future<void> _guardarComoPlantilla() async {
-    if (_guardandoPlantilla) return;
-
-    final datos = _obtenerDatosParaPlantilla();
-    if (datos == null) return;
-
-    final nombre = await _solicitarNombrePlantilla();
-    if (nombre == null || nombre.isEmpty) return;
-
-    if (!mounted) return;
-    setState(() => _guardandoPlantilla = true);
-
-    try {
-      final nuevaPlantilla = await _plantillaService
-          .guardarPlantilla(nombre: nombre, data: datos)
-          .timeout(const Duration(seconds: 12));
-
-      if (!mounted) return;
-
-      setState(() {
-        final actualizadas = List<TrabajoPlantilla>.from(_plantillas)
-          ..removeWhere((plantilla) => plantilla.id == nuevaPlantilla.id)
-          ..add(nuevaPlantilla)
-          ..sort((a, b) =>
-              a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
-        _plantillas = actualizadas;
-      });
-
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        SnackBar(content: Text('Plantilla "$nombre" guardada.')),
-      );
-      if (_modoPlantilla) {
-        _salirModoPlantilla(mostrarMensaje: false);
-      }
-    } on TimeoutException {
-      if (mounted) {
-        _showError(
-          'No se pudo guardar la plantilla: la operación tardó demasiado. '
-          'Verifica tu conexión e inténtalo nuevamente.',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _showError('No se pudo guardar la plantilla. Intenta nuevamente.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _guardandoPlantilla = false);
-      }
-    }
-  }
-
   Future<void> _mostrarSelectorPlantillas() async {
     await _cargarPlantillas();
     if (!mounted) return;
@@ -488,16 +288,16 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (!mounted || resultado == null) return;
 
     if (resultado.crearNueva) {
-      await _guardarComoPlantilla();
+      final created = await Navigator.of(context).pushNamed('crear_plantilla');
+      if (created == true) {
+        await _cargarPlantillas(silent: true);
+      }
     } else if (resultado.plantilla != null) {
       _aplicarPlantilla(resultado.plantilla!);
     }
   }
 
   bool _validarFormularioPaso(int step) {
-    if (_modoPlantilla) {
-      return true;
-    }
     final formState = _formKeys[step].currentState;
     if (formState == null) {
       return true;
@@ -506,9 +306,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   String? _mensajeValidacionPaso(int step) {
-    if (_modoPlantilla) {
-      return null;
-    }
     if (step == 1) {
       final hasAddress =
           _ubicacionDireccionCtrl.text.isNotEmpty && _ubicacionCiudadCtrl.text.isNotEmpty;
@@ -538,8 +335,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   Future<bool> _mostrarDialogoPasoIncompleto(String? detalle) async {
     if (!mounted) return false;
-    final mensajeBase =
-        'Hay campos obligatorios sin completar en este paso. Puedes continuar para guardar una plantilla y completar la información más adelante.';
+    const mensajeBase =
+        'Hay campos obligatorios sin completar en este paso. Completa la información antes de continuar.';
     final texto = detalle == null ? mensajeBase : '$mensajeBase\n\nDetalle: $detalle';
 
     final resultado = await showDialog<bool>(
@@ -611,10 +408,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   }
 
   void _onStepCancel() {
-    if (_modoPlantilla && _currentStep == 0) {
-      _salirModoPlantilla();
-      return;
-    }
     if (_currentStep > 0) {
       setState(() => _currentStep -= 1);
     } else {
@@ -636,7 +429,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             controller: _tituloController,
             decoration: const InputDecoration(labelText: 'Nombre de trabajo / Puesto'),
             validator: (value) {
-              if (_modoPlantilla) return null;
               return value == null || value.isEmpty ? 'Requerido' : null;
             },
           ),
@@ -651,7 +443,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                 labelText: 'Descripción del trabajo (Detalles de la tarea)'),
             maxLines: 3,
             validator: (value) {
-              if (_modoPlantilla) return null;
               return value == null || value.isEmpty ? 'Requerido' : null;
             },
           ),
@@ -665,7 +456,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             decoration: const InputDecoration(labelText: 'Empresa o Cliente'),
             maxLength: 30,
             validator: (value) {
-              if (_modoPlantilla) return null;
               return value == null || value.isEmpty ? 'Requerido' : null;
             },
           ),
@@ -700,7 +490,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             controller: _ubicacionDireccionCtrl,
             decoration: const InputDecoration(labelText: 'Dirección (Calle y número)'),
             validator: (value) {
-               if (_modoPlantilla) return null;
                if (_ubicacionLatLng == null && (value == null || value.isEmpty)) {
                   return 'Requerido si no usa el mapa';
                }
@@ -858,7 +647,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             ),
             keyboardType: TextInputType.number,
             validator: (v) {
-              if (_modoPlantilla) return null;
               if (v == null || v.isEmpty) return 'Requerido';
               if (double.tryParse(v) == null) return 'Debe ser un número válido';
               return null;
@@ -887,7 +675,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             controller: _contactoNombreController,
             decoration: const InputDecoration(labelText: 'Nombre de contacto'),
             validator: (value) {
-              if (_modoPlantilla) return null;
               return value == null || value.isEmpty ? 'Requerido' : null;
             },
           ),
@@ -901,7 +688,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             decoration: const InputDecoration(labelText: 'Número de contacto (Ej: +569...)'),
             keyboardType: TextInputType.phone,
             validator: (value) {
-              if (_modoPlantilla) return null;
               return value == null || value.isEmpty ? 'Requerido' : null;
             },
           ),
@@ -955,7 +741,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               checkmarkColor: Colors.black,
             )).toList(),
           ),
-          if (!_modoPlantilla && _implementosSeleccionados.isEmpty)
+          if (_implementosSeleccionados.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
               child: Text(
@@ -979,7 +765,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             maxLines: 4,
             maxLength: 1000,
             validator: (value) {
-              if (_modoPlantilla) return null;
               return value == null || value.isEmpty ? 'Requerido' : null;
             },
           ),
@@ -1204,39 +989,25 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           PopupMenuButton<_MenuPlantillaOption>(
             tooltip: 'Acciones de plantillas',
             icon: const Icon(Icons.layers_outlined),
-            enabled: !_guardandoPlantilla,
             onSelected: (option) {
               switch (option) {
                 case _MenuPlantillaOption.aplicar:
                   _mostrarSelectorPlantillas();
                   break;
-                case _MenuPlantillaOption.guardar:
-                  _guardarComoPlantilla();
-                  break;
                 case _MenuPlantillaOption.crear:
-                  _iniciarCreacionPlantilla();
+                  _abrirCrearPlantilla();
                   break;
               }
             },
             itemBuilder: (context) {
-              return [
-                const PopupMenuItem(
+              return const [
+                PopupMenuItem(
                   value: _MenuPlantillaOption.aplicar,
                   child: Text('Aplicar plantilla'),
                 ),
-                const PopupMenuItem(
-                  value: _MenuPlantillaOption.guardar,
-                  child: Text('Guardar como plantilla'),
-                ),
                 PopupMenuItem(
                   value: _MenuPlantillaOption.crear,
-                  enabled: !_modoPlantilla,
-                  child: Text(
-                    'Crear plantilla',
-                    style: TextStyle(
-                      color: !_modoPlantilla ? null : Theme.of(context).disabledColor,
-                    ),
-                  ),
+                  child: Text('Crear plantilla'),
                 ),
               ];
             },
@@ -1245,49 +1016,13 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       ),
       // ELIMINAMOS EL SINGLECHILDSCROLLVIEW EXTERNO (el Stepper se encarga del scroll)
       // Y LO REEMPLAZAMOS CON EL STEPPER DIRECTO, pero mantenemos el padding para el Stepper
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              children: [
-                if (_modoPlantilla)
-                  Container(
-                    margin: const EdgeInsets.only(top: 16, bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.layers, color: _primaryColor),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Estás creando una plantilla. Completa únicamente los campos que desees guardar y presiona "Guardar plantilla" al finalizar.',
-                            style: TextStyle(color: _primaryColor, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                Expanded(child: _buildCustomStepper()),
-              ],
-            ),
-          ),
-          if (_guardandoPlantilla)
-            Positioned.fill(
-              child: AbsorbPointer(
-                absorbing: true,
-                child: Container(
-                  color: Colors.black45,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-              ),
-            ),
-        ],
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          children: [
+            Expanded(child: _buildCustomStepper()),
+          ],
+        ),
       ),
 
       // Botones de acción fijos en la parte inferior
@@ -1308,15 +1043,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           children: [
             // Botón Atrás/Cancelar
             TextButton(
-              onPressed: _guardandoPlantilla ? null : _onStepCancel,
+              onPressed: _onStepCancel,
               child: Text(
-                _currentStep == 0
-                    ? (_modoPlantilla ? 'SALIR' : 'CANCELAR')
-                    : 'ATRÁS',
+                _currentStep == 0 ? 'CANCELAR' : 'ATRÁS',
                 style: TextStyle(
-                  color: _currentStep == 0
-                      ? (_modoPlantilla ? _primaryColor : _errorColor)
-                      : Colors.black54,
+                  color: _currentStep == 0 ? _errorColor : Colors.black54,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1324,35 +1055,20 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
             // Botón Siguiente/Publicar
             ElevatedButton.icon(
-              onPressed: _guardandoPlantilla
-                  ? null
-                  : () async {
-                      if (_modoPlantilla) {
-                        if (isLast) {
-                          await _guardarComoPlantilla();
-                        } else {
-                          await _irAlPaso(_currentStep + 1);
-                        }
-                      } else {
-                        await _onStepContinue();
-                      }
-                    },
+              onPressed: () async {
+                await _onStepContinue();
+              },
               icon: Icon(
-                isLast
-                    ? (_modoPlantilla ? Icons.save : Icons.send)
-                    : Icons.arrow_forward,
+                isLast ? Icons.send : Icons.arrow_forward,
                 color: Colors.white,
               ),
               label: Text(
-                isLast
-                    ? (_modoPlantilla ? 'GUARDAR PLANTILLA' : 'PUBLICAR TRABAJO')
-                    : 'SIGUIENTE',
+                isLast ? 'PUBLICAR TRABAJO' : 'SIGUIENTE',
                 style: const TextStyle(fontSize: 16, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isLast
-                    ? (_modoPlantilla ? _primaryColor : Colors.green.shade600)
-                    : _primaryColor,
+                backgroundColor:
+                    isLast ? Colors.green.shade600 : _primaryColor,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),

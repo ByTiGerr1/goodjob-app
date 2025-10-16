@@ -8,6 +8,7 @@ import 'src/screens/register_screen.dart';
 import 'src/screens/welcome_screen.dart';
 import 'src/screens/admin_home_screen.dart';
 import 'src/screens/crear_trabajo_screen.dart';
+import 'src/screens/crear_plantilla_screen.dart';
 import 'src/screens/account_verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'src/services/firebase_service.dart';
@@ -159,6 +160,7 @@ class MainApp extends StatelessWidget {
         'home': (_) => const HomeScreen(),
         'admin_home': (_) => const AdminHomeScreen(),
         'crear_trabajo': (_) => const CrearTrabajoScreen(),
+        'crear_plantilla': (_) => const CrearPlantillaScreen(),
         'account_verification': (_) => const AccountVerificationScreen(),
       },
     );
