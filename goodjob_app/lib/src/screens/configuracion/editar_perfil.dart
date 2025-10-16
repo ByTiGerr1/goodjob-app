@@ -58,7 +58,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     }
 
     try {
-      final doc = await _firestore.collection('usuarios').doc(_user!.uid).get();
+      final doc = await _firestore.collection('usuarios').doc(_user.uid).get();
       final data = doc.data();
 
       if (data != null) {
@@ -101,7 +101,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         'carrera': _carreraController.text.trim(),
       };
 
-      await _firestore.collection('usuarios').doc(_user!.uid).set(userData, SetOptions(merge: true));
+      await _firestore.collection('usuarios').doc(_user.uid).set(userData, SetOptions(merge: true));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

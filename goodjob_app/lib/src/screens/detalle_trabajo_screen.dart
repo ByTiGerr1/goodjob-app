@@ -88,7 +88,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     final anio = fecha.year.toString();
     final hora = fecha.hour.toString().padLeft(2, '0');
     final minuto = fecha.minute.toString().padLeft(2, '0');
-    return '$dia/$mes/$anio ${hora}:${minuto}';
+    return '$dia/$mes/$anio $hora:$minuto';
   }
   
   // --- FUNCIONES DE EXTRACCIÓN ROBUSTA DE DATOS (DUAL-SCHEMA) ---
@@ -190,7 +190,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       await _postulacionService.crearPostulacion(
         trabajoId: widget.trabajoId,
         trabajoTitulo: widget.trabajo['titulo'] ?? '',
-        usuarioId: _usuarioId!,
+        usuarioId: _usuarioId,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -240,7 +240,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       // ** ASUME QUE ESTE MÉTODO EXISTE EN PostulacionService **
       await _postulacionService.cancelarPostulacion(
         trabajoId: widget.trabajoId,
-        usuarioId: _usuarioId!,
+        usuarioId: _usuarioId,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -294,7 +294,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     try {
       await _postulacionService.confirmarAsignacion(
         trabajoId: widget.trabajoId,
-        postulanteId: _usuarioId!,
+        postulanteId: _usuarioId,
         trabajoTitulo: widget.trabajo['titulo'] ?? '',
       );
       if (mounted) {
@@ -327,7 +327,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     try {
       await _postulacionService.liberarAsignacionPorExpiracion(
         trabajoId: widget.trabajoId,
-        postulanteId: _usuarioId!,
+        postulanteId: _usuarioId,
         trabajoTitulo: widget.trabajo['titulo'] ?? '',
       );
       if (mounted) {
@@ -469,7 +469,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _postulacionService.observarPostulacionDeUsuario(
         trabajoId: widget.trabajoId,
-        usuarioId: _usuarioId!,
+        usuarioId: _usuarioId,
       ),
       builder: (context, snapshot) {
         // Manejo de estados de carga/error
@@ -498,7 +498,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
             child: ElevatedButton(
               onPressed: isExpired ? null : _postularse,
               style: _primaryButtonStyle.copyWith(
-                backgroundColor: isExpired ? MaterialStateProperty.all(Colors.grey) : null,
+                backgroundColor: isExpired ? WidgetStateProperty.all(Colors.grey) : null,
               ),
               child: Text(
                 isExpired ? 'Plazo de postulación expirado' : 'Postularme ahora',
@@ -569,7 +569,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                             ),
                             ElevatedButton(
                                 onPressed: null,
-                                style: _primaryButtonStyle.copyWith(backgroundColor: MaterialStateProperty.all(Colors.grey)),
+                                style: _primaryButtonStyle.copyWith(backgroundColor: WidgetStateProperty.all(Colors.grey)),
                                 child: const Text('Plazo de confirmación expirado', style: TextStyle(fontSize: 18, color: Colors.white)),
                             ),
                         ],
@@ -606,7 +606,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         ),
                         ElevatedButton(
                             onPressed: null,
-                            style: _primaryButtonStyle.copyWith(backgroundColor: MaterialStateProperty.all(Colors.green)),
+                            style: _primaryButtonStyle.copyWith(backgroundColor: WidgetStateProperty.all(Colors.green)),
                             child: const Text('Trabajo confirmado', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                     ],
@@ -623,7 +623,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         ),
                         ElevatedButton(
                             onPressed: null,
-                            style: _primaryButtonStyle.copyWith(backgroundColor: MaterialStateProperty.all(Colors.grey)),
+                            style: _primaryButtonStyle.copyWith(backgroundColor: WidgetStateProperty.all(Colors.grey)),
                             child: const Text('Postulación rechazada', style: TextStyle(fontSize: 18, color: Colors.white)),
                             ),
                     ],
@@ -641,7 +641,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         // Botón Primario para el estado
                         ElevatedButton(
                             onPressed: null,
-                            style: _primaryButtonStyle.copyWith(backgroundColor: MaterialStateProperty.all(Colors.blue)),
+                            style: _primaryButtonStyle.copyWith(backgroundColor: WidgetStateProperty.all(Colors.blue)),
                             child: const Text('Postulación en revisión', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                         const SizedBox(height: 10),
@@ -674,7 +674,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                         ),
                         ElevatedButton(
                             onPressed: null,
-                            style: _primaryButtonStyle.copyWith(backgroundColor: MaterialStateProperty.all(Colors.grey)),
+                            style: _primaryButtonStyle.copyWith(backgroundColor: WidgetStateProperty.all(Colors.grey)),
                             child: const Text('Estado Desconocido', style: TextStyle(fontSize: 18, color: Colors.white)),
                         ),
                     ],

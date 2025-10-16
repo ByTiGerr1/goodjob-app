@@ -55,6 +55,10 @@ service cloud.firestore {
       }
     }
 
+    match /trabajoPlantillas/{plantillaId} {
+      allow read, create, update, delete: if isAdmin();
+    }
+    
     match /perfiles/{perfilId} {
       allow create, read, update: if isSignedIn() && request.auth.uid == perfilId;
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == perfilId);

@@ -177,9 +177,7 @@ class _PostulacionContent extends StatelessWidget {
 
   DateTime? _getTrabajoStartDateTime(Map<String, dynamic> t) {
     Timestamp? ts = t['fechaInicioTrabajo'] as Timestamp?;
-    if (ts == null) {
-      ts = t['fechaTrabajo'] as Timestamp?; // Esquema antiguo
-    }
+    ts ??= t['fechaTrabajo'] as Timestamp?;
     return ts?.toDate();
   }
 

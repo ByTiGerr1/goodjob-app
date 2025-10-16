@@ -52,7 +52,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     }
 
     try {
-      final doc = await _firestore.collection('usuarios').doc(_user!.uid).get();
+      final doc = await _firestore.collection('usuarios').doc(_user.uid).get();
       final data = doc.data();
 
       if (data != null) {
@@ -108,7 +108,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
         },
       };
 
-      await _firestore.collection('usuarios').doc(_user!.uid).set(bankDataToSave, SetOptions(merge: true));
+      await _firestore.collection('usuarios').doc(_user.uid).set(bankDataToSave, SetOptions(merge: true));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

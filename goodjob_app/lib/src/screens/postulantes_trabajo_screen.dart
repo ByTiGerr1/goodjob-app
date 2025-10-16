@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/postulacion_service.dart';
 import 'postulante_detalle_screen.dart'; // Asegúrate de que esta importación sea correcta
 
 // --- WIDGET AUXILIAR: Tarjeta de Postulante (Maneja FutureBuilder internamente) ---

@@ -300,7 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _selectedGender,
+            initialValue: _selectedGender,
             decoration: const InputDecoration(labelText: 'Género'),
             items: _genderOptions.map((value) {
               return DropdownMenuItem<String>(
@@ -322,7 +322,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _selectedNationality,
+            initialValue: _selectedNationality,
             decoration: const InputDecoration(labelText: 'Nacionalidad'),
             items: _nationalityOptions.map((value) {
               return DropdownMenuItem<String>(

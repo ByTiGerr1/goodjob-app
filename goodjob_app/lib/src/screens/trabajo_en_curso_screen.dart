@@ -407,7 +407,7 @@ class _InstructionsModalContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Definición de las instrucciones solicitadas
-    final List<Instruccion> _instrucciones = [
+    final List<Instruccion> instrucciones = [
       Instruccion(
         paso: 1,
         titulo: 'Contar y Confirmar Stock',
@@ -475,7 +475,7 @@ class _InstructionsModalContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          ..._instrucciones.map(
+          ...instrucciones.map(
             (inst) => Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: Column(

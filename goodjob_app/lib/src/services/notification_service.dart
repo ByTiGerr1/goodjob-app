@@ -1,9 +1,9 @@
-import 'dart:io';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:uuid/uuid.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 class NotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -14,14 +14,21 @@ class NotificationService {
   NotificationService({required this.uid});
 
   Future<void> init() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      await _initLocalNotifications();
+    if (!_isMobileDevice) {
+      debugPrint('NotificationService: plataforma no compatible, se omite la inicialización.');
+      return;
     }
+
+    await _initLocalNotifications();
     await _requestPermissions();
     await _saveToken();
     _listenForegroundMessages();
     _listenOpenedApp();
   }
+
+  bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  bool get _isMobileDevice => _isAndroid || _isIOS;
 
   Future<String> _getInstallationId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -34,24 +41,25 @@ class NotificationService {
   }
 
   Future<void> _initLocalNotifications() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-      final iosSettings = DarwinInitializationSettings();
-      final settings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+    if (!_isMobileDevice) return;
 
-      await _localNotifications.initialize(
-        settings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {
-          _onSelectNotification(response.payload);
-        },
-      );
-    }
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    final iosSettings = DarwinInitializationSettings();
+    final settings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+
+    await _localNotifications.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        _onSelectNotification(response.payload);
+      },
+    );
   }
-/// Solicita permisos para notificaciones (iOS y Android 13+)
+
+  /// Solicita permisos para notificaciones (iOS y Android 13+)
   Future<void> _requestPermissions() async {
-    if (Platform.isIOS) {
+    if (_isIOS) {
       await _messaging.requestPermission(alert: true, badge: true, sound: true);
-    } else if (Platform.isAndroid) {
+    } else if (_isAndroid) {
       await FirebaseMessaging.instance.requestPermission();
     }
   }
@@ -60,61 +68,79 @@ class NotificationService {
   /// y escucha cambios en el token para actualizarlo.
   Future<void> _saveToken() async {
     final installationId = await _getInstallationId();
-    
-    // Obtener el token de FCM
-    String? token = await _messaging.getToken();
-    if (token == null) return;
 
-    final docRef = _firestore
-        .collection('usuarios')
-        .doc(uid)
-        .collection('fcm_tokens')
-        .doc(installationId);
-   // Guardar token y lastSeen (crea o actualiza)
-    await docRef.set({
-      'token': token, 
-      'lastSeen': FieldValue.serverTimestamp(),
-      'device': Platform.operatingSystem,
-    }, SetOptions(merge: true));
-    // Escuchar actualizaciones del token y actualizar Firestore automáticamente
-    _messaging.onTokenRefresh.listen((newToken) async {
+    // Obtener el token de FCM
+    try {
+      final token = await _messaging.getToken();
+      if (token == null) return;
+
+      final docRef = _firestore
+          .collection('usuarios')
+          .doc(uid)
+          .collection('fcm_tokens')
+          .doc(installationId);
+
       await docRef.set({
-        'token': newToken, 
-        'lastSeen': FieldValue.serverTimestamp()}, 
-        SetOptions(merge: true)
-        );
-    });
+        'token': token,
+        'lastSeen': FieldValue.serverTimestamp(),
+        'device': _platformLabel,
+      }, SetOptions(merge: true));
+
+      _messaging.onTokenRefresh.listen((newToken) async {
+        try {
+          await docRef.set({
+            'token': newToken,
+            'lastSeen': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (e, stackTrace) {
+          debugPrint('No se pudo actualizar el token de notificaciones: $e');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      });
+    } catch (e, stackTrace) {
+      debugPrint('No se pudo obtener el token de notificaciones: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   void _listenForegroundMessages() {
+    if (!_isMobileDevice) return;
+
     FirebaseMessaging.onMessage.listen((message) {
-      if (Platform.isAndroid || Platform.isIOS) {
-        if (message.notification != null) {
-          _localNotifications.show(
-            0,
-            message.notification!.title,
-            message.notification!.body,
-            const NotificationDetails(
-              android: AndroidNotificationDetails(
-                'default_channel',
-                'Notificaciones',
-                importance: Importance.max,
-              ),
-            ),
-            payload: message.data.toString(),
-          );
-        }
-      }
+      final notification = message.notification;
+      if (notification == null) return;
+
+      _localNotifications.show(
+        0,
+        notification.title,
+        notification.body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'default_channel',
+            'Notificaciones',
+            importance: Importance.max,
+          ),
+        ),
+        payload: message.data.toString(),
+      );
     });
   }
 
   void _listenOpenedApp() async {
+    if (!_isMobileDevice) return;
+
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       _handleNotificationOpen(message.data);
     });
-    final initialMessage = await _messaging.getInitialMessage();
-    if (initialMessage != null) {
-      _handleNotificationOpen(initialMessage.data);
+
+    try {
+      final initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _handleNotificationOpen(initialMessage.data);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error al obtener el mensaje inicial: $e');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 
@@ -125,5 +151,11 @@ class NotificationService {
   void _handleNotificationOpen(Map<String, dynamic> data) {
     print('Notificación abierta: $data');
     // Aquí decides a qué pantalla ir
+  }
+
+  String get _platformLabel {
+    if (_isAndroid) return 'android';
+    if (_isIOS) return 'ios';
+    return defaultTargetPlatform.name;
   }
 }

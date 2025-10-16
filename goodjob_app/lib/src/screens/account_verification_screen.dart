@@ -525,7 +525,7 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _selectedAccountType,
+                      initialValue: _selectedAccountType,
                       decoration: const InputDecoration(
                         labelText: 'Tipo de cuenta',
                       ),

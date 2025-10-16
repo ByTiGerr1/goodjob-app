@@ -893,7 +893,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                     _requiereUniforme = v;
                     if (!v) _implementosSeleccionados.clear();
                   }),
-                  activeColor: _primaryColor,
+                  activeThumbColor: _primaryColor,
                 ),
               ],
             ),
@@ -1073,7 +1073,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           'direccion': _ubicacionDireccionCtrl.text,
           'ciudad': _ubicacionCiudadCtrl.text,
           'pais': _ubicacionPaisCtrl.text,
-          'lat': coords!.latitude, 
+          'lat': coords.latitude, 
           'lng': coords.longitude,
         },
         fechaLimite: fechaLimiteFinal, 
