@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'dart:async'; // Necesario para Timer
+// Necesario para Timer
 
 import 'instrucciones_trabajo_screen.dart';
 import 'mapa_checkin_screen.dart'; // Importamos la nueva pantalla

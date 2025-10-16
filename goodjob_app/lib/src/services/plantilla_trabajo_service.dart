@@ -25,15 +25,30 @@ class PlantillaTrabajoService {
         .toList();
   }
 
-  Future<void> guardarPlantilla({
+  Future<TrabajoPlantilla> guardarPlantilla({
     required String nombre,
     required Map<String, dynamic> data,
   }) async {
+    final docRef = _plantillasRef.doc();
     final payload = <String, dynamic>{
       'nombre': nombre,
       ...data,
       'actualizadoEn': FieldValue.serverTimestamp(),
     };
-    await _plantillasRef.add(payload);
+
+    await docRef.set(payload);
+
+    // Evitamos realizar una lectura inmediata del documento recién creado
+    // porque en algunos dispositivos provocaba bloqueos cuando la conexión
+    // quedaba a la espera de la respuesta del servicio nativo de Firestore.
+    // En su lugar retornamos un modelo local con los mismos datos.
+
+    final fallbackData = <String, dynamic>{
+      ...data,
+      'nombre': nombre,
+      'actualizadoEn': Timestamp.fromDate(DateTime.now()),
+    };
+
+    return TrabajoPlantilla(id: docRef.id, nombre: nombre, data: fallbackData);
   }
 }

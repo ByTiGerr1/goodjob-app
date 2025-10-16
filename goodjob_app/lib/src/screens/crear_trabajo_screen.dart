@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
@@ -36,6 +38,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   List<TrabajoPlantilla> _plantillas = [];
   bool _cargandoPlantillas = false;
   bool _modoPlantilla = false;
+  bool _guardandoPlantilla = false;
 
   // Paso 1: Información básica
   final _tituloController = TextEditingController();
@@ -335,10 +338,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   Future<String?> _solicitarNombrePlantilla() async {
     final controller = TextEditingController(text: _tituloController.text.trim());
     final formKey = GlobalKey<FormState>();
-    String? nombre;
 
-    await showDialog<void>(
+    final nombre = await showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text('Guardar como plantilla'),
         content: Form(
@@ -359,8 +362,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           ElevatedButton(
             onPressed: () {
               if (formKey.currentState!.validate()) {
-                nombre = controller.text.trim();
-                Navigator.of(ctx).pop();
+                Navigator.of(ctx).pop(controller.text.trim());
               }
             },
             child: const Text('Guardar'),
@@ -370,20 +372,40 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     );
 
     controller.dispose();
-    return nombre;
+    if (nombre == null || nombre.trim().isEmpty) {
+      return null;
+    }
+    return nombre.trim();
   }
 
   Future<void> _guardarComoPlantilla() async {
+    if (_guardandoPlantilla) return;
+
     final datos = _obtenerDatosParaPlantilla();
     if (datos == null) return;
 
     final nombre = await _solicitarNombrePlantilla();
     if (nombre == null || nombre.isEmpty) return;
 
+    if (!mounted) return;
+    setState(() => _guardandoPlantilla = true);
+
     try {
-      await _plantillaService.guardarPlantilla(nombre: nombre, data: datos);
+      final nuevaPlantilla = await _plantillaService
+          .guardarPlantilla(nombre: nombre, data: datos)
+          .timeout(const Duration(seconds: 12));
+
       if (!mounted) return;
-      await _cargarPlantillas(silent: true);
+
+      setState(() {
+        final actualizadas = List<TrabajoPlantilla>.from(_plantillas)
+          ..removeWhere((plantilla) => plantilla.id == nuevaPlantilla.id)
+          ..add(nuevaPlantilla)
+          ..sort((a, b) =>
+              a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+        _plantillas = actualizadas;
+      });
+
       final messenger = ScaffoldMessenger.maybeOf(context);
       messenger?.showSnackBar(
         SnackBar(content: Text('Plantilla "$nombre" guardada.')),
@@ -391,8 +413,21 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       if (_modoPlantilla) {
         _salirModoPlantilla(mostrarMensaje: false);
       }
+    } on TimeoutException {
+      if (mounted) {
+        _showError(
+          'No se pudo guardar la plantilla: la operación tardó demasiado. '
+          'Verifica tu conexión e inténtalo nuevamente.',
+        );
+      }
     } catch (e) {
-      _showError('No se pudo guardar la plantilla: $e');
+      if (mounted) {
+        _showError('No se pudo guardar la plantilla. Intenta nuevamente.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _guardandoPlantilla = false);
+      }
     }
   }
 
@@ -1169,6 +1204,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           PopupMenuButton<_MenuPlantillaOption>(
             tooltip: 'Acciones de plantillas',
             icon: const Icon(Icons.layers_outlined),
+            enabled: !_guardandoPlantilla,
             onSelected: (option) {
               switch (option) {
                 case _MenuPlantillaOption.aplicar:
@@ -1209,35 +1245,49 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       ),
       // ELIMINAMOS EL SINGLECHILDSCROLLVIEW EXTERNO (el Stepper se encarga del scroll)
       // Y LO REEMPLAZAMOS CON EL STEPPER DIRECTO, pero mantenemos el padding para el Stepper
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          children: [
-            if (_modoPlantilla)
-              Container(
-                margin: const EdgeInsets.only(top: 16, bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.layers, color: _primaryColor),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Estás creando una plantilla. Completa únicamente los campos que desees guardar y presiona "Guardar plantilla" al finalizar.',
-                        style: TextStyle(color: _primaryColor, fontWeight: FontWeight.w600),
-                      ),
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              children: [
+                if (_modoPlantilla)
+                  Container(
+                    margin: const EdgeInsets.only(top: 16, bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.layers, color: _primaryColor),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Estás creando una plantilla. Completa únicamente los campos que desees guardar y presiona "Guardar plantilla" al finalizar.',
+                            style: TextStyle(color: _primaryColor, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Expanded(child: _buildCustomStepper()),
+              ],
+            ),
+          ),
+          if (_guardandoPlantilla)
+            Positioned.fill(
+              child: AbsorbPointer(
+                absorbing: true,
+                child: Container(
+                  color: Colors.black45,
+                  child: const Center(child: CircularProgressIndicator()),
                 ),
               ),
-            Expanded(child: _buildCustomStepper()),
-          ],
-        ),
+            ),
+        ],
       ),
 
       // Botones de acción fijos en la parte inferior
@@ -1258,7 +1308,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           children: [
             // Botón Atrás/Cancelar
             TextButton(
-              onPressed: _onStepCancel,
+              onPressed: _guardandoPlantilla ? null : _onStepCancel,
               child: Text(
                 _currentStep == 0
                     ? (_modoPlantilla ? 'SALIR' : 'CANCELAR')
@@ -1274,17 +1324,19 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
             // Botón Siguiente/Publicar
             ElevatedButton.icon(
-              onPressed: () async {
-                if (_modoPlantilla) {
-                  if (isLast) {
-                    await _guardarComoPlantilla();
-                  } else {
-                    await _irAlPaso(_currentStep + 1);
-                  }
-                } else {
-                  await _onStepContinue();
-                }
-              },
+              onPressed: _guardandoPlantilla
+                  ? null
+                  : () async {
+                      if (_modoPlantilla) {
+                        if (isLast) {
+                          await _guardarComoPlantilla();
+                        } else {
+                          await _irAlPaso(_currentStep + 1);
+                        }
+                      } else {
+                        await _onStepContinue();
+                      }
+                    },
               icon: Icon(
                 isLast
                     ? (_modoPlantilla ? Icons.save : Icons.send)
