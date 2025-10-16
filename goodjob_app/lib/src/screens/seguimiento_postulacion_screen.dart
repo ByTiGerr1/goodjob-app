@@ -314,7 +314,11 @@ class _PostulacionContent extends StatelessWidget {
     final aceptadoFlag = postulacion['aceptado'] == true || postulacion['asignado'] == true || trabajo['aceptado'] == true || trabajo['asignado'] == true;
 
     final trabajoEnCurso = estadoTrabajo == 'en curso' || estadoTrabajo == 'en_curso' || estadoTrabajo == 'activo' || estadoTrabajo == 'ejecutando' || estadoTrabajo == 'realizando';
-    final trabajoCompletado = postulacion['trabajoCompletado'] == true || estadoTrabajo == 'completado' || estadoTrabajo == 'realizado' || estadoTrabajo == 'finalizado';
+    final trabajoCompletado = postulacion['trabajoCompletado'] == true ||
+        estadoTrabajo == 'completado' ||
+        estadoTrabajo == 'realizado' ||
+        estadoTrabajo == 'finalizado' ||
+        estadoTrabajo == 'pendiente_revision';
     final pagoEnCurso = estadoPago == 'en_curso' || estadoPago == 'procesando' || estadoPago == 'en proceso';
     final pagoCompletado = estadoPago == 'completado' || estadoPago == 'pagado';
 

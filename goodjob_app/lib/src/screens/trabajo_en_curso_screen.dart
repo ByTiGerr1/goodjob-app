@@ -1,16 +1,61 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
-import 'package:geolocator/geolocator.dart';
-import 'dart:async';
+
+import '../services/postulacion_service.dart';
+import '../services/storage_service.dart';
 
 // --- CONSTANTES GLOBALES (MOVIDAS AQUI PARA ACCESO EN EL MODAL) ---
 const Color _PRIMARY_COLOR = Color(0xFF7B0997);
 const Color _ACCENT_COLOR = Color(0xFFFFD900);
 const Color _SUCCESS_COLOR = Color(0xFF4CAF50); // Verde
 // --- FIN CONSTANTES GLOBALES ---
+
+enum EvidenceStage { inicio, medio, finalizacion }
+
+extension EvidenceStageX on EvidenceStage {
+  String get id {
+    switch (this) {
+      case EvidenceStage.inicio:
+        return 'inicio';
+      case EvidenceStage.medio:
+        return 'medio';
+      case EvidenceStage.finalizacion:
+        return 'final';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case EvidenceStage.inicio:
+        return 'Inicio';
+      case EvidenceStage.medio:
+        return '50% del trabajo';
+      case EvidenceStage.finalizacion:
+        return 'Finalización';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case EvidenceStage.inicio:
+        return 'Foto al comenzar el trabajo.';
+      case EvidenceStage.medio:
+        return 'Foto cuando alcanzas el 50% del tiempo estimado.';
+      case EvidenceStage.finalizacion:
+        return 'Foto al terminar el trabajo.';
+    }
+  }
+}
 
 // --- MODELO DE DATOS PARA INSTRUCCIONES ---
 class Instruccion {
@@ -51,6 +96,20 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   final MapController _mapController = MapController();
   LatLng? _currentPosition;
   StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _evidenciasSubscription;
+
+  final StorageService _storageService = StorageService();
+  final PostulacionService _postulacionService = PostulacionService();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  List<Map<String, dynamic>> _evidencias = [];
+  bool _isUploadingEvidence = false;
+  bool _isSendingEvidences = false;
+  EvidenceStage? _uploadingStage;
+
+  DateTime? _scheduledStartTime;
+  DateTime? _scheduledEndTime;
+  Duration? _expectedDuration;
 
   // --- CONFIGURACION DE LA ZONA DELIMITADA ---
   static const double _CHECKIN_RADIUS_METERS = 50.0;
@@ -60,12 +119,15 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   void initState() {
     super.initState();
     _parseTrabajoCoords();
+    _initializeSchedule();
     _startLocationUpdates();
+    _subscribeToEvidencias();
   }
 
   @override
   void dispose() {
     _positionSubscription?.cancel();
+    _evidenciasSubscription?.cancel();
     super.dispose();
   }
 
@@ -79,6 +141,341 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     } else {
       _trabajoCoords = const LatLng(-33.447487, -70.673676);
     }
+  }
+
+  void _initializeSchedule() {
+    _scheduledStartTime = _extractStartDateTime(widget.trabajo);
+    _scheduledEndTime = _extractEndDateTime(widget.trabajo);
+
+    if (_scheduledEndTime != null) {
+      final baseStart = _scheduledStartTime ?? widget.startTime;
+      final tentativeDuration = _scheduledEndTime!.difference(baseStart);
+      if (!tentativeDuration.isNegative && tentativeDuration.inMinutes > 0) {
+        _expectedDuration = tentativeDuration;
+        return;
+      }
+
+      if (_scheduledStartTime != null) {
+        final fallbackDuration =
+            _scheduledEndTime!.difference(_scheduledStartTime!);
+        if (!fallbackDuration.isNegative && fallbackDuration.inMinutes > 0) {
+          _expectedDuration = fallbackDuration;
+        }
+      }
+    }
+  }
+
+  void _subscribeToEvidencias() {
+    _evidenciasSubscription = _storageService
+        .mostrarEvidencias(widget.trabajoId)
+        .listen((data) {
+      if (!mounted) return;
+      setState(() {
+        _evidencias = data;
+      });
+    });
+  }
+
+  DateTime? _extractStartDateTime(Map<String, dynamic> trabajo) {
+    final fechaInicio = _parseDateTime(trabajo['fechaInicioTrabajo']);
+    if (fechaInicio != null) {
+      return fechaInicio;
+    }
+
+    final fechaTrabajo = _parseDateTime(trabajo['fechaTrabajo']);
+    final horaInicio = _timeOfDayFromData(trabajo['horaInicio']);
+
+    if (fechaTrabajo != null && horaInicio != null) {
+      return DateTime(fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
+          horaInicio.hour, horaInicio.minute);
+    }
+
+    return fechaTrabajo;
+  }
+
+  DateTime? _extractEndDateTime(Map<String, dynamic> trabajo) {
+    final fechaFin = _parseDateTime(trabajo['fechaFinTrabajo']);
+    if (fechaFin != null) {
+      return fechaFin;
+    }
+
+    final fechaTrabajo = _parseDateTime(trabajo['fechaTrabajo']);
+    final horaFin = _timeOfDayFromData(trabajo['horaFin']);
+
+    if (fechaTrabajo != null && horaFin != null) {
+      return DateTime(fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
+          horaFin.hour, horaFin.minute);
+    }
+
+    return fechaFin;
+  }
+
+  DateTime? _parseDateTime(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  TimeOfDay? _timeOfDayFromData(dynamic value) {
+    if (value is Map) {
+      final hour = value['hour'] ?? value['h'];
+      final minute = value['minute'] ?? value['m'];
+      if (hour is num && minute is num) {
+        return TimeOfDay(hour: hour.toInt(), minute: minute.toInt());
+      }
+    } else if (value is List && value.length >= 2) {
+      final hour = value[0];
+      final minute = value[1];
+      if (hour is num && minute is num) {
+        return TimeOfDay(hour: hour.toInt(), minute: minute.toInt());
+      }
+    } else if (value is String && value.contains(':')) {
+      final parts = value.split(':');
+      if (parts.length >= 2) {
+        final hour = int.tryParse(parts[0]);
+        final minute = int.tryParse(parts[1]);
+        if (hour != null && minute != null) {
+          return TimeOfDay(hour: hour, minute: minute);
+        }
+      }
+    }
+    return null;
+  }
+
+  EvidenceStage? _stageFromString(String? value) {
+    switch (value) {
+      case 'inicio':
+        return EvidenceStage.inicio;
+      case 'medio':
+        return EvidenceStage.medio;
+      case 'final':
+        return EvidenceStage.finalizacion;
+    }
+    return null;
+  }
+
+  Set<EvidenceStage> get _capturedStages {
+    return _evidencias
+        .map((e) => _stageFromString(e['etapa'] as String?))
+        .whereType<EvidenceStage>()
+        .toSet();
+  }
+
+  EvidenceStage? _nextPendingStage() {
+    final captured = _capturedStages;
+    for (final stage in EvidenceStage.values) {
+      if (!captured.contains(stage)) {
+        return stage;
+      }
+    }
+    return null;
+  }
+
+  bool get _hasAllEvidences =>
+      _capturedStages.length == EvidenceStage.values.length;
+
+  bool _hasReachedStageThreshold(EvidenceStage stage) {
+    final now = DateTime.now();
+    switch (stage) {
+      case EvidenceStage.inicio:
+        return true;
+      case EvidenceStage.medio:
+        return _hasReachedHalfTime(now);
+      case EvidenceStage.finalizacion:
+        return _hasReachedEndTime(now);
+    }
+  }
+
+  bool _hasReachedHalfTime(DateTime now) {
+    if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
+      final elapsed = now.difference(widget.startTime);
+      return elapsed >= _expectedDuration! ~/ 2;
+    }
+
+    if (_scheduledStartTime != null && _scheduledEndTime != null) {
+      final midpoint = _scheduledStartTime!
+          .add((_scheduledEndTime!.difference(_scheduledStartTime!) ~/ 2));
+      return !now.isBefore(midpoint);
+    }
+
+    return true;
+  }
+
+  bool _hasReachedEndTime(DateTime now) {
+    if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
+      final target = widget.startTime.add(_expectedDuration!);
+      return !now.isBefore(target);
+    }
+
+    if (_scheduledEndTime != null) {
+      return !now.isBefore(_scheduledEndTime!);
+    }
+
+    // Si no hay referencia tomamos 1 hora como estimación mínima
+    return now.difference(widget.startTime) >= const Duration(hours: 1);
+  }
+
+  String _thresholdMessage(EvidenceStage stage) {
+    switch (stage) {
+      case EvidenceStage.inicio:
+        return 'Puedes registrar la primera evidencia al comenzar el trabajo.';
+      case EvidenceStage.medio:
+        return 'Aún no alcanzas el 50% del tiempo estimado del trabajo.';
+      case EvidenceStage.finalizacion:
+        return 'Aún no finaliza el tiempo estimado del trabajo.';
+    }
+  }
+
+  void _showSnack(String message, {Color? backgroundColor}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor ?? Colors.black87,
+      ),
+    );
+  }
+
+  Map<String, dynamic>? _evidenciaForStage(EvidenceStage stage) {
+    for (final evidencia in _evidencias) {
+      final etapa = _stageFromString(evidencia['etapa'] as String?);
+      if (etapa == stage) {
+        return evidencia;
+      }
+    }
+    return null;
+  }
+
+  DateTime? _timestampFromEvidence(Map<String, dynamic>? evidencia) {
+    if (evidencia == null) return null;
+    final raw = evidencia['capturadaEn'];
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is DateTime) return raw;
+    if (raw is String) return DateTime.tryParse(raw);
+    return null;
+  }
+
+  String _formatTimestamp(DateTime? dateTime) {
+    if (dateTime == null) return '';
+    final formatter = DateFormat('dd/MM HH:mm');
+    return formatter.format(dateTime.toLocal());
+  }
+
+  Widget _buildEvidencePanel() {
+    final nextStage = _nextPendingStage();
+    final theme = Theme.of(context);
+    final subtitleStyle = theme.textTheme.bodySmall;
+
+    return Card(
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Evidencias requeridas',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: _PRIMARY_COLOR,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...EvidenceStage.values.map((stage) {
+              final evidencia = _evidenciaForStage(stage);
+              final completed = evidencia != null;
+              final timestamp = _formatTimestamp(
+                _timestampFromEvidence(evidencia),
+              );
+              final isNext = stage == nextStage;
+
+              final leadingIcon = completed
+                  ? Icons.check_circle
+                  : isNext
+                      ? Icons.photo_camera_front
+                      : Icons.camera_alt_outlined;
+              final leadingColor = completed
+                  ? Colors.green.shade600
+                  : isNext
+                      ? _PRIMARY_COLOR
+                      : Colors.grey.shade500;
+
+              final subtitleText = completed
+                  ? (timestamp.isNotEmpty
+                      ? 'Registrada $timestamp'
+                      : 'Registrada')
+                  : stage.description;
+
+              final trailingWidget = completed
+                  ? const Icon(Icons.check, color: Colors.green)
+                  : isNext
+                      ? const Text(
+                          'Pendiente',
+                          style: TextStyle(
+                            color: _PRIMARY_COLOR,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : const Text(
+                          'Esperando',
+                          style: TextStyle(color: Colors.black54),
+                        );
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(leadingIcon, color: leadingColor, size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            stage.label,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitleText,
+                            style: subtitleStyle,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    trailingWidget,
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 12),
+            Text(
+              _hasAllEvidences
+                  ? '¡Listo! Puedes enviar las evidencias para revisión.'
+                  : 'Recuerda subir las tres evidencias solicitadas antes de enviar.',
+              style: TextStyle(
+                fontSize: 13,
+                color: _hasAllEvidences
+                    ? Colors.green.shade700
+                    : Colors.grey.shade700,
+                fontWeight:
+                    _hasAllEvidences ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _startLocationUpdates() async {
@@ -120,21 +517,45 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   // --- LOGICA DE ACCIONES ---
 
-  void _completeJob() {
-    final DateTime endTime = DateTime.now();
-    final Duration duration = endTime.difference(widget.startTime);
+  Future<void> _enviarEvidencias() async {
+    if (_isSendingEvidences) return;
 
-    // Simular guardar la hora de fin y actualizar estado
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Trabajo finalizado en ${duration.inHours}h ${duration.inMinutes % 60}m. Esperando aprobacion.',
-        ),
-        backgroundColor: Colors.red.shade700,
-      ),
-    );
-    // Volver a la pantalla anterior (seguimiento)
-    Navigator.of(context).pop();
+    if (!_hasAllEvidences) {
+      _showSnack(
+        'Debes subir las evidencias de inicio, 50% y finalización antes de enviar.',
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showSnack('Debes iniciar sesión para actualizar el estado del trabajo.');
+      return;
+    }
+
+    setState(() {
+      _isSendingEvidences = true;
+    });
+
+    try {
+      await _postulacionService.marcarTrabajoPendienteRevision(
+        trabajoId: widget.trabajoId,
+        usuarioId: user.uid,
+      );
+
+      _showSnack(
+        'Trabajo enviado para revisión. El administrador revisará tus evidencias.',
+        backgroundColor: Colors.green.shade600,
+      );
+    } catch (e) {
+      _showSnack('No pudimos actualizar el estado del trabajo. Intenta nuevamente.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingEvidences = false;
+        });
+      }
+    }
   }
 
   Future<void> _contactViaWhatsapp() async {
@@ -164,15 +585,84 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     }
   }
 
-  void _uploadPhotoEvidence() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Iniciando subida de evidencia fotografica... (Simulado)',
-        ),
-      ),
-    );
-    // Logica para abrir la camara/galeria
+  Future<void> _uploadPhotoEvidence() async {
+    if (_isUploadingEvidence) return;
+
+    final stage = _nextPendingStage();
+    if (stage == null) {
+      _showSnack('Ya registraste las tres evidencias requeridas.');
+      return;
+    }
+
+    if (!_hasReachedStageThreshold(stage)) {
+      _showSnack(_thresholdMessage(stage));
+      return;
+    }
+
+    XFile? capture;
+    try {
+      capture = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+        imageQuality: 80,
+      );
+    } catch (_) {
+      capture = null;
+    }
+
+    if (capture == null) {
+      return;
+    }
+
+    setState(() {
+      _isUploadingEvidence = true;
+      _uploadingStage = stage;
+    });
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showSnack('Debes iniciar sesión para subir evidencias.');
+        return;
+      }
+
+      final capturedAt = DateTime.now();
+      final file = File(capture.path);
+
+      final imageUrl = await _storageService.subirEvidencia(
+        trabajoId: widget.trabajoId,
+        imagen: file,
+        usuarioId: user.uid,
+        etapa: stage.id,
+        latitud: position.latitude,
+        longitud: position.longitude,
+        capturadaEn: capturedAt,
+      );
+
+      if (imageUrl == null) {
+        _showSnack(
+          'No pudimos subir la evidencia. Intenta nuevamente.',
+        );
+        return;
+      }
+
+      _showSnack(
+        'Evidencia de ${stage.label.toLowerCase()} registrada correctamente.',
+        backgroundColor: Colors.green.shade600,
+      );
+    } catch (e) {
+      _showSnack('Ocurrió un error al registrar la evidencia.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingEvidence = false;
+          _uploadingStage = null;
+        });
+      }
+    }
   }
 
   // FUNCION ACTUALIZADA: Muestra las instrucciones en un modal
@@ -284,31 +774,20 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
           // Botón Volver/Home (Top-Left, mas pequeño)
           Positioned(
             top: 40,
-            left: 16,
-            child: FloatingActionButton.small(
-              heroTag: 'goBack',
-              onPressed: () => Navigator.of(context).pop(),
-              backgroundColor: Colors.white,
-              child: const Icon(Icons.arrow_back, color: _PRIMARY_COLOR),
-            ),
-          ),
-
-          // Botón Completar Trabajo (Top-Center-Left, grande)
-          Positioned(
-            top: 40,
             left: 70, // Ajuste para dejar espacio al botón 'Volver'
             child: FloatingActionButton.extended(
               heroTag: 'completeJob',
-              onPressed: _completeJob,
-              icon: const Icon(Icons.flag, color: Colors.white),
-              label: const Text(
-                'Completar',
-                style: TextStyle(
+              onPressed: _isSendingEvidences ? null : _enviarEvidencias,
+              icon: const Icon(Icons.cloud_upload, color: Colors.white),
+              label: Text(
+                _isSendingEvidences ? 'Enviando...' : 'Enviar evidencias',
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              backgroundColor: Colors.red.shade700,
+              backgroundColor:
+                  _isSendingEvidences ? Colors.grey : _SUCCESS_COLOR,
             ),
           ),
 
@@ -326,19 +805,36 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
           // 4. BOTONES INFERIORES (Subir Foto / WhatsApp / Centrar)
 
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 130,
+            child: _buildEvidencePanel(),
+          ),
+
           // Botón Subir Foto (Inferior Izquierda)
           Positioned(
             bottom: 40,
             left: 16,
             child: FloatingActionButton(
               heroTag: 'uploadPhoto',
-              onPressed: _uploadPhotoEvidence,
+              onPressed: _isUploadingEvidence ? null : _uploadPhotoEvidence,
               backgroundColor: _ACCENT_COLOR,
-              child: const Icon(
-                Icons.photo_camera,
-                color: Colors.black,
-                size: 30,
-              ),
+              child: _isUploadingEvidence
+                  ? const SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.black87),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.photo_camera,
+                      color: Colors.black,
+                      size: 30,
+                    ),
             ),
           ),
 

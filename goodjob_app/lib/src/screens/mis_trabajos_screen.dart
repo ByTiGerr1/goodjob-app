@@ -69,6 +69,24 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     }
   }
 
+  String _estadoDisplay(String estado) {
+    switch (estado) {
+      case 'aceptado':
+        return 'Aceptado';
+      case 'rechazado':
+        return 'Rechazado';
+      case 'confirmado':
+        return 'Confirmado';
+      case 'pendiente_revision':
+        return 'Pendiente de Revisión';
+      case 'pendiente':
+      default:
+        final normalized = estado.replaceAll('_', ' ').trim();
+        if (normalized.isEmpty) return 'Pendiente';
+        return normalized[0].toUpperCase() + normalized.substring(1);
+    }
+  }
+
   String _formatFecha(DateTime? fecha) {
     if (fecha == null) return 'N/D';
     final day = fecha.day.toString().padLeft(2, '0');
@@ -248,11 +266,11 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                           children: [
                             Icon(_iconEstado(estado), size: 16, color: _colorEstado(estado)),
                             const SizedBox(width: 4),
-                            Text(estado.toUpperCase(),
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: _colorEstado(estado))),
+                            Text(_estadoDisplay(estado),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _colorEstado(estado))),
                           ],
                         )),
                   ],

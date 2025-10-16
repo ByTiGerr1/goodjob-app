@@ -317,4 +317,38 @@ class PostulacionService {
 
     await batch.commit();
   }
+    Future<void> marcarTrabajoPendienteRevision({
+    required String trabajoId,
+    required String usuarioId,
+  }) async {
+    final postulacionTrabajoRef = _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .doc(usuarioId);
+
+    final postulacionUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(usuarioId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+
+    final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
+
+    final data = {
+      'estado': 'pendiente_revision',
+      'estadoTrabajo': 'pendiente_revision',
+      'trabajoCompletado': true,
+      'pendienteRevisionEn': FieldValue.serverTimestamp(),
+    };
+
+    final batch = _firestore.batch();
+
+    batch.set(postulacionTrabajoRef, data, SetOptions(merge: true));
+    batch.set(postulacionUsuarioRef, data, SetOptions(merge: true));
+    batch.set(trabajoRef, {'estadoTrabajo': 'pendiente_revision'},
+        SetOptions(merge: true));
+
+    await batch.commit();
+  }
 }
