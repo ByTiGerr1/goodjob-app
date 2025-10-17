@@ -145,7 +145,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             MaterialPageRoute(
               builder: (_) => getAdminTrabajoView(
                 trabajoId: doc.id,
-                trabajo: data,
+                trabajoData: data,
               ),
             ),
           );
@@ -191,7 +191,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          if (postulacionesSnapshot.connectionState == ConnectionState.waiting)
+                          // ✅ CORRECCIÓN: Usando 'snapshot' en lugar de 'postulacionesSnapshot'
+                          if (snapshot.connectionState == ConnectionState.waiting)
                             const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                           else
                             Text('$postulantes', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
@@ -213,7 +214,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     icon: const Icon(Icons.edit_note, size: 24),
                     color: primaryColor,
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: doc.id, trabajo: data)));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: doc.id, trabajoData: data)));
                     },
                   ),
                   const SizedBox(width: 8),
@@ -413,9 +414,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         child: const Icon(Icons.add, color: Colors.black, size: 30),
       ),
       // El FAB debe estar visible solo en la pestaña de Trabajos
-      floatingActionButtonLocation: _currentIndex == 0 
-          ? FloatingActionButtonLocation.endFloat 
-          : null,
-    );
-  }
-}
+          floatingActionButtonLocation: _currentIndex == 0 
+              ? FloatingActionButtonLocation.endFloat 
+              : null,
+        );
+      }
+    }
