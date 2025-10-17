@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/src/services/format_utils.dart';
 // Necesario para Timer
 
 import 'instrucciones_trabajo_screen.dart';
@@ -13,7 +14,6 @@ enum _PasoEstado { completado, actual, pendiente }
 const Color _PRIMARY_COLOR = Color(0xFF7B0997); // Morado principal
 const Color _ACCENT_COLOR = Color(0xFFFFD900); // AMARILLO BRILLANTE/DORADO
 const Color _WARNING_COLOR = Color(0xFFFF9800); // Naranja para advertencias UX
-
 
 class SeguimientoPostulacionScreen extends StatefulWidget {
   final String trabajoId;
@@ -31,11 +31,12 @@ class SeguimientoPostulacionScreen extends StatefulWidget {
 }
 
 // Se define el tipo de función para el callback de iniciar tarea.
-typedef IniciarTareaCallback = void Function(BuildContext context, Map<String, dynamic> trabajo);
+typedef IniciarTareaCallback =
+    void Function(BuildContext context, Map<String, dynamic> trabajo);
 
 class _SeguimientoPostulacionScreenState
-    extends State<SeguimientoPostulacionScreen> with SingleTickerProviderStateMixin {
-  
+    extends State<SeguimientoPostulacionScreen>
+    with SingleTickerProviderStateMixin {
   bool _instruccionesVistas = false;
   late AnimationController _animationController;
 
@@ -58,28 +59,29 @@ class _SeguimientoPostulacionScreenState
     setState(() {
       _instruccionesVistas = true;
     });
-    _animationController.stop(); 
+    _animationController.stop();
   }
-  
+
   // CORRECCIÓN CLAVE: Esta función debe recibir el BuildContext y el mapa de trabajo
   void _iniciarTarea(BuildContext context, Map<String, dynamic> trabajo) {
     if (!_instruccionesVistas) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('¡Debes revisar las instrucciones primero!', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text(
+            '¡Debes revisar las instrucciones primero!',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           backgroundColor: _ACCENT_COLOR,
         ),
       );
       return;
     }
-    
+
     // NAVEGACIÓN SOLICITADA: Navegar a la pantalla del mapa de Check-in
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MapaCheckinScreen(
-          trabajoId: widget.trabajoId,
-          trabajo: trabajo,
-        ),
+        builder: (_) =>
+            MapaCheckinScreen(trabajoId: widget.trabajoId, trabajo: trabajo),
       ),
     );
   }
@@ -121,18 +123,22 @@ class _SeguimientoPostulacionScreenState
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!postulacionSnapshot.hasData || !postulacionSnapshot.data!.exists) {
+          if (!postulacionSnapshot.hasData ||
+              !postulacionSnapshot.data!.exists) {
             return const Center(
               child: Text('No encontramos información de tu postulación.'),
             );
           }
 
-          final postulacionData = postulacionSnapshot.data!.data() ?? <String, dynamic>{};
+          final postulacionData =
+              postulacionSnapshot.data!.data() ?? <String, dynamic>{};
 
           return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: trabajoStream,
             builder: (context, trabajoSnapshot) {
-              final trabajoData = trabajoSnapshot.data?.data() ?? Map<String, dynamic>.from(widget.trabajo);
+              final trabajoData =
+                  trabajoSnapshot.data?.data() ??
+                  Map<String, dynamic>.from(widget.trabajo);
 
               return _PostulacionContent(
                 postulacion: postulacionData,
@@ -140,7 +146,7 @@ class _SeguimientoPostulacionScreenState
                 instruccionesVistas: _instruccionesVistas,
                 onInstruccionesVistas: _marcarInstruccionesVistas,
                 // CORRECCIÓN DE TIPO: Pasamos una función que encapsula la llamada con el BuildContext y el mapa
-                onIniciarTarea: (c, t) => _iniciarTarea(c, t), 
+                onIniciarTarea: (c, t) => _iniciarTarea(c, t),
                 animationController: _animationController,
               );
             },
@@ -159,7 +165,7 @@ class _PostulacionContent extends StatelessWidget {
   final bool instruccionesVistas;
   final VoidCallback onInstruccionesVistas;
   // CORRECCIÓN DE TIPO: Ahora espera el BuildContext y el mapa de trabajo
-  final IniciarTareaCallback onIniciarTarea; 
+  final IniciarTareaCallback onIniciarTarea;
   final AnimationController animationController;
 
   const _PostulacionContent({
@@ -167,7 +173,7 @@ class _PostulacionContent extends StatelessWidget {
     required this.trabajo,
     required this.instruccionesVistas,
     required this.onInstruccionesVistas,
-    required this.onIniciarTarea, 
+    required this.onIniciarTarea,
     required this.animationController,
   });
 
@@ -195,15 +201,16 @@ class _PostulacionContent extends StatelessWidget {
     }
     return null;
   }
-  
+
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
     if (ubicacion == null) return 'Ubicación no disponible';
-    final partes = [
-      ubicacion['direccion'],
-      ubicacion['ciudad'],
-      ubicacion['pais'],
-    ].where((elemento) =>
-        elemento != null && elemento.toString().trim().isNotEmpty).join(', ');
+    final partes =
+        [ubicacion['direccion'], ubicacion['ciudad'], ubicacion['pais']]
+            .where(
+              (elemento) =>
+                  elemento != null && elemento.toString().trim().isNotEmpty,
+            )
+            .join(', ');
     return partes.isEmpty ? 'Ubicación no disponible' : partes;
   }
 
@@ -226,11 +233,15 @@ class _PostulacionContent extends StatelessWidget {
     }
 
     if (horaMap == null) return 'Horario por confirmar';
-    
+
     final hora = horaMap['h'];
     final minuto = horaMap['m'];
-    final horaTexto = (hora is int ? hora : int.tryParse('$hora') ?? 0).toString().padLeft(2, '0');
-    final minutoTexto = (minuto is int ? minuto : int.tryParse('$minuto') ?? 0).toString().padLeft(2, '0');
+    final horaTexto = (hora is int ? hora : int.tryParse('$hora') ?? 0)
+        .toString()
+        .padLeft(2, '0');
+    final minutoTexto = (minuto is int ? minuto : int.tryParse('$minuto') ?? 0)
+        .toString()
+        .padLeft(2, '0');
     return '$horaTexto:$minutoTexto';
   }
 
@@ -284,7 +295,9 @@ class _PostulacionContent extends StatelessWidget {
     final estadoAsignacion = _normalizarEstado(postulacion['estadoAsignacion']);
     if (estadoAsignacion == 'confirmado') return true;
 
-    final estadoAsignacionTrabajo = _normalizarEstado(trabajo['estadoAsignacion']);
+    final estadoAsignacionTrabajo = _normalizarEstado(
+      trabajo['estadoAsignacion'],
+    );
     if (estadoAsignacionTrabajo == 'confirmado') return true;
 
     if (postulacion['asistenciaConfirmada'] == true) return true;
@@ -304,39 +317,76 @@ class _PostulacionContent extends StatelessWidget {
     final estado = estadoPrincipal ?? _estadoPostulacionPrincipal(postulacion);
     final estadoAsignacion = _normalizarEstado(postulacion['estadoAsignacion']);
     final estadoTrabajo = _normalizarEstado(
-      postulacion['estadoTrabajo'] ?? trabajo['estadoTrabajo'] ?? trabajo['estado'],
+      postulacion['estadoTrabajo'] ??
+          trabajo['estadoTrabajo'] ??
+          trabajo['estado'],
     );
     final estadoPago = _normalizarEstado(
-      postulacion['estadoPago'] ?? trabajo['estadoPago'] ?? trabajo['pagoEstado'],
+      postulacion['estadoPago'] ??
+          trabajo['estadoPago'] ??
+          trabajo['pagoEstado'],
     );
-    final confirmacion = confirmacionRegistrada ??
+    final confirmacion =
+        confirmacionRegistrada ??
         _tieneConfirmacionRegistrada(postulacion, trabajo, estado);
-    final aceptadoFlag = postulacion['aceptado'] == true || postulacion['asignado'] == true || trabajo['aceptado'] == true || trabajo['asignado'] == true;
+    final aceptadoFlag =
+        postulacion['aceptado'] == true ||
+        postulacion['asignado'] == true ||
+        trabajo['aceptado'] == true ||
+        trabajo['asignado'] == true;
 
-    final trabajoEnCurso = estadoTrabajo == 'en curso' || estadoTrabajo == 'en_curso' || estadoTrabajo == 'activo' || estadoTrabajo == 'ejecutando' || estadoTrabajo == 'realizando';
-    final trabajoCompletado = postulacion['trabajoCompletado'] == true ||
+    final trabajoEnCurso =
+        estadoTrabajo == 'en curso' ||
+        estadoTrabajo == 'en_curso' ||
+        estadoTrabajo == 'activo' ||
+        estadoTrabajo == 'ejecutando' ||
+        estadoTrabajo == 'realizando';
+    final trabajoCompletado =
+        postulacion['trabajoCompletado'] == true ||
         estadoTrabajo == 'completado' ||
         estadoTrabajo == 'realizado' ||
         estadoTrabajo == 'finalizado' ||
         estadoTrabajo == 'pendiente_revision';
-    final pagoEnCurso = estadoPago == 'en_curso' || estadoPago == 'procesando' || estadoPago == 'en proceso';
+    final pagoEnCurso =
+        estadoPago == 'en_curso' ||
+        estadoPago == 'procesando' ||
+        estadoPago == 'en proceso';
     final pagoCompletado = estadoPago == 'completado' || estadoPago == 'pagado';
 
     if (estado == 'rechazado' || estadoAsignacion == 'rechazado') return -1;
 
-    final aceptado = aceptadoFlag || _esEstadoAceptado(estado) || _esEstadoAceptado(estadoAsignacion) || confirmacion || trabajoEnCurso || trabajoCompletado || pagoEnCurso || pagoCompletado;
+    final aceptado =
+        aceptadoFlag ||
+        _esEstadoAceptado(estado) ||
+        _esEstadoAceptado(estadoAsignacion) ||
+        confirmacion ||
+        trabajoEnCurso ||
+        trabajoCompletado ||
+        pagoEnCurso ||
+        pagoCompletado;
 
     final etapasCompletadas = <bool>[
       aceptado, // Etapa 0: Postulación enviada (implícita)
       aceptado, // Etapa 1: Postulación aceptada (Se evalúa con aceptado)
-      confirmacion || trabajoEnCurso || trabajoCompletado || pagoEnCurso || pagoCompletado, // Etapa 2: Trabajo confirmado
-      trabajoEnCurso || trabajoCompletado || pagoEnCurso || pagoCompletado, // Etapa 3: Trabajo en curso
-      trabajoCompletado || pagoEnCurso || pagoCompletado, // Etapa 4: Trabajo completado
+      confirmacion ||
+          trabajoEnCurso ||
+          trabajoCompletado ||
+          pagoEnCurso ||
+          pagoCompletado, // Etapa 2: Trabajo confirmado
+      trabajoEnCurso ||
+          trabajoCompletado ||
+          pagoEnCurso ||
+          pagoCompletado, // Etapa 3: Trabajo en curso
+      trabajoCompletado ||
+          pagoEnCurso ||
+          pagoCompletado, // Etapa 4: Trabajo completado
       pagoEnCurso || pagoCompletado, // Etapa 5: Pago en curso
       pagoCompletado, // Etapa 6: Pago completado
     ];
 
-    final siguientePendiente = etapasCompletadas.indexWhere((completado) => !completado);
+    final siguientePendiente = etapasCompletadas.indexWhere(
+      (completado) => !completado,
+    );
 
     if (siguientePendiente == -1) {
       return etapasCompletadas.length;
@@ -374,7 +424,9 @@ class _PostulacionContent extends StatelessWidget {
     required bool esUltimo,
   }) {
     final color = _colorPaso(estado);
-    final textoColor = estado == _PasoEstado.pendiente ? Colors.grey.shade600 : Colors.black87;
+    final textoColor = estado == _PasoEstado.pendiente
+        ? Colors.grey.shade600
+        : Colors.black87;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0.0),
@@ -389,8 +441,15 @@ class _PostulacionContent extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: estado == _PasoEstado.completado || estado == _PasoEstado.actual ? color : Colors.white,
-                  border: Border.all(color: color, width: estado == _PasoEstado.pendiente ? 1 : 2),
+                  color:
+                      estado == _PasoEstado.completado ||
+                          estado == _PasoEstado.actual
+                      ? color
+                      : Colors.white,
+                  border: Border.all(
+                    color: color,
+                    width: estado == _PasoEstado.pendiente ? 1 : 2,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: estado == _PasoEstado.completado
@@ -398,7 +457,11 @@ class _PostulacionContent extends StatelessWidget {
                     : Text(
                         '${indice + 1}',
                         style: TextStyle(
-                          color: estado == _PasoEstado.actual ? (color.computeLuminance() > 0.5 ? Colors.black : Colors.white) : _PRIMARY_COLOR,
+                          color: estado == _PasoEstado.actual
+                              ? (color.computeLuminance() > 0.5
+                                    ? Colors.black
+                                    : Colors.white)
+                              : _PRIMARY_COLOR,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -432,10 +495,7 @@ class _PostulacionContent extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     descripcion,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -446,16 +506,24 @@ class _PostulacionContent extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildInfoChip(IconData icon, String text, {bool isPrimary = false}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: isPrimary ? Colors.green.shade600 : _PRIMARY_COLOR, size: 20),
+        Icon(
+          icon,
+          color: isPrimary ? Colors.green.shade600 : _PRIMARY_COLOR,
+          size: 20,
+        ),
         const SizedBox(width: 4),
         Text(
           text,
-          style: TextStyle(fontSize: 14, color: isPrimary ? Colors.green.shade700 : Colors.grey.shade700, fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w400),
+          style: TextStyle(
+            fontSize: 14,
+            color: isPrimary ? Colors.green.shade700 : Colors.grey.shade700,
+            fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w400,
+          ),
         ),
       ],
     );
@@ -463,19 +531,14 @@ class _PostulacionContent extends StatelessWidget {
 
   void _navegarAInstrucciones(BuildContext context) {
     Navigator.of(context)
-        .push(
-          MaterialPageRoute(
-            builder: (ctx) => InstruccionesTrabajoScreen(),
-          ),
-        )
+        .push(MaterialPageRoute(builder: (ctx) => InstruccionesTrabajoScreen()))
         .then((_) {
           // Marcar como vistas al regresar de la pantalla de instrucciones
           if (ModalRoute.of(context)?.isCurrent == true) {
-             onInstruccionesVistas();
+            onInstruccionesVistas();
           }
         });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -483,76 +546,127 @@ class _PostulacionContent extends StatelessWidget {
     final horaInicioMap = _getHoraInicio(trabajo);
     final empresa = trabajo['empresa'] ?? '';
     final estadoPrincipal = _estadoPostulacionPrincipal(postulacion);
-    final confirmacionRegistrada = _tieneConfirmacionRegistrada(postulacion, trabajo, estadoPrincipal);
-    final estadoActual = confirmacionRegistrada ? 'confirmado' : estadoPrincipal;
-    final progreso = _indiceProgreso(postulacion, trabajo, estadoPrincipal: estadoPrincipal, confirmacionRegistrada: confirmacionRegistrada);
-    
+    final confirmacionRegistrada = _tieneConfirmacionRegistrada(
+      postulacion,
+      trabajo,
+      estadoPrincipal,
+    );
+    final estadoActual = confirmacionRegistrada
+        ? 'confirmado'
+        : estadoPrincipal;
+    final progreso = _indiceProgreso(
+      postulacion,
+      trabajo,
+      estadoPrincipal: estadoPrincipal,
+      confirmacionRegistrada: confirmacionRegistrada,
+    );
+
     // LÓGICA DE DÍA Y ESTADO DE TRABAJO
     final esTrabajoActivo = estadoActual == 'confirmado' && (progreso < 4);
-    final isJobDay = fechaTrabajo != null && (DateTime.now().isAfter(fechaTrabajo.subtract(const Duration(hours: 1))) && DateTime.now().isBefore(fechaTrabajo.add(const Duration(days: 1))));
-
+    final isJobDay =
+        fechaTrabajo != null &&
+        (DateTime.now().isAfter(
+              fechaTrabajo.subtract(const Duration(hours: 1)),
+            ) &&
+            DateTime.now().isBefore(fechaTrabajo.add(const Duration(days: 1))));
 
     final pasos = [
-      (titulo: 'Postulación enviada', descripcion: 'Tu solicitud ha sido registrada y está esperando ser revisada por el administrador.', estado: _estadoPaso(0, progreso)),
-      (titulo: 'Seleccionado/a (Aceptado)', descripcion: '¡Felicidades! Fuiste elegido/a. Debes confirmar tu asistencia en la pantalla anterior.', estado: _estadoPaso(1, progreso)),
-      (titulo: 'Asistencia confirmada', descripcion: 'Has confirmado tu compromiso. Revisa las instrucciones antes del día de inicio.', estado: _estadoPaso(2, progreso)),
-      (titulo: 'Trabajo en curso (HOY)', descripcion: 'Hoy es el día de la tarea. Haz Check-in al llegar y mantente en comunicación.', estado: _estadoPaso(3, progreso)),
-      (titulo: 'Tarea finalizada', descripcion: 'El trabajo ha terminado. Ahora esperaremos la aprobación final del administrador.', estado: _estadoPaso(4, progreso)),
-      (titulo: 'Pago en proceso', descripcion: 'Tu pago está siendo procesado y se depositará en tu cuenta registrada.', estado: _estadoPaso(5, progreso)),
-      (titulo: 'Pago completado', descripcion: '¡Tu pago ha sido realizado con éxito! Revisa tu cuenta bancaria.', estado: _estadoPaso(6, progreso)),
+      (
+        titulo: 'Postulación enviada',
+        descripcion:
+            'Tu solicitud ha sido registrada y está esperando ser revisada por el administrador.',
+        estado: _estadoPaso(0, progreso),
+      ),
+      (
+        titulo: 'Seleccionado/a (Aceptado)',
+        descripcion:
+            '¡Felicidades! Fuiste elegido/a. Debes confirmar tu asistencia en la pantalla anterior.',
+        estado: _estadoPaso(1, progreso),
+      ),
+      (
+        titulo: 'Asistencia confirmada',
+        descripcion:
+            'Has confirmado tu compromiso. Revisa las instrucciones antes del día de inicio.',
+        estado: _estadoPaso(2, progreso),
+      ),
+      (
+        titulo: 'Trabajo en curso (HOY)',
+        descripcion:
+            'Hoy es el día de la tarea. Haz Check-in al llegar y mantente en comunicación.',
+        estado: _estadoPaso(3, progreso),
+      ),
+      (
+        titulo: 'Tarea finalizada',
+        descripcion:
+            'El trabajo ha terminado. Ahora esperaremos la aprobación final del administrador.',
+        estado: _estadoPaso(4, progreso),
+      ),
+      (
+        titulo: 'Pago en proceso',
+        descripcion:
+            'Tu pago está siendo procesado y se depositará en tu cuenta registrada.',
+        estado: _estadoPaso(5, progreso),
+      ),
+      (
+        titulo: 'Pago completado',
+        descripcion:
+            '¡Tu pago ha sido realizado con éxito! Revisa tu cuenta bancaria.',
+        estado: _estadoPaso(6, progreso),
+      ),
     ];
 
     // Lógica para el botón principal
     Widget mainActionButton;
     if (esTrabajoActivo) {
-        if (!instruccionesVistas) {
-            // Botón de Instrucciones (Obligatorio)
-            mainActionButton = ElevatedButton.icon(
-                onPressed: () => _navegarAInstrucciones(context),
-                style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: _ACCENT_COLOR, // Fondo Amarillo Brillante
-                    foregroundColor: Colors.black, // Texto negro para contraste
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        // Borde de Advertencia Fijo
-                        side: const BorderSide(
-                            color: _WARNING_COLOR,
-                            width: 2.0,
-                        ),
-                    ),
-                    elevation: 4,
-                ),
-                icon: const Icon(Icons.list_alt, color: Colors.black),
-                label: const Text(
-                    'VER INSTRUCCIONES',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-            );
-        } else {
-            // Botón de Ir a Check-in (Instrucciones ya vistas)
-            mainActionButton = ElevatedButton.icon(
-                onPressed: () => onIniciarTarea(context, trabajo), // Llamada con los argumentos corregidos
-                style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: isJobDay ? Colors.green.shade600 : _PRIMARY_COLOR,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 4,
-                ),
-                // Ícono de Check-in para el día del trabajo
-                icon: Icon(isJobDay ? Icons.fingerprint : Icons.task_alt), 
-                label: Text(
-                    isJobDay ? 'IR A CHECK-IN' : 'INICIAR TRABAJO', 
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-            );
-        }
+      if (!instruccionesVistas) {
+        // Botón de Instrucciones (Obligatorio)
+        mainActionButton = ElevatedButton.icon(
+          onPressed: () => _navegarAInstrucciones(context),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: _ACCENT_COLOR, // Fondo Amarillo Brillante
+            foregroundColor: Colors.black, // Texto negro para contraste
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              // Borde de Advertencia Fijo
+              side: const BorderSide(color: _WARNING_COLOR, width: 2.0),
+            ),
+            elevation: 4,
+          ),
+          icon: const Icon(Icons.list_alt, color: Colors.black),
+          label: const Text(
+            'VER INSTRUCCIONES',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+        );
+      } else {
+        // Botón de Ir a Check-in (Instrucciones ya vistas)
+        mainActionButton = ElevatedButton.icon(
+          onPressed: () => onIniciarTarea(
+            context,
+            trabajo,
+          ), // Llamada con los argumentos corregidos
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: isJobDay ? Colors.green.shade600 : _PRIMARY_COLOR,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 4,
+          ),
+          // Ícono de Check-in para el día del trabajo
+          icon: Icon(isJobDay ? Icons.fingerprint : Icons.task_alt),
+          label: Text(
+            isJobDay ? 'IR A CHECK-IN' : 'INICIAR TRABAJO',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        );
+      }
     } else {
-        // Placeholder para cuando no hay acción inmediata (por ejemplo, rechazado o completado)
-        mainActionButton = const SizedBox.shrink();
+      // Placeholder para cuando no hay acción inmediata (por ejemplo, rechazado o completado)
+      mainActionButton = const SizedBox.shrink();
     }
-
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -560,12 +674,16 @@ class _PostulacionContent extends StatelessWidget {
         // Tarjeta de información del trabajo (Mejorada visualmente)
         Card(
           elevation: 6,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: _TrabajoHeaderImage(trabajo: trabajo),
               ),
               Padding(
@@ -575,23 +693,48 @@ class _PostulacionContent extends StatelessWidget {
                   children: [
                     Text(
                       trabajo['titulo'] ?? 'Trabajo sin título',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     // Color de la empresa a Gris Oscuro
                     if (empresa is String && empresa.isNotEmpty)
-                      Text(empresa, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey.shade800)), 
+                      Text(
+                        empresa,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
                     const SizedBox(height: 16),
-                    
+
                     // Fila de datos clave
                     Wrap(
                       spacing: 20,
                       runSpacing: 10,
                       children: [
-                        _buildInfoChip(Icons.location_on, _formatearUbicacion(trabajo['ubicacion'] as Map<String, dynamic>?)),
-                        _buildInfoChip(Icons.event, _formatearFecha(fechaTrabajo)),
-                        _buildInfoChip(Icons.access_time, _formatearHora(horaInicioMap)),
-                        _buildInfoChip(Icons.payments, '\$${trabajo['precio']?.toString() ?? 'N/D'} brutos', isPrimary: true),
+                        _buildInfoChip(
+                          Icons.location_on,
+                          _formatearUbicacion(
+                            trabajo['ubicacion'] as Map<String, dynamic>?,
+                          ),
+                        ),
+                        _buildInfoChip(
+                          Icons.event,
+                          _formatearFecha(fechaTrabajo),
+                        ),
+                        _buildInfoChip(
+                          Icons.access_time,
+                          _formatearHora(horaInicioMap),
+                        ),
+                        _buildInfoChip(
+                          Icons.payments,
+                          '${(trabajo['precio'] != null) ? FormatUtils.formatCurrency(trabajo['precio'].toDouble()) : 'N/D'} brutos',
+                          isPrimary: true,
+                        ),
                       ],
                     ),
                   ],
@@ -601,16 +744,18 @@ class _PostulacionContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        
+
         // Banner de estado actual (centralizado)
         _EstadoActualBanner(estadoActual: estadoActual, progreso: progreso),
-        
+
         const SizedBox(height: 24),
-        
+
         // Timeline de progreso
         Card(
           elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -618,7 +763,11 @@ class _PostulacionContent extends StatelessWidget {
               children: [
                 const Text(
                   'Ruta del proceso (Tu progreso)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _PRIMARY_COLOR),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _PRIMARY_COLOR,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 for (var i = 0; i < pasos.length; i++)
@@ -634,27 +783,33 @@ class _PostulacionContent extends StatelessWidget {
             ),
           ),
         ),
-        
+
         const SizedBox(height: 32),
-        
+
         // --- FILA DE BOTONES DE ACCIÓN (Lógica ajustada) ---
         Row(
           children: [
             // 1. Botón secundario/alternativo (Ver Instrucciones si está activo, Buscar Otros si no)
-            if (esTrabajoActivo && instruccionesVistas) // Solo mostrar si ya vió instrucciones o no es activo
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: _PRIMARY_COLOR, width: 1.5),
-                      foregroundColor: _PRIMARY_COLOR,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            if (esTrabajoActivo &&
+                instruccionesVistas) // Solo mostrar si ya vió instrucciones o no es activo
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: _PRIMARY_COLOR, width: 1.5),
+                    foregroundColor: _PRIMARY_COLOR,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    icon: const Icon(Icons.search),
-                    label: const Text('Buscar otros', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
-                )
+                  icon: const Icon(Icons.search),
+                  label: const Text(
+                    'Buscar otros',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              )
             else if (!esTrabajoActivo)
               Expanded(
                 child: OutlinedButton.icon(
@@ -663,10 +818,15 @@ class _PostulacionContent extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: const BorderSide(color: _PRIMARY_COLOR, width: 1.5),
                     foregroundColor: _PRIMARY_COLOR,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   icon: const Icon(Icons.search),
-                  label: const Text('Buscar otros', style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: const Text(
+                    'Buscar otros',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               )
             else if (esTrabajoActivo && !instruccionesVistas)
@@ -676,10 +836,8 @@ class _PostulacionContent extends StatelessWidget {
 
             // 2. Espacio y Botón principal (solo si el trabajo está activo Y ya vio instrucciones)
             if (esTrabajoActivo && instruccionesVistas) ...[
-                const SizedBox(width: 12),
-                Expanded(
-                    child: mainActionButton,
-                ),
+              const SizedBox(width: 12),
+              Expanded(child: mainActionButton),
             ],
           ],
         ),
@@ -718,7 +876,7 @@ class _TrabajoHeaderImage extends StatelessWidget {
               child: CircularProgressIndicator(
                 value: progress.expectedTotalBytes != null
                     ? progress.cumulativeBytesLoaded /
-                        progress.expectedTotalBytes!
+                          progress.expectedTotalBytes!
                     : null,
               ),
             ),
@@ -742,11 +900,7 @@ class _PlaceholderBanner extends StatelessWidget {
       width: double.infinity,
       color: _PRIMARY_COLOR.withOpacity(0.8),
       alignment: Alignment.center,
-      child: const Icon(
-        Icons.business_center,
-        color: Colors.white,
-        size: 72,
-      ),
+      child: const Icon(Icons.business_center, color: Colors.white, size: 72),
     );
   }
 }
@@ -767,9 +921,9 @@ class _EstadoActualBanner extends StatelessWidget {
     String titulo;
     String descripcion;
     IconData icon;
-    
+
     // Colores base para los estados
-    final Color blueBase = const Color(0xFF174EA6); 
+    final Color blueBase = const Color(0xFF174EA6);
     final Color greenBase = Colors.green.shade800;
     final Color redBase = Colors.red.shade800;
 
@@ -780,21 +934,24 @@ class _EstadoActualBanner extends StatelessWidget {
         icon = Icons.event_available;
         titulo = '¡Trabajo confirmado!';
         // Descripción con recordatorio de instrucciones
-        descripcion = 'Recuerda asistir el día acordado. Revisa las instrucciones antes de iniciar.';
+        descripcion =
+            'Recuerda asistir el día acordado. Revisa las instrucciones antes de iniciar.';
         break;
       case 'aceptado':
         backgroundColor = const Color(0xFFF0E4F3); // Morado claro
         textColor = _PRIMARY_COLOR;
         icon = Icons.thumb_up_alt_outlined;
         titulo = 'Postulación aceptada';
-        descripcion = 'Confirma tu asistencia lo antes posible para asegurar tu cupo.';
+        descripcion =
+            'Confirma tu asistencia lo antes posible para asegurar tu cupo.';
         break;
       case 'rechazado':
         backgroundColor = const Color(0xFFFDE7E9);
         textColor = redBase;
         icon = Icons.cancel_outlined;
         titulo = 'Postulación rechazada';
-        descripcion = 'Esta oportunidad ya no está disponible para ti. Revisa otras ofertas.';
+        descripcion =
+            'Esta oportunidad ya no está disponible para ti. Revisa otras ofertas.';
         break;
       default: // Pendiente o en proceso
         backgroundColor = const Color(0xFFE8F0FE);
@@ -802,10 +959,12 @@ class _EstadoActualBanner extends StatelessWidget {
         icon = Icons.access_time_outlined;
         if (progreso <= 0) {
           titulo = 'Postulación en revisión';
-          descripcion = 'Te avisaremos cuando el administrador revise tu postulación.';
+          descripcion =
+              'Te avisaremos cuando el administrador revise tu postulación.';
         } else {
           titulo = 'Seguimos procesando';
-          descripcion = 'Tu pago está siendo procesado o tu tarea está en revisión final.';
+          descripcion =
+              'Tu pago está siendo procesado o tu tarea está en revisión final.';
         }
         break;
     }

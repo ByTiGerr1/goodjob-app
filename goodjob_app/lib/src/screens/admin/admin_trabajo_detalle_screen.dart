@@ -1,16 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/src/services/format_utils.dart';
 import 'dart:async';
 
 // Simulación de la pantalla de edición, que es la misma que la de creación
-import 'crear_trabajo_screen.dart'; 
+import 'crear_trabajo_screen.dart';
 
 class AdminTrabajoDetalleScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
 
-  const AdminTrabajoDetalleScreen(
-      {super.key, required this.trabajoId, required this.trabajo});
+  const AdminTrabajoDetalleScreen({
+    super.key,
+    required this.trabajoId,
+    required this.trabajo,
+  });
 
   @override
   State<AdminTrabajoDetalleScreen> createState() =>
@@ -20,15 +24,17 @@ class AdminTrabajoDetalleScreen extends StatefulWidget {
 class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   Timer? _timer;
   String _countdownText = '';
-  
+
   // CORRECCIÓN CLAVE: Inicializamos _trabajoData directamente desde widget.trabajo.
   // Esto elimina el LateInitializationError y permite acceso inmediato a los datos.
-  late Map<String, dynamic> _trabajoData = widget.trabajo; 
+  late Map<String, dynamic> _trabajoData = widget.trabajo;
 
   // --- COLORES Y CONSTANTES UI/UX ---
   static const Color primaryColor = Color(0xFF7B0997); // Púrpura principal
   static const Color secondaryColor = Color(0xFFE91E63); // Rosa/Rojo de acento
-  static const Color alertColor = Color(0xFFD32F2F); // Rojo para estados críticos
+  static const Color alertColor = Color(
+    0xFFD32F2F,
+  ); // Rojo para estados críticos
 
   @override
   void initState() {
@@ -84,7 +90,8 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   }
 
   void _startCountdown() {
-    final fechaFinTs = _trabajoData['fechaLimite'] as Timestamp? ??
+    final fechaFinTs =
+        _trabajoData['fechaLimite'] as Timestamp? ??
         _trabajoData['fechaLimitePostulacion'] as Timestamp?;
 
     if (fechaFinTs == null) {
@@ -130,7 +137,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
         ),
       ),
     );
-    
+
     // Si el resultado de la edición es 'true', podemos forzar una recarga o actualizar
     if (resultado == true) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -138,7 +145,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
       );
       // En una app con Streams/BLoC/Provider, esto recargaría automáticamente.
       // Aquí, forzamos un setState para reflejar cualquier cambio simple si es necesario.
-      // setState(() {}); 
+      // setState(() {});
     }
   }
   // ---------------------------------------------
@@ -176,12 +183,18 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
       title: Text(
         title,
         style: const TextStyle(
-            fontSize: 14, fontWeight: FontWeight.w400, color: Colors.black54),
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: Colors.black54,
+        ),
       ),
       subtitle: Text(
         value,
         style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
       minLeadingWidth: 20,
@@ -189,7 +202,10 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   }
 
   Widget _buildLogisticaSection(
-      DateTime? fechaInicio, DateTime? fechaFin, Map<String, dynamic>? ubicacion) {
+    DateTime? fechaInicio,
+    DateTime? fechaFin,
+    Map<String, dynamic>? ubicacion,
+  ) {
     final hora = (fechaInicio != null && fechaFin != null)
         ? '${_formatHora(fechaInicio)} - ${_formatHora(fechaFin)} hrs'
         : 'N/D';
@@ -203,9 +219,14 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Logística y Pago',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+            const Text(
+              'Logística y Pago',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryColor,
+              ),
+            ),
             const Divider(color: Colors.black12, height: 16),
             _buildDetalleItem(
               Icons.location_on_outlined,
@@ -217,15 +238,15 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
               'Día de trabajo',
               _formatFecha(fechaInicio),
             ),
-            _buildDetalleItem(
-              Icons.access_time_filled,
-              'Horario',
-              hora,
-            ),
+            _buildDetalleItem(Icons.access_time_filled, 'Horario', hora),
             _buildDetalleItem(
               Icons.payments,
               'Pago total',
-              '\$${_trabajoData['precio']?.toString() ?? 'N/D'}',
+              (_trabajoData['precio'] != null)
+                  ? FormatUtils.formatCurrency(
+                      _trabajoData['precio'].toDouble(),
+                    )
+                  : 'N/D',
             ),
           ],
         ),
@@ -233,8 +254,12 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     );
   }
 
-  Widget _buildRequisitosContactoSection(Map<String, dynamic>? contacto,
-      bool requiereUniforme, List<String> implementosUniforme, String instrucciones) {
+  Widget _buildRequisitosContactoSection(
+    Map<String, dynamic>? contacto,
+    bool requiereUniforme,
+    List<String> implementosUniforme,
+    String instrucciones,
+  ) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -244,14 +269,21 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Requisitos y Contacto',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+            const Text(
+              'Requisitos y Contacto',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryColor,
+              ),
+            ),
             const Divider(color: Colors.black12, height: 16),
 
             // Requisitos
             _buildDetalleItem(
-              requiereUniforme ? Icons.check_circle_outline : Icons.cancel_outlined,
+              requiereUniforme
+                  ? Icons.check_circle_outline
+                  : Icons.cancel_outlined,
               'Uniforme Requerido',
               requiereUniforme ? 'Sí' : 'No',
             ),
@@ -263,12 +295,19 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                   spacing: 8.0,
                   runSpacing: 4.0,
                   children: implementosUniforme
-                      .map((item) => Chip(
-                              label: Text(item, style: const TextStyle(fontSize: 14)),
-                              backgroundColor: primaryColor.withOpacity(0.1),
-                              labelStyle: const TextStyle(
-                                  color: primaryColor, fontWeight: FontWeight.w500),
-                            ))
+                      .map(
+                        (item) => Chip(
+                          label: Text(
+                            item,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          backgroundColor: primaryColor.withOpacity(0.1),
+                          labelStyle: const TextStyle(
+                            color: primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -282,9 +321,14 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
             const SizedBox(height: 10),
 
             // Contacto
-            const Text('Información de Contacto',
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+            const Text(
+              'Información de Contacto',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
             const Divider(color: Colors.black12, height: 16),
             _buildDetalleItem(
               Icons.person,
@@ -306,16 +350,17 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   Widget _buildAdministracionSection() {
     final bool isFinished = _countdownText == 'Ya acabo';
     final Color countdownColor = isFinished ? alertColor : secondaryColor;
-    
+
     // Nuevo Título
     const String panelTitle = 'Tiempo Límite para Postulación';
 
     // Cálculo del formato de tiempo simplificado (Días y Horas)
     String simplifiedCountdownText = _countdownText;
     if (!isFinished && _timer != null) {
-      final fechaFinTs = _trabajoData['fechaLimite'] as Timestamp? ?? 
-            _trabajoData['fechaLimitePostulacion'] as Timestamp?;
-                        
+      final fechaFinTs =
+          _trabajoData['fechaLimite'] as Timestamp? ??
+          _trabajoData['fechaLimitePostulacion'] as Timestamp?;
+
       if (fechaFinTs != null) {
         final remaining = fechaFinTs.toDate().difference(DateTime.now());
         final days = remaining.inDays;
@@ -327,8 +372,9 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 20, top: 10),
       decoration: BoxDecoration(
-        color:
-            isFinished ? alertColor.withOpacity(0.1) : primaryColor.withOpacity(0.05),
+        color: isFinished
+            ? alertColor.withOpacity(0.1)
+            : primaryColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isFinished ? alertColor : primaryColor.withOpacity(0.2),
@@ -343,7 +389,10 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
           Text(
             panelTitle,
             style: const TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor),
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: primaryColor,
+            ),
           ),
           const Divider(color: Colors.black12, height: 16),
 
@@ -360,16 +409,18 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                   Text(
                     isFinished ? 'ESTADO' : 'QUEDAN',
                     style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: countdownColor.withOpacity(0.8)),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: countdownColor.withOpacity(0.8),
+                    ),
                   ),
                   Text(
                     isFinished ? _countdownText : simplifiedCountdownText,
                     style: TextStyle(
-                        fontSize: 20, // Tamaño de fuente reducido
-                        fontWeight: FontWeight.w900,
-                        color: countdownColor),
+                      fontSize: 20, // Tamaño de fuente reducido
+                      fontWeight: FontWeight.w900,
+                      color: countdownColor,
+                    ),
                   ),
                 ],
               ),
@@ -389,18 +440,24 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     final fechaInicio = _getTrabajoStartDateTime();
     final fechaFin = _getTrabajoEndDateTime();
 
-    final Map<String, dynamic>? ubicacion = _safeMapCast(_trabajoData['ubicacion']);
+    final Map<String, dynamic>? ubicacion = _safeMapCast(
+      _trabajoData['ubicacion'],
+    );
     // Usamos _safeMapCast para contacto para evitar el error de Map<String, String>
-    final Map<String, dynamic>? contacto = _safeMapCast(_trabajoData['contacto']);
+    final Map<String, dynamic>? contacto = _safeMapCast(
+      _trabajoData['contacto'],
+    );
 
-    final bool requiereUniforme = _trabajoData['requiereUniforme'] as bool? ?? false;
+    final bool requiereUniforme =
+        _trabajoData['requiereUniforme'] as bool? ?? false;
     final List<String> implementosUniforme =
         (_trabajoData['implementosUniforme'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
-            [];
+        [];
     final String instrucciones =
-        _trabajoData['instrucciones'] as String? ?? 'No hay requisitos específicos.';
+        _trabajoData['instrucciones'] as String? ??
+        'No hay requisitos específicos.';
 
     return Scaffold(
       body: CustomScrollView(
@@ -438,8 +495,11 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                 color: primaryColor,
                 alignment: Alignment.center,
                 padding: const EdgeInsets.only(top: 40),
-                child: const Icon(Icons.business_center,
-                    size: 80, color: Colors.white70),
+                child: const Icon(
+                  Icons.business_center,
+                  size: 80,
+                  color: Colors.white70,
+                ),
               ),
             ),
             actions: [
@@ -451,41 +511,50 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
             ],
           ),
           SliverList(
-            delegate: SliverChildListDelegate(
-              [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- DESCRIPCIÓN ---
-                      const Text('Descripción del Trabajo',
-                          style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87)),
-                      const Divider(height: 16),
-                      Text(
-                        _trabajoData['descripcion'] ?? 'Descripción no disponible.',
-                        style: const TextStyle(
-                            fontSize: 16, color: Colors.black87, height: 1.5),
+            delegate: SliverChildListDelegate([
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- DESCRIPCIÓN ---
+                    const Text(
+                      'Descripción del Trabajo',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
-                      const SizedBox(height: 30),
+                    ),
+                    const Divider(height: 16),
+                    Text(
+                      _trabajoData['descripcion'] ??
+                          'Descripción no disponible.',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
 
-                      // --- SECCIONES ESTRUCTURADAS EN TARJETAS ---
-                      _buildLogisticaSection(fechaInicio, fechaFin, ubicacion),
-                      _buildRequisitosContactoSection(
-                          contacto, requiereUniforme, implementosUniforme, instrucciones),
-                          
-                      // --- PANEL DE ADMINISTRACIÓN MEJORADO ---
-                      _buildAdministracionSection(),
+                    // --- SECCIONES ESTRUCTURADAS EN TARJETAS ---
+                    _buildLogisticaSection(fechaInicio, fechaFin, ubicacion),
+                    _buildRequisitosContactoSection(
+                      contacto,
+                      requiereUniforme,
+                      implementosUniforme,
+                      instrucciones,
+                    ),
 
-                      const SizedBox(height: 32),
-                    ],
-                  ),
+                    // --- PANEL DE ADMINISTRACIÓN MEJORADO ---
+                    _buildAdministracionSection(),
+
+                    const SizedBox(height: 32),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ]),
           ),
         ],
       ),

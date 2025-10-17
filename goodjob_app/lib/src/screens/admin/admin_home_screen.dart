@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../services/firebase_service.dart';
-import '../../services/trabajo_service.dart';
-import '../../services/postulacion_service.dart'; // Importamos el servicio de postulacion
+import 'package:goodjob_app/src/services/firebase_service.dart';
+import 'package:goodjob_app/src/services/postulacion_service.dart';
+import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'admin_pagos_screen.dart';
 import 'postulantes_trabajo_screen.dart';
 import 'admin_trabajo_router.dart';
+
+// Opciones de filtrado para la lista
+enum TrabajoFilter { all, active, closed }
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -18,7 +21,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
   final Auth auth = Auth();
   final TrabajoService servicio = TrabajoService();
-  final PostulacionService postulacionService = PostulacionService(); // Instanciamos el servicio
+  final PostulacionService postulacionService = PostulacionService();
+
+  // Variable de estado para el filtro
+  TrabajoFilter _selectedFilter = TrabajoFilter.active;
 
   // Colores de estado
   static const Color _ACTIVE_COLOR = Color(0xFF00897B); // Verde Azulado
@@ -28,15 +34,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Widget _buildCardResumen(
       BuildContext context, String titulo, int cantidad, IconData icono, Color color) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final colorForIconAndNumber = color;
     
     final usePrimaryForIcon = color == _CLOSED_COLOR;
-    final finalColor = usePrimaryForIcon ? Theme.of(context).colorScheme.primary : colorForIconAndNumber;
+    final finalColor = usePrimaryForIcon ? primaryColor : colorForIconAndNumber;
 
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white, // Fondo blanco para todas las tarjetas
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -62,8 +69,65 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
     );
   }
+  
+  // --- WIDGETS DE FILTRO ---
 
-  // Widget para mostrar la tarjeta de gestión, usando FutureBuilder para la cuenta de postulantes
+  Widget _buildFilterControls(BuildContext context, int totalCount) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    
+    final filterOptions = [
+      {'enum': TrabajoFilter.active, 'text': 'Activos'},
+      {'enum': TrabajoFilter.closed, 'text': 'Cerrados'},
+      {'enum': TrabajoFilter.all, 'text': 'Todos ($totalCount)'},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0, top: 8.0),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300)
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: filterOptions.map((option) {
+            final isSelected = _selectedFilter == option['enum'];
+            final color = isSelected ? primaryColor : Colors.transparent;
+            final textColor = isSelected ? Colors.white : Colors.black87;
+
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedFilter = option['enum'] as TrabajoFilter),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      option['text'] as String,
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGETS DE LISTA ---
+
   Widget _buildTrabajoGestionCard(BuildContext context, DocumentSnapshot doc, Map<String, dynamic> data, String estado) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final esActivo = estado == 'Activo';
@@ -81,7 +145,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             MaterialPageRoute(
               builder: (_) => getAdminTrabajoView(
                 trabajoId: doc.id,
-                trabajoData: data,
+                trabajo: data,
               ),
             ),
           );
@@ -127,12 +191,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          if (snapshot.connectionState == ConnectionState.waiting)
-                            SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
-                            )
+                          if (postulacionesSnapshot.connectionState == ConnectionState.waiting)
+                            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                           else
                             Text('$postulantes', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
                           const Text('Postulantes', style: TextStyle(fontSize: 12, color: Colors.black54)),
@@ -153,7 +213,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     icon: const Icon(Icons.edit_note, size: 24),
                     color: primaryColor,
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: doc.id, trabajoData: data)));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: doc.id, trabajo: data)));
                     },
                   ),
                   const SizedBox(width: 8),
@@ -204,19 +264,40 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         final trabajos = snapshot.data!.docs;
         final ahora = DateTime.now();
 
-        final trabajosActivos = trabajos.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(days: 1)); 
-          return fechaLimite.isAfter(ahora);
+        // 1. Clasificación
+        final trabajosConEstado = trabajos.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(const Duration(days: 1));
+            final estado = fechaLimite.isAfter(ahora) ? 'Activo' : 'Cerrado';
+            return {'doc': doc, 'data': data, 'estado': estado, 'id': doc.id};
         }).toList();
 
-        final trabajosCompletados = trabajos.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(const Duration(days: 1)); 
-          return fechaLimite.isBefore(ahora);
-        }).toList();
+        final trabajosActivos = trabajosConEstado.where((t) => t['estado'] == 'Activo').toList();
+        final trabajosCerrados = trabajosConEstado.where((t) => t['estado'] == 'Cerrado').toList();
         
-        // Finalizamos la remoción de la variable dummy
+        // 2. Aplicar filtro de estado
+        List<Map<String, dynamic>> trabajosFiltrados;
+        switch (_selectedFilter) {
+          case TrabajoFilter.active:
+            trabajosFiltrados = trabajosActivos;
+            break;
+          case TrabajoFilter.closed:
+            trabajosFiltrados = trabajosCerrados;
+            break;
+          case TrabajoFilter.all:
+          default:
+            trabajosFiltrados = [...trabajosActivos, ...trabajosCerrados];
+            break;
+        }
+        
+        // 3. Ordenar
+        trabajosFiltrados.sort((a, b) {
+            // Actualmente solo ordena por fecha de creación descendente (más reciente primero)
+            final aTime = (a['data']!['creadoEn'] as Timestamp?)?.toDate();
+            final bTime = (b['data']!['creadoEn'] as Timestamp?)?.toDate();
+            if (aTime == null || bTime == null) return 0;
+            return bTime.compareTo(aTime); 
+        });
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,7 +313,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       'Trabajos Activos',
                       trabajosActivos.length,
                       Icons.work_history,
-                      _ACTIVE_COLOR, // Verde Azulado
+                      _ACTIVE_COLOR,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -240,58 +321,39 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     child: _buildCardResumen(
                       context,
                       'Trabajos Cerrados',
-                      trabajosCompletados.length,
+                      trabajosCerrados.length,
                       Icons.done_all,
-                      primaryColor, // Usamos Primary para Cerrados
+                      primaryColor,
                     ),
                   ),
                 ],
               ),
             ),
             
-            // CTA Principal
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, 'crear_trabajo'),
-                  icon: const Icon(Icons.add_circle, color: Colors.black),
-                  label: const Text(
-                    'Crear Nuevo Trabajo',
-                    style: TextStyle(fontSize: 18, color: Colors.black, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: secondaryColor, // CTA en color de acento (Amarillo)
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 6,
-                  ),
-                ),
-              ),
-            ),
+            // Controles de Filtro
+            _buildFilterControls(context, trabajos.length),
             
             // Título de la Lista
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Text(
-                'Todas las ofertas (${trabajos.length})',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                'Resultados: (${trabajosFiltrados.length})',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 20),
               ),
             ),
 
-            // Lista de Trabajos 
+            // Lista de Trabajos Filtrada
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                itemCount: trabajos.length,
+                // Padding inferior aumentado para no tapar por el FAB
+                padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0), 
+                itemCount: trabajosFiltrados.length,
                 itemBuilder: (context, index) {
-                  final doc = trabajos[index];
-                  final data = doc.data() as Map<String, dynamic>;
-                  final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(const Duration(days: 1));
-                  final estado = fechaLimite.isAfter(ahora) ? 'Activo' : 'Cerrado';
+                  final item = trabajosFiltrados[index];
+                  final doc = item['doc'] as DocumentSnapshot;
+                  final data = item['data'] as Map<String, dynamic>;
+                  final estado = item['estado'] as String;
                   
-                  // Pasamos el documento y datos al nuevo widget constructor
                   return _buildTrabajoGestionCard(context, doc, data, estado);
                 },
               ),
@@ -306,6 +368,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard de Administración', style: TextStyle(color: Colors.white),),
@@ -327,12 +391,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
       body: _currentIndex == 0
           ? _buildTrabajosPublicados()
-          : const AdminPagosScreen(), // Asegúrate que esta vista existe
+          : const AdminPagosScreen(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        selectedItemColor: Theme.of(context).colorScheme.secondary, // Amarillo Brillante
-        unselectedItemColor: Colors.white, // Blanco para no seleccionados
-        backgroundColor: Theme.of(context).colorScheme.primary, // Morado
+        selectedItemColor: secondaryColor,
+        unselectedItemColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Trabajos'),
@@ -340,6 +404,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               icon: Icon(Icons.account_balance_wallet), label: 'Pagos'),
         ],
       ),
+      
+      // ✅ IMPLEMENTACIÓN DEL BOTÓN FLOTANTE
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'createJobFAB',
+        backgroundColor: secondaryColor,
+        onPressed: () => Navigator.pushNamed(context, 'crear_trabajo'),
+        child: const Icon(Icons.add, color: Colors.black, size: 30),
+      ),
+      // El FAB debe estar visible solo en la pestaña de Trabajos
+      floatingActionButtonLocation: _currentIndex == 0 
+          ? FloatingActionButtonLocation.endFloat 
+          : null,
     );
   }
 }

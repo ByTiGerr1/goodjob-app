@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:goodjob_app/src/services/format_utils.dart';
 import '../services/postulacion_service.dart'; // Asumiendo que PostulacionService existe
 
 class DetalleTrabajoScreen extends StatefulWidget {
@@ -410,7 +411,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     }
     
     final diaTexto = _formatFecha(fechaInicio);
-    final pagoTexto = '\$${widget.trabajo['precio']?.toString() ?? 'N/D'}';
+    final dynamic precio = widget.trabajo['precio'];
+    final pagoTexto = (precio != null) 
+    ? FormatUtils.formatCurrency(precio.toDouble()) 
+    : 'N/D';
 
     return {
       'horario': horarioTexto,

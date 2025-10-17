@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:goodjob_app/src/services/format_utils.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../services/trabajo_service.dart';
@@ -22,14 +23,15 @@ class TrabajosScreen extends StatefulWidget {
   State<TrabajosScreen> createState() => _TrabajosScreenState();
 }
 
-
 class _TrabajosScreenState extends State<TrabajosScreen> {
   final _servicio = TrabajoService();
   DisplayOption _selectedDisplay = DisplayOption.upcoming;
   Position? _currentPosition;
   int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
   final MapController _mapController = MapController();
-  final PageController _carouselController = PageController(viewportFraction: 0.75);
+  final PageController _carouselController = PageController(
+    viewportFraction: 0.75,
+  );
   String? _ultimoTrabajoSeleccionadoId;
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
 
@@ -40,7 +42,6 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   bool get _mapReady =>
       _mapController is MapControllerImpl &&
       (_mapController).value.options != null;
-
 
   @override
   void initState() {
@@ -58,7 +59,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     }
     return null;
   }
-  
+
   /// Obtiene la fecha y hora de inicio del trabajo de forma robusta (Dual-Schema).
   DateTime? _getTrabajoStartDateTime(Map<String, dynamic> trabajo) {
     // 1. Probar campo nuevo (Timestamp combinado)
@@ -78,16 +79,17 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
     return null;
   }
-  
+
   /// Obtiene la fecha límite de postulación (Dual-Schema).
   DateTime? _getFechaLimite(Map<String, dynamic> trabajo) {
     // Intentar leer el campo principal (fechaLimite)
-    final fechaLimiteTs = trabajo['fechaLimite'] as Timestamp? ??
+    final fechaLimiteTs =
+        trabajo['fechaLimite'] as Timestamp? ??
         trabajo['fechaLimitePostulacion'] as Timestamp?; // Campo de respaldo
 
     return fechaLimiteTs?.toDate();
   }
-  
+
   /// Obtiene la fecha y hora de fin del trabajo de forma robusta (Dual-Schema).
   DateTime? _getTrabajoEndDateTime(Map<String, dynamic> trabajo) {
     // 1. Probar campo nuevo (Timestamp combinado)
@@ -107,7 +109,6 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
     return null;
   }
-
 
   // --- LÓGICA DE UBICACIÓN Y MAPA ---
 
@@ -131,8 +132,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
   void _centrarEnUbicacion() {
     if (_currentPosition == null || !_mapReady) return;
-    final dest =
-        LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+    final dest = LatLng(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+    );
     _mapController.move(dest, 16.0);
   }
 
@@ -147,7 +150,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   }
 
   void _onTrabajoCarruselTap(
-      BuildContext context, Map<String, dynamic> trabajo) {
+    BuildContext context,
+    Map<String, dynamic> trabajo,
+  ) {
     final id = trabajo['id'] as String?;
     if (id == null) return;
 
@@ -157,10 +162,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => DetalleTrabajoScreen(
-            trabajoId: id,
-            trabajo: detalleTrabajo,
-          ),
+          builder: (_) =>
+              DetalleTrabajoScreen(trabajoId: id, trabajo: detalleTrabajo),
         ),
       );
     } else {
@@ -212,7 +215,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     return estadosCerrados.contains(normalizado);
   }
 
-  bool _estaDisponibleParaPostular(Map<String, dynamic> trabajo, DateTime ahora) {
+  bool _estaDisponibleParaPostular(
+    Map<String, dynamic> trabajo,
+    DateTime ahora,
+  ) {
     final fechaLimite = _getFechaLimite(trabajo);
     if (fechaLimite != null && ahora.isAfter(fechaLimite)) return false;
 
@@ -243,7 +249,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   }
 
   List<Map<String, dynamic>> _filtrarTrabajosVigentes(
-      List<Map<String, dynamic>> trabajos) {
+    List<Map<String, dynamic>> trabajos,
+  ) {
     final ahora = DateTime.now();
     return trabajos
         .where((trabajo) => _estaDisponibleParaPostular(trabajo, ahora))
@@ -251,7 +258,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   }
 
   List<Map<String, dynamic>> _prepararTrabajosParaMostrar(
-      QuerySnapshot? snapshot) {
+    QuerySnapshot? snapshot,
+  ) {
     final trabajosDocs = snapshot?.docs ?? [];
     final trabajosSinProcesar = trabajosDocs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
@@ -261,10 +269,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     final filtrados = _filtrarTrabajosVigentes(trabajosSinProcesar);
 
     return filtrados
-        .map((trabajo) => {
-              ...trabajo,
-              'distance': _calcularDistancia(trabajo),
-            })
+        .map((trabajo) => {...trabajo, 'distance': _calcularDistancia(trabajo)})
         .toList();
   }
 
@@ -275,7 +280,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       // Usar fecha actual si es nula para forzar el orden
       return (dateA ?? DateTime.now()).compareTo(dateB ?? DateTime.now());
     }
-      
+
     int compareCreated(a, b) =>
         ((a['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0)).compareTo(
           (b['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0),
@@ -283,7 +288,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
     switch (_selectedDisplay) {
       case DisplayOption.upcoming:
-        trabajos.sort(compareDate); // Ordena por fecha de trabajo ascendente (usando nueva lógica)
+        trabajos.sort(
+          compareDate,
+        ); // Ordena por fecha de trabajo ascendente (usando nueva lógica)
         break;
       case DisplayOption.recent:
         trabajos.sort(
@@ -300,7 +307,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     final year = (fecha.year % 100).toString().padLeft(2, '0');
     return '$day/$month/$year';
   }
-  
+
   // --- WIDGETS DE VISTA ---
 
   Widget _buildSelectorVista() {
@@ -335,7 +342,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     );
   }
 
-  Widget _buildSelectorButton({required String label, required bool isSelected, required VoidCallback onTap}) {
+  Widget _buildSelectorButton({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -355,7 +366,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       ),
     );
   }
-  
+
   // WIDGET DE ORDENADOR MEJORADO
   Widget _buildOrdenador() {
     return Padding(
@@ -378,10 +389,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       ),
     );
   }
-  
+
   Widget _buildOrdenadorButton({
     required String title,
-    required IconData icon, 
+    required IconData icon,
     required DisplayOption option,
   }) {
     final isSelected = _selectedDisplay == option;
@@ -394,19 +405,22 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           // Padding ajustado
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected ? [
-              BoxShadow(
-                color: _primaryAppColor.withOpacity(0.3),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ] : null,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: _primaryAppColor.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          child: Row( // Uso de Row para ícono y texto
+          child: Row(
+            // Uso de Row para ícono y texto
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: contentColor, size: 20),
@@ -414,7 +428,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 16, 
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: contentColor,
                 ),
@@ -433,10 +447,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         if (snapshot.hasError) {
           // Mejorar el manejo de errores
-          return const Center(child: Text('Error al cargar las ofertas de trabajo.'));
+          return const Center(
+            child: Text('Error al cargar las ofertas de trabajo.'),
+          );
         }
 
         var trabajos = _prepararTrabajosParaMostrar(snapshot.data);
@@ -460,26 +476,31 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           slivers: [
             // Ordenador fijo en la parte superior
             SliverToBoxAdapter(child: _buildOrdenador()),
-            
+
             // Lista de elementos
             SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 final data = trabajos[index];
-                
+
                 // --- LECTURA DUAL DE FECHAS (NUEVO) ---
                 final fechaInicio = _getTrabajoStartDateTime(data);
                 final fechaFin = _getTrabajoEndDateTime(data);
-                final fechaLimite = _getFechaLimite(data); // Usado para mostrar si es fecha límite
-                
+                final fechaLimite = _getFechaLimite(
+                  data,
+                ); // Usado para mostrar si es fecha límite
+
                 final distancia = data['distance'] as double?;
-                
+
                 String fechaTxt = _formatFecha(fechaInicio);
 
-                if (fechaInicio != null && fechaFin != null && fechaFin.day != fechaInicio.day) {
-                    fechaTxt = 'Del ${_formatFecha(fechaInicio)} al ${_formatFecha(fechaFin)}';
+                if (fechaInicio != null &&
+                    fechaFin != null &&
+                    fechaFin.day != fechaInicio.day) {
+                  fechaTxt =
+                      'Del ${_formatFecha(fechaInicio)} al ${_formatFecha(fechaFin)}';
                 } else if (fechaLimite != null && fechaInicio == null) {
-                    // Si solo tenemos fecha límite y no fecha de inicio (trabajo antiguo/incompleto)
-                    fechaTxt = 'Postula antes del ${_formatFecha(fechaLimite)}';
+                  // Si solo tenemos fecha límite y no fecha de inicio (trabajo antiguo/incompleto)
+                  fechaTxt = 'Postula antes del ${_formatFecha(fechaLimite)}';
                 }
                 // Si solo tenemos fecha de inicio, ya se muestra en _formatFecha(fechaInicio)
 
@@ -499,9 +520,14 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     );
                   },
                   child: Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
@@ -510,7 +536,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                           CircleAvatar(
                             radius: 30,
                             backgroundColor: _primaryAppColor,
-                            child: const Icon(Icons.work_outline, size: 28, color: Colors.white),
+                            child: const Icon(
+                              Icons.work_outline,
+                              size: 28,
+                              color: Colors.white,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -519,24 +549,49 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                               children: [
                                 Text(
                                   data['titulo'] ?? 'Sin título',
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis, maxLines: 2,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
                                 ),
                                 Text(
                                   data['empresa'] ?? 'Empresa N/D',
-                                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '\$${data['precio'] ?? 'N/D'}',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                                  (data['precio'] != null)
+                                      ? FormatUtils.formatCurrency(
+                                          data['precio'].toDouble(),
+                                        )
+                                      : 'N/D',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    const Icon(Icons.event, size: 14, color: Colors.grey),
+                                    const Icon(
+                                      Icons.event,
+                                      size: 14,
+                                      color: Colors.grey,
+                                    ),
                                     const SizedBox(width: 4),
-                                    Text(fechaTxt, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                    Text(
+                                      fechaTxt,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 if (distancia != null)
@@ -544,9 +599,19 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                     padding: const EdgeInsets.only(top: 4.0),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.near_me_outlined, size: 14, color: Colors.grey),
+                                        const Icon(
+                                          Icons.near_me_outlined,
+                                          size: 14,
+                                          color: Colors.grey,
+                                        ),
                                         const SizedBox(width: 4),
-                                        Text('${distancia.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                        Text(
+                                          '${distancia.toStringAsFixed(1)} km',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -558,10 +623,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     ),
                   ),
                 );
-              },
-              childCount: trabajos.length,
+              }, childCount: trabajos.length),
             ),
-          )],
+          ],
         );
       },
     );
@@ -580,14 +644,12 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         // Mostrar todos los trabajos disponibles, priorizando los más cercanos cuando
         // se cuenta con la ubicación del usuario. De esta forma, no ocultamos
         // oportunidades vigentes que puedan estar lejos pero igual disponibles.
-        final trabajosOrdenadosPorDistancia = List<Map<String, dynamic>>.from(
-          trabajos,
-        )
-          ..sort((a, b) {
-            final distanciaA = a['distance'] as double? ?? double.infinity;
-            final distanciaB = b['distance'] as double? ?? double.infinity;
-            return distanciaA.compareTo(distanciaB);
-          });
+        final trabajosOrdenadosPorDistancia =
+            List<Map<String, dynamic>>.from(trabajos)..sort((a, b) {
+              final distanciaA = a['distance'] as double? ?? double.infinity;
+              final distanciaB = b['distance'] as double? ?? double.infinity;
+              return distanciaA.compareTo(distanciaB);
+            });
 
         final markers = <Marker>[];
 
@@ -598,9 +660,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           final lng = ubicacion?['lng'];
           if (lat == null || lng == null) continue;
           final pos = LatLng((lat as num).toDouble(), (lng as num).toDouble());
-          
+
           final isSelected = t['id'] == _ultimoTrabajoSeleccionadoId;
-          
+
           markers.add(
             Marker(
               width: 40,
@@ -608,23 +670,24 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
               point: pos,
               child: GestureDetector(
                 onTap: () {
-                    setState(() => _ultimoTrabajoSeleccionadoId = t['id']);
-                    _centrarEnTrabajo(t);
-                    // Navegar al carrusel al elemento seleccionado (UX)
-                    final index = trabajosOrdenadosPorDistancia
-                        .indexWhere((tc) => tc['id'] == t['id']);
-                    if (index != -1 && _carouselController.hasClients) {
-                        _carouselController.animateToPage(
-                            index,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                        );
-                    }
+                  setState(() => _ultimoTrabajoSeleccionadoId = t['id']);
+                  _centrarEnTrabajo(t);
+                  // Navegar al carrusel al elemento seleccionado (UX)
+                  final index = trabajosOrdenadosPorDistancia.indexWhere(
+                    (tc) => tc['id'] == t['id'],
+                  );
+                  if (index != -1 && _carouselController.hasClients) {
+                    _carouselController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  }
                 },
                 child: Icon(
-                    Icons.location_on, 
-                    color: isSelected ? _secondaryAppColor : _primaryAppColor, 
-                    size: isSelected ? 45 : 35
+                  Icons.location_on,
+                  color: isSelected ? _secondaryAppColor : _primaryAppColor,
+                  size: isSelected ? 45 : 35,
                 ),
               ),
             ),
@@ -641,19 +704,24 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 _currentPosition!.latitude,
                 _currentPosition!.longitude,
               ),
-              child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
+              child: const Icon(
+                Icons.my_location,
+                color: Colors.blue,
+                size: 40,
+              ),
             ),
           );
         }
 
         final center = _currentPosition != null
-            ? LatLng(
-                _currentPosition!.latitude, _currentPosition!.longitude)
+            ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
             : _defaultLocation;
 
         final zoom = _currentPosition != null ? 14.0 : 5.0;
 
-        final double fabBottom = trabajosOrdenadosPorDistancia.isNotEmpty ? 180.0 : 16.0;
+        final double fabBottom = trabajosOrdenadosPorDistancia.isNotEmpty
+            ? 180.0
+            : 16.0;
         final bool hayTrabajosDisponibles = trabajos.isNotEmpty;
 
         return Stack(
@@ -666,11 +734,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 maxZoom: 40,
                 minZoom: 9,
                 onMapReady: () {
-                    // Si la ubicación ya está, centramos al iniciar el mapa
-                    if (_currentPosition != null) {
-                        _centrarEnUbicacion();
-                    }
-                }
+                  // Si la ubicación ya está, centramos al iniciar el mapa
+                  if (_currentPosition != null) {
+                    _centrarEnUbicacion();
+                  }
+                },
               ),
               children: [
                 TileLayer(
@@ -681,25 +749,40 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 MarkerLayer(markers: markers),
               ],
             ),
-            
+
             // Mensaje de que no hay trabajos
             if (!hayTrabajosDisponibles)
               Positioned.fill(
                 child: IgnorePointer(
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: const Text('No hay trabajos disponibles', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'No hay trabajos disponibles',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            
+
             // Botón para centrar en ubicación
             if (_currentPosition != null)
               Positioned(
@@ -712,8 +795,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                   child: const Icon(Icons.my_location, color: Colors.white),
                 ),
               ),
-              
-             // Carrusel de trabajos ordenados por distancia (mostramos todos)
+
+            // Carrusel de trabajos ordenados por distancia (mostramos todos)
             if (trabajosOrdenadosPorDistancia.isNotEmpty)
               Positioned(
                 left: 0,
@@ -724,7 +807,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                   children: [
                     // Indicación UX más limpia
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
                         color: Colors.black54,
@@ -742,21 +828,25 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                         controller: _carouselController,
                         itemCount: trabajosOrdenadosPorDistancia.length,
                         onPageChanged: (index) {
-                            // Centrar el mapa en el trabajo seleccionado al deslizar
-                            final trabajo = trabajosOrdenadosPorDistancia[index];
-                            setState(() => _ultimoTrabajoSeleccionadoId = trabajo['id']);
-                            _centrarEnTrabajo(trabajo);
+                          // Centrar el mapa en el trabajo seleccionado al deslizar
+                          final trabajo = trabajosOrdenadosPorDistancia[index];
+                          setState(
+                            () => _ultimoTrabajoSeleccionadoId = trabajo['id'],
+                          );
+                          _centrarEnTrabajo(trabajo);
                         },
                         itemBuilder: (context, index) {
                           final trabajo = trabajosOrdenadosPorDistancia[index];
                           final id = trabajo['id'] as String?;
-                          final seleccionado = id != null && id == _ultimoTrabajoSeleccionadoId;
+                          final seleccionado =
+                              id != null && id == _ultimoTrabajoSeleccionadoId;
                           final distancia = trabajo['distance'] as double?;
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: GestureDetector(
-                              onTap: () => _onTrabajoCarruselTap(context, trabajo),
+                              onTap: () =>
+                                  _onTrabajoCarruselTap(context, trabajo),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 padding: const EdgeInsets.all(16),
@@ -764,12 +854,16 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: seleccionado ? _secondaryAppColor : Colors.transparent,
+                                    color: seleccionado
+                                        ? _secondaryAppColor
+                                        : Colors.transparent,
                                     width: 3,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: seleccionado ? _secondaryAppColor.withOpacity(0.4) : Colors.black.withOpacity(0.1),
+                                      color: seleccionado
+                                          ? _secondaryAppColor.withOpacity(0.4)
+                                          : Colors.black.withOpacity(0.1),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
@@ -781,25 +875,48 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                   children: [
                                     Text(
                                       trabajo['titulo'] ?? 'Sin título',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     Text(
-                                      trabajo['empresa'] ?? 'Empresa no registrada',
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      trabajo['empresa'] ??
+                                          'Empresa no registrada',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 6),
+                                    const SizedBox(height: 6),
                                     Text(
-                                      '\$${trabajo['precio'] ?? 'N/D'}',
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                                      (trabajo['precio'] != null)
+                                          ? FormatUtils.formatCurrency(
+                                              trabajo['precio'].toDouble(),
+                                            )
+                                          : 'N/D',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
                                     ),
                                     if (distancia != null)
                                       Padding(
-                                        padding: const EdgeInsets.only(top: 6.0),
+                                        padding: const EdgeInsets.only(
+                                          top: 6.0,
+                                        ),
                                         child: Text(
                                           '${distancia.toStringAsFixed(1)} km de distancia',
-                                          style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black54,
+                                          ),
                                         ),
                                       ),
                                   ],
@@ -826,9 +943,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     Widget screen,
     Future<void> Function() refresh,
   ) {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => screen))
-        .then((_) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)).then((
+      _,
+    ) {
       if (!mounted) return;
       refresh();
     });
@@ -840,12 +957,15 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     Future<void> Function() refresh,
   ) {
     final authenticated = status.isAuthenticated;
-    final title =
-        authenticated ? 'Completa tu registro' : 'Tu sesión no está activa';
-    final description =
-        status.messageForAction('acceder a las ofertas disponibles');
-    final primaryLabel =
-        authenticated ? 'Completa tus datos' : 'Iniciar sesión';
+    final title = authenticated
+        ? 'Completa tu registro'
+        : 'Tu sesión no está activa';
+    final description = status.messageForAction(
+      'acceder a las ofertas disponibles',
+    );
+    final primaryLabel = authenticated
+        ? 'Completa tus datos'
+        : 'Iniciar sesión';
 
     return VerificationRequiredView(
       title: title,
@@ -859,15 +979,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             refresh,
           );
         } else {
-          _navigateAndRefresh(
-            context,
-            const LoginScreen(),
-            refresh,
-          );
+          _navigateAndRefresh(context, const LoginScreen(), refresh);
         }
       },
-      secondaryButtonLabel:
-          authenticated ? 'Ya completé mis datos' : null,
+      secondaryButtonLabel: authenticated ? 'Ya completé mis datos' : null,
       onSecondaryPressed: authenticated ? () => refresh() : null,
     );
   }
@@ -879,7 +994,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     return Scaffold(
       appBar: AppBar(
         // Removiendo la imagen del leading, usando solo un título simple y el selector
-        title: const Text('Explorar Trabajos', style: TextStyle(fontWeight: FontWeight.bold)), 
+        title: const Text(
+          'Explorar Trabajos',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: false,
         actions: [
           Padding(

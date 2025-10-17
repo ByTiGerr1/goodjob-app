@@ -1111,8 +1111,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_esModoEdicion ? 'Editar Oferta de Trabajo' : 'Crear Nueva Oferta de Trabajo'),
-        backgroundColor: _primaryColor,
-        foregroundColor: Colors.white,
         actions: [
           if (!_esModoEdicion)
             PopupMenuButton<_MenuPlantillaOption>(
