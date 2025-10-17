@@ -4,8 +4,8 @@ import '../../services/firebase_service.dart';
 import '../../services/trabajo_service.dart';
 import '../../services/postulacion_service.dart'; // Importamos el servicio de postulacion
 import 'admin_pagos_screen.dart';
-import 'admin_trabajo_detalle_screen.dart';
 import 'postulantes_trabajo_screen.dart';
+import 'admin_trabajo_router.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -79,9 +79,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => AdminTrabajoDetalleScreen(
+              builder: (_) => getAdminTrabajoView(
                 trabajoId: doc.id,
-                trabajo: data,
+                trabajoData: data,
               ),
             ),
           );
@@ -153,7 +153,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     icon: const Icon(Icons.edit_note, size: 24),
                     color: primaryColor,
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => AdminTrabajoDetalleScreen(trabajoId: doc.id, trabajo: data)));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: doc.id, trabajoData: data)));
                     },
                   ),
                   const SizedBox(width: 8),
