@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:goodjob_app/src/screens/onboarding.dart';
-import 'firebase_options.dart';
+import 'package:goodjob_app/src/screens/onboard/benefit_slides_screen.dart';
+import 'package:goodjob_app/src/screens/onboard/splash_screen.dart';
+import 'package:goodjob_app/src/screens/onboard/welcome_screen.dart';
 import 'src/screens/home_screen.dart';
 import 'src/screens/login_screen.dart';
 import 'src/screens/register_screen.dart';
-import 'src/screens/welcome_screen.dart';
 import 'src/screens/admin_home_screen.dart';
 import 'src/screens/crear_trabajo_screen.dart';
 import 'src/screens/crear_plantilla_screen.dart';
 import 'src/screens/account_verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'src/services/firebase_service.dart';
-import 'theme/app_colors.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,11 +31,12 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         fontFamily: 'Ubuntu',
-        primaryColor: AppColors.primary,
+        // Aseguramos que los colores del tema sean los correctos
+        primaryColor: const Color(0xFF601272),
         colorScheme: const ColorScheme(
-          primary: Color(0xFF601272),
+          primary: Color(0xFF601272), // Púrpura
           onPrimary: Colors.white,
-          secondary: Color(0xFFFFD900),
+          secondary: Color(0xFFFFD900), // Amarillo
           onSecondary: Colors.black,
           surface: Color(0xFFF5F5F5),
           onSurface: Color(0xFF1E1E1E),
@@ -52,7 +53,6 @@ class MainApp extends StatelessWidget {
             color: Color(0xFF601272),
             fontFamily: 'Ubuntu',
           ),
-          
         ),
 
         elevatedButtonTheme: ElevatedButtonThemeData(
@@ -91,7 +91,7 @@ class MainApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(10.0),
             ),
             textStyle: const TextStyle(
-              fontSize: 14,
+              fontSize: 14.0,
               fontWeight: FontWeight.w500,
               fontFamily: 'Ubuntu',
             ),
@@ -154,9 +154,16 @@ class MainApp extends StatelessWidget {
 
       home: const AuthGate(),
       routes: {
-        'welcome': (_) => const WelcomeScreen(),
+        // Rutas de Onboarding
+        'splash': (_) => const SplashScreen(), // Pantalla Splash
+        'benefit_slides': (_) =>
+            const BenefitSlidesScreen(), // Diapositivas de valor (NUEVA)
+        'welcome': (_) =>
+            const WelcomeScreen(), // Pantalla de decisión Login/Register
+        // Rutas de Autenticación
         'login': (_) => const LoginScreen(),
         'register': (_) => const RegisterScreen(),
+        // Rutas de la Aplicación
         'home': (_) => const HomeScreen(),
         'admin_home': (_) => const AdminHomeScreen(),
         'crear_trabajo': (_) => const CrearTrabajoScreen(),
@@ -182,7 +189,8 @@ class AuthGate extends StatelessWidget {
         }
         final user = snapshot.data;
         if (user == null) {
-          return const OnboardingScreen();
+          // Si no hay usuario, mostramos la Splash Screen
+          return const SplashScreen();
         }
         return FutureBuilder<String?>(
           future: Auth().getUserRole(user.uid),

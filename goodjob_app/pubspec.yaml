@@ -36,3 +36,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/images/visual1.png # 👈 CRÍTICO
+    - assets/images/visual2.png # 👈 CRÍTICO
+    - assets/images/visual3.png # 👈 CRÍTICO
