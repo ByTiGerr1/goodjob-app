@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../services/plantilla_trabajo_service.dart';
+import '../../services/plantilla_trabajo_service.dart';
 
 class CrearPlantillaScreen extends StatefulWidget {
   const CrearPlantillaScreen({super.key});

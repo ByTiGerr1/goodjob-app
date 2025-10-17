@@ -190,14 +190,82 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         1000;
   }
 
+  bool _estadoIndicaCierre(String? estado) {
+    if (estado == null) return false;
+    final normalizado = estado.toLowerCase().replaceAll('_', ' ').trim();
+    if (normalizado.isEmpty) return false;
+
+    const estadosCerrados = {
+      'cerrado',
+      'cerrada',
+      'cancelado',
+      'cancelada',
+      'finalizado',
+      'finalizada',
+      'completado',
+      'completada',
+      'en curso',
+      'en progreso',
+      'no disponible',
+    };
+
+    return estadosCerrados.contains(normalizado);
+  }
+
+  bool _estaDisponibleParaPostular(Map<String, dynamic> trabajo, DateTime ahora) {
+    final fechaLimite = _getFechaLimite(trabajo);
+    if (fechaLimite != null && ahora.isAfter(fechaLimite)) return false;
+
+    final camposEstado = <String?>[
+      trabajo['estado']?.toString(),
+      trabajo['estadoTrabajo']?.toString(),
+      trabajo['estadoAsignacion']?.toString(),
+    ];
+
+    if (camposEstado.any(_estadoIndicaCierre)) {
+      return false;
+    }
+
+    final postulacionesHabilitadas = trabajo['postulacionesHabilitadas'];
+    if (postulacionesHabilitadas is bool && !postulacionesHabilitadas) {
+      return false;
+    }
+
+    final maxPostulantes = trabajo['maxPostulantes'];
+    final totalPostulaciones =
+        trabajo['totalPostulaciones'] ?? trabajo['postulacionesActuales'];
+
+    if (maxPostulantes is num && totalPostulaciones is num) {
+      if (totalPostulaciones >= maxPostulantes) return false;
+    }
+
+    return true;
+  }
+
   List<Map<String, dynamic>> _filtrarTrabajosVigentes(
       List<Map<String, dynamic>> trabajos) {
     final ahora = DateTime.now();
-    return trabajos.where((trabajo) {
-      final fechaLimite = _getFechaLimite(trabajo);
-      if (fechaLimite == null) return true; // Si no hay fecha límite, se considera vigente
-      return !ahora.isAfter(fechaLimite);
+    return trabajos
+        .where((trabajo) => _estaDisponibleParaPostular(trabajo, ahora))
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _prepararTrabajosParaMostrar(
+      QuerySnapshot? snapshot) {
+    final trabajosDocs = snapshot?.docs ?? [];
+    final trabajosSinProcesar = trabajosDocs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {...data, 'id': doc.id};
     }).toList();
+
+    final filtrados = _filtrarTrabajosVigentes(trabajosSinProcesar);
+
+    return filtrados
+        .map((trabajo) => {
+              ...trabajo,
+              'distance': _calcularDistancia(trabajo),
+            })
+        .toList();
   }
 
   void _ordenar(List<Map<String, dynamic>> trabajos) {
@@ -366,21 +434,14 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         
-        var trabajosDocs = snapshot.data?.docs ?? [];
         if (snapshot.hasError) {
           // Mejorar el manejo de errores
           return const Center(child: Text('Error al cargar las ofertas de trabajo.'));
         }
-        
-        var trabajos = trabajosDocs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final dist = _calcularDistancia(data);
-          return {...data, 'distance': dist, 'id': doc.id};
-        }).toList();
 
-        trabajos = _filtrarTrabajosVigentes(trabajos);
+        var trabajos = _prepararTrabajosParaMostrar(snapshot.data);
         _ordenar(trabajos);
-        
+
         if (trabajos.isEmpty) {
           return const Center(
             child: Padding(
@@ -425,12 +486,14 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 return GestureDetector(
                   onTap: () {
                     // Asegurar que el objeto de trabajo pasado contenga todos los datos.
+                    final detalleTrabajo = Map<String, dynamic>.from(data)
+                      ..remove('distance');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => DetalleTrabajoScreen(
                           trabajoId: data['id'],
-                          trabajo: data,
+                          trabajo: detalleTrabajo,
                         ),
                       ),
                     );
@@ -512,31 +575,19 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final trabajosDocs = snapshot.data?.docs ?? [];
-        var trabajos = trabajosDocs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {...data, 'id': doc.id};
-        }).toList();
+        final trabajos = _prepararTrabajosParaMostrar(snapshot.data);
 
-        trabajos = _filtrarTrabajosVigentes(trabajos);
-
-        final trabajosConDistancia = trabajos.map((trabajo) {
-          final distancia = _calcularDistancia(trabajo);
-          return {...trabajo, 'distance': distancia};
-        }).toList();
-
-        final trabajosCercanos = trabajosConDistancia
-            .where((trabajo) {
-              final distancia = trabajo['distance'] as double?;
-              // Mostrar todos si no se puede obtener la ubicación, o solo cercanos (dentro de 10km)
-              return _currentPosition == null || (distancia != null && distancia <= 10);
-            })
-            .toList()
-            ..sort((a, b) {
-              final distanciaA = a['distance'] as double? ?? double.infinity;
-              final distanciaB = b['distance'] as double? ?? double.infinity;
-              return distanciaA.compareTo(distanciaB);
-            });
+        // Mostrar todos los trabajos disponibles, priorizando los más cercanos cuando
+        // se cuenta con la ubicación del usuario. De esta forma, no ocultamos
+        // oportunidades vigentes que puedan estar lejos pero igual disponibles.
+        final trabajosOrdenadosPorDistancia = List<Map<String, dynamic>>.from(
+          trabajos,
+        )
+          ..sort((a, b) {
+            final distanciaA = a['distance'] as double? ?? double.infinity;
+            final distanciaB = b['distance'] as double? ?? double.infinity;
+            return distanciaA.compareTo(distanciaB);
+          });
 
         final markers = <Marker>[];
 
@@ -560,7 +611,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     setState(() => _ultimoTrabajoSeleccionadoId = t['id']);
                     _centrarEnTrabajo(t);
                     // Navegar al carrusel al elemento seleccionado (UX)
-                    final index = trabajosCercanos.indexWhere((tc) => tc['id'] == t['id']);
+                    final index = trabajosOrdenadosPorDistancia
+                        .indexWhere((tc) => tc['id'] == t['id']);
                     if (index != -1 && _carouselController.hasClients) {
                         _carouselController.animateToPage(
                             index,
@@ -601,7 +653,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
         final zoom = _currentPosition != null ? 14.0 : 5.0;
 
-        final double fabBottom = trabajosCercanos.isNotEmpty ? 180.0 : 16.0;
+        final double fabBottom = trabajosOrdenadosPorDistancia.isNotEmpty ? 180.0 : 16.0;
         final bool hayTrabajosDisponibles = trabajos.isNotEmpty;
 
         return Stack(
@@ -661,8 +713,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 ),
               ),
               
-            // Carrusel de trabajos cercanos
-            if (trabajosCercanos.isNotEmpty)
+             // Carrusel de trabajos ordenados por distancia (mostramos todos)
+            if (trabajosOrdenadosPorDistancia.isNotEmpty)
               Positioned(
                 left: 0,
                 right: 0,
@@ -679,7 +731,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
-                        'Selecciona el pin o desliza para ver los trabajos cercanos',
+                        'Selecciona el pin o desliza para ver los trabajos disponibles',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: Colors.white),
                       ),
@@ -688,15 +740,15 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                       height: 150,
                       child: PageView.builder(
                         controller: _carouselController,
-                        itemCount: trabajosCercanos.length,
+                        itemCount: trabajosOrdenadosPorDistancia.length,
                         onPageChanged: (index) {
                             // Centrar el mapa en el trabajo seleccionado al deslizar
-                            final trabajo = trabajosCercanos[index];
+                            final trabajo = trabajosOrdenadosPorDistancia[index];
                             setState(() => _ultimoTrabajoSeleccionadoId = trabajo['id']);
                             _centrarEnTrabajo(trabajo);
                         },
                         itemBuilder: (context, index) {
-                          final trabajo = trabajosCercanos[index];
+                          final trabajo = trabajosOrdenadosPorDistancia[index];
                           final id = trabajo['id'] as String?;
                           final seleccionado = id != null && id == _ultimoTrabajoSeleccionadoId;
                           final distancia = trabajo['distance'] as double?;

@@ -8,7 +8,7 @@ import 'src/screens/login_screen.dart';
 import 'src/screens/register_screen.dart';
 import 'src/screens/admin/admin_home_screen.dart';
 import 'src/screens/admin/crear_trabajo_screen.dart';
-import 'src/screens/crear_plantilla_screen.dart';
+import 'src/screens/admin/crear_plantilla_screen.dart';
 import 'src/screens/account_verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'src/services/firebase_service.dart';
@@ -173,7 +173,6 @@ class MainApp extends StatelessWidget {
     );
   }
 }
-
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
