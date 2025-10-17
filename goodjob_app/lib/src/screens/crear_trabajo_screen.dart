@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'seleccionar_ubicacion_screen.dart'; // Asumiendo que existe
 import '../services/trabajo_service.dart'; // Asumiendo que existe
 import '../services/plantilla_trabajo_service.dart';
