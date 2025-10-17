@@ -1,13 +1,24 @@
 import 'dart:async';
+import 'dart:io'; // Para manejar el archivo de imagen
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // Para Firebase Storage
+import 'package:image_picker/image_picker.dart'; // Para seleccionar la imagen
 import 'package:goodjob_app/src/screens/configuracion/editar_datos_bancarios_screen.dart';
 import 'package:goodjob_app/src/screens/configuracion/editar_perfil.dart';
-import 'package:goodjob_app/src/screens/login_screen.dart';
+import 'package:goodjob_app/src/screens/auth/login_screen.dart';
 
 // Asegúrate de que tu Auth service esté disponible.
 import '../../services/firebase_service.dart';
+
+// Constantes de color para mantener la estética
+const Color _PRIMARY_COLOR = Color(0xFF7B0997);
+const Color _ACCENT_COLOR = Color(0xFFFFD900);
+const Color _verifiedColor = Color(0xFF4CAF50); // Verde
+const Color _pendingColor = Color(0xFFFFC107); // Naranja/Ámbar
+const Color _dangerColor = Color(0xFFFF5252); // Rojo
 
 class ConfiguracionScreen extends StatefulWidget {
   const ConfiguracionScreen({super.key});
@@ -21,18 +32,14 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   User? _user;
   Map<String, dynamic> _perfilData = {};
   final _firestore = FirebaseFirestore.instance;
+  final _storage = FirebaseStorage.instance;
+  final ImagePicker _picker = ImagePicker();
 
   bool _isEmailVerified = false;
   bool _isSendingVerification = false;
   bool _isCheckingVerification = false;
   bool _verificationEmailSent = false;
-
-  // Colores consistentes
-  static const Color _primaryColor = Color(0xFF7B0997);
-  static const Color _secondaryColor = Color(0xFFFFD900);
-  static const Color _verifiedColor = Color(0xFF4CAF50);
-  static const Color _pendingColor = Color(0xFFFFC107);
-  static const Color _dangerColor = Color(0xFFFF5252);
+  bool _isUploadingPicture = false; // Estado para subir foto
 
   @override
   void initState() {
@@ -53,7 +60,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     });
   }
 
-  // --- LÓGICA DE DATOS Y VERIFICACIÓN (Mantenida) ---
+  // --- LÓGICA DE DATOS Y VERIFICACIÓN ---
 
   Future<void> _obtenerDatosPerfil() async {
     if (_user == null) return;
@@ -70,7 +77,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
         });
       }
     } catch (e) {
-      print('Error al obtener datos del perfil: $e');
+      debugPrint('Error al obtener datos del perfil: $e');
     }
   }
 
@@ -167,69 +174,175 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     }
   }
 
-  void _handleNavigation(String title) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Navegando a: $title')));
+  // --- LÓGICA CORREGIDA: SUBIR FOTO DE PERFIL CON MÁXIMA FIABILIDAD ---
+  Future<void> _changeProfilePicture() async {
+    if (_user == null || _isUploadingPicture) return;
+
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 50, // Calidad reducida para mejorar la velocidad de subida
+    );
+
+    if (image == null) return;
+
+    setState(() {
+      _isUploadingPicture = true;
+    });
+
+    final File file = File(image.path);
+    final String userId = _user!.uid;
+    final String fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
+
+    try {
+      // 1. RECARGA DE SEGURIDAD Y REFRESH DEL TOKEN (CRÍTICO para permisos de Storage)
+      await _user!.reload();
+      await _user!.getIdToken(true); // Fuerza el refresh del token
+      _user = FirebaseAuth.instance.currentUser;
+
+      if (_user == null) {
+        throw Exception("User not authenticated after reload.");
+      }
+
+      // 2. CONSTRUCCIÓN DE LA REFERENCIA
+      final storageRef = _storage
+          .ref()
+          .child('profile_pictures')
+          .child(userId) 
+          .child(fileName);
+
+      final uploadTask = storageRef.putFile(file);
+
+      // 3. APLICAR TIMEOUT (Aumentado a 60s)
+      final snapshot = await uploadTask
+          .whenComplete(() {})
+          .timeout(
+            const Duration(seconds: 60), // Límite de 60 segundos
+          ); 
+
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // 4. Actualizar el campo 'fotoUrl' en Firestore
+      await _firestore.collection('usuarios').doc(_user!.uid).set({
+        'fotoUrl': downloadUrl,
+      }, SetOptions(merge: true));
+
+      // 5. Actualizar la UI localmente
+      await _user!.updatePhotoURL(downloadUrl);
+      await _obtenerDatosPerfil();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto de perfil actualizada con éxito! 🎉'),
+            backgroundColor: _verifiedColor,
+          ),
+        );
+      }
+    } catch (e) {
+      // Capturamos el error (incluyendo el timeout) y liberamos la UI.
+      debugPrint('Error al subir la foto o timeout: $e');
+      final message = (e is TimeoutException)
+          ? 'Error: La subida tardó demasiado (Timeout de 60s). Intenta con una conexión más rápida o una imagen más pequeña.'
+          : 'Error al subir la foto: $e';
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: _dangerColor),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPicture = false;
+        });
+      }
+    }
   }
+  // --- FIN LÓGICA CORREGIDA ---
+
 
   // --- WIDGETS DE COMPONENTES DE VISTA ---
 
   Widget _buildUserProfileSection() {
     final nombreCompleto = _perfilData['nombre'] ?? 'Usuario';
+    final fotoUrl = _perfilData['fotoUrl'] as String? ?? _user?.photoURL;
     final inicial = nombreCompleto.isNotEmpty
         ? nombreCompleto[0].toUpperCase()
         : 'U';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const SizedBox(height: 20),
-        Stack(
-          children: [
-            CircleAvatar(
-              radius: 60,
-              backgroundColor: _primaryColor.withOpacity(0.8),
-              child: Text(
-                inicial,
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+    return Padding(
+      padding: const EdgeInsets.only(
+        top: 40.0,
+      ), // ✅ CAMBIO: Más padding superior
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment
+            .center, // Centra verticalmente en el FlexibleSpaceBar
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Stack(
+            children: [
+              // Avatar Principal (Círculo)
+              CircleAvatar(
+                radius: 60,
+                backgroundColor: _PRIMARY_COLOR.withOpacity(0.8),
+                backgroundImage: fotoUrl != null && fotoUrl.isNotEmpty
+                    ? NetworkImage(fotoUrl)
+                    : null,
+                child: fotoUrl == null || fotoUrl.isEmpty
+                    ? Text(
+                        inicial,
+                        style: const TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
+              ),
+              // Botón de Cámara (Cambiador)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: FloatingActionButton.small(
+                  onPressed:
+                      _changeProfilePicture, // Llamada a la nueva función
+                  backgroundColor: _ACCENT_COLOR,
+                  child: _isUploadingPicture
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.camera_alt,
+                          color:
+                              Colors.black, // Color para contraste con amarillo
+                          size: 20,
+                        ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: FloatingActionButton.small(
-                onPressed: () => _handleNavigation('Cambiar Foto de Perfil'),
-                backgroundColor: _secondaryColor,
-                child: const Icon(
-                  Icons.camera_alt,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          nombreCompleto,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+            ],
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          _user?.email ?? 'No hay correo registrado',
-          style: const TextStyle(fontSize: 16, color: Colors.white70),
-        ),
-        const SizedBox(height: 20),
-      ],
+          const SizedBox(height: 16),
+          Text(
+            nombreCompleto,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _user?.email ?? 'No hay correo registrado',
+            style: const TextStyle(fontSize: 16, color: Colors.white70),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
@@ -291,25 +404,27 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: Colors
+                                    .black, // Color para contraste con amarillo/naranja
                               ),
                             )
                           : const Icon(
                               Icons.send,
                               size: 18,
-                              color: Colors.white,
+                              color: Colors.black,
                             ),
                       label: Text(
                         _isSendingVerification
                             ? 'Enviando...'
                             : 'Enviar correo',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Colors.black,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _pendingColor,
+                        backgroundColor:
+                            _ACCENT_COLOR, // Amarillo para hacerlo prominente
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -411,7 +526,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    Color iconColor = _primaryColor,
+    Color iconColor = _PRIMARY_COLOR,
     Color titleColor = Colors.black,
     Color subtitleColor = Colors.grey,
     Widget? trailing,
@@ -462,7 +577,13 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
       icon: Icons.delete_forever_outlined,
       title: 'Eliminar Cuenta',
       subtitle: 'Elimina tu cuenta y todos tus datos de forma permanente.',
-      onTap: () => _handleNavigation('Eliminar Cuenta (Confirmación)'),
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Navegando a: Eliminar Cuenta (Confirmación)'),
+          ),
+        );
+      },
       iconColor: _dangerColor,
       titleColor: _dangerColor,
       subtitleColor: Colors.grey.shade600,
@@ -481,12 +602,13 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
             expandedHeight: 280.0,
             floating: false,
             pinned: true,
+            backgroundColor: _PRIMARY_COLOR,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              titlePadding: const EdgeInsets.only(bottom: 16.0),
-              title: Text(
-                _perfilData['nombre'] ?? 'Configuración',
-                style: const TextStyle(
+              // Título fijo "Configuración" para evitar repetición de nombre
+              title: const Text(
+                'Configuración',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 20.0,
                   fontWeight: FontWeight.bold,
@@ -497,7 +619,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [_primaryColor, _secondaryColor],
+                    colors: [_PRIMARY_COLOR, _ACCENT_COLOR],
                   ),
                 ),
                 child: _buildUserProfileSection(),
@@ -514,31 +636,35 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
 
               const SizedBox(height: 24),
 
-              // 2. SECCIÓN: Configuración de Cuenta
+              // 2. SECCIÓN: Configuración de Cuenta (Solo opciones originales)
               _buildSectionHeader('Configuración de Cuenta'),
               _buildSettingsListCard([
                 _buildHierarchicalListTile(
                   icon: Icons.account_circle_outlined,
                   title: 'Editar Perfil',
                   subtitle: 'Información personal, habilidades, etc.',
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    // Esperamos a que la pantalla de edición se cierre
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const EditarPerfilScreen(),
                       ),
                     );
+                    // Recargamos los datos del perfil si regresamos
+                    _obtenerDatosPerfil();
                   },
                 ),
                 _buildHierarchicalListTile(
                   icon: Icons.credit_card,
                   title: 'Métodos de Pago',
-                  subtitle: 'Gestiona tus tarjetas y pagos.',
+                  subtitle: 'Gestiona tus datos bancarios para recibir pagos.',
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const EditarDatosBancariosScreen(),
+                        builder: (context) =>
+                            const EditarDatosBancariosScreen(),
                       ),
                     );
                   },
@@ -547,55 +673,11 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
 
               const SizedBox(height: 24),
 
-              // // 3. SECCIÓN: Preferencias
-              // _buildSectionHeader('Preferencias'),
-              // _buildSettingsListCard([
-              //   _buildHierarchicalListTile(
-              //     icon: Icons.notifications_none,
-              //     title: 'Notificaciones',
-              //     subtitle: 'Configura tus alertas y avisos.',
-              //     onTap: () => _handleNavigation('Notificaciones'),
-              //   ),
-              //   _buildHierarchicalListTile(
-              //     icon: Icons.language,
-              //     title: 'Idioma',
-              //     subtitle: 'Selecciona el idioma de la aplicación.',
-              //     onTap: () => _handleNavigation('Idioma'),
-              //   ),
-              // ]),
-
-              // const SizedBox(height: 24),
-
-              // // 4. SECCIÓN: Soporte y Legal
-              // _buildSectionHeader('Soporte y Legal'),
-              // _buildSettingsListCard([
-              //   _buildHierarchicalListTile(
-              //     icon: Icons.help_outline,
-              //     title: 'Ayuda y Soporte',
-              //     subtitle: 'Preguntas frecuentes, contacto, tutoriales.',
-              //     onTap: () => _handleNavigation('Ayuda y Soporte'),
-              //   ),
-              //   _buildHierarchicalListTile(
-              //     icon: Icons.description_outlined,
-              //     title: 'Términos y Condiciones',
-              //     subtitle: 'Nuestras políticas de uso.',
-              //     onTap: () => _handleNavigation('Términos y Condiciones'),
-              //   ),
-              //   _buildHierarchicalListTile(
-              //     icon: Icons.privacy_tip_outlined,
-              //     title: 'Política de Privacidad',
-              //     subtitle: 'Cómo usamos y protegemos tus datos.',
-              //     onTap: () => _handleNavigation('Política de Privacidad'),
-              //   ),
-              // ]),
-
-              // const SizedBox(height: 24),
-
-              // 5. SECCIÓN: Acciones de Sesión
+              // SECCIÓN: Acciones de Sesión (Mantenida)
               _buildSectionHeader('Acciones'),
               _buildSettingsListCard([
                 _buildLogoutTile(),
-                // _buildDeleteAccountTile(),
+                _buildDeleteAccountTile(),
               ]),
 
               const SizedBox(height: 40),

@@ -5,8 +5,8 @@ import '../services/postulacion_service.dart';
 import '../services/user_eligibility_service.dart';
 import '../widgets/user_eligibility_gate.dart';
 import '../widgets/verification_required_view.dart';
-import 'account_verification_screen.dart';
-import 'login_screen.dart';
+import 'auth/account_verification_screen.dart';
+import 'auth/login_screen.dart';
 import 'seguimiento_postulacion_screen.dart';
 
 // Definición de colores de estado centralizados (CONFIRMADO actualizado a Verde Azulado)
