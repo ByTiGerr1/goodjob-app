@@ -21,7 +21,6 @@ class _CrearPlantillaScreenState extends State<CrearPlantillaScreen> {
   final _contactoNombreController = TextEditingController();
   final _contactoTelefonoController = TextEditingController();
   final _instruccionesController = TextEditingController();
-  final _precioController = TextEditingController();
 
   final PlantillaTrabajoService _plantillaService = PlantillaTrabajoService();
 
@@ -39,7 +38,6 @@ class _CrearPlantillaScreenState extends State<CrearPlantillaScreen> {
     _contactoNombreController.dispose();
     _contactoTelefonoController.dispose();
     _instruccionesController.dispose();
-    _precioController.dispose();
     super.dispose();
   }
 
@@ -54,7 +52,6 @@ class _CrearPlantillaScreenState extends State<CrearPlantillaScreen> {
       'contactoNombre': _contactoNombreController.text.trim(),
       'contactoNumero': _contactoTelefonoController.text.trim(),
       'instrucciones': _instruccionesController.text.trim(),
-      'precio': _precioController.text.trim(),
     };
 
     data.removeWhere((key, value) => value == null || (value is String && value.isEmpty));
@@ -167,12 +164,6 @@ class _CrearPlantillaScreenState extends State<CrearPlantillaScreen> {
               controller: _instruccionesController,
               decoration: const InputDecoration(labelText: 'Instrucciones adicionales'),
               maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _precioController,
-              decoration: const InputDecoration(labelText: 'Precio'),
-              keyboardType: TextInputType.text,
             ),
             const SizedBox(height: 32),
             ElevatedButton(

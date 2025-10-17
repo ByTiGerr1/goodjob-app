@@ -95,6 +95,24 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     return '$day/$month/$year';
   }
 
+  DateTime? _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  DateTime? _obtenerFechaTrabajo(
+    Map<String, dynamic> trabajoData,
+    Map<String, dynamic> postulacionData,
+  ) {
+    return _parseDate(trabajoData['fechaTrabajo']) ??
+        _parseDate(trabajoData['fechaInicioTrabajo']) ??
+        _parseDate(trabajoData['fechaFinTrabajo']) ??
+        _parseDate(postulacionData['fechaTrabajo']) ??
+        _parseDate(postulacionData['fechaAceptacion']);
+  }
+
   // --- Lógica de Acciones ---
 
   Future<void> _actualizarEstadoPostulacion(
@@ -167,9 +185,9 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         final estadoRaw = postulacionData['estado']?.toString() ?? 'pendiente';
         final estado = estadoRaw.toLowerCase();
         
-        final fechaTrabajoTs = trabajoData['fechaTrabajo'] as Timestamp?;
-        final fechaTrabajo = fechaTrabajoTs?.toDate();
-        
+        final fechaTrabajo =
+            _obtenerFechaTrabajo(trabajoData, postulacionData);
+
         final fechaPostulacionTs = postulacionData['fechaPostulacion'] as Timestamp?;
         final fechaPostulacion = fechaPostulacionTs?.toDate();
 

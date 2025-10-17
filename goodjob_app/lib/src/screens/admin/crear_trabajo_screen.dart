@@ -849,15 +849,15 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         // --- PAGO ---
         Text('Remuneración', style: Theme.of(context).textTheme.labelLarge!.copyWith(color: _primaryColor)),
         
-        // Precio
+        // Pago a trabajador
         Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: TextFormField(
             key: const ValueKey('precio'),
             controller: _precioCtrl,
             decoration: const InputDecoration(
-              labelText: 'Pago total (CLP o moneda local)',
-              prefixText: '\$',
+              labelText: 'Pago a trabajador (CLP)',
+              prefixText: 'CLP \$',
             ),
             keyboardType: TextInputType.number,
             validator: (v) {
