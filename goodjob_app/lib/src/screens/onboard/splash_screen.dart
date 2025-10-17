@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // Necesario para usar Timer
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,14 +12,23 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    _handleNavigation();
+  }
 
-    // Inicia un temporizador para la navegación automática
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        // Navega a la pantalla de beneficios después del tiempo de espera
-        Navigator.pushReplacementNamed(context, 'benefit_slides');
-      }
-    });
+  Future<void> _handleNavigation() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+    if (!hasSeenOnboarding) {
+      await prefs.setBool('has_seen_onboarding', true);
+    }
+
+    final nextRoute = hasSeenOnboarding ? 'welcome' : 'benefit_slides';
+
+    await Future.delayed(const Duration(seconds: 3));
+
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, nextRoute);
   }
 
   @override

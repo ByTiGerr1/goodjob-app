@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // --- CONSTANTES GLOBALES (Centralizadas aquí para el Onboarding) ---
 const Color _PRIMARY_COLOR = Color(0xFF601272); 
@@ -55,6 +56,13 @@ class BenefitSlidesScreen extends StatefulWidget {
 class _BenefitSlidesScreenState extends State<BenefitSlidesScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_onboarding', true);
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, 'welcome');
+  }
 
   @override
   void dispose() {
@@ -161,7 +169,9 @@ class _BenefitSlidesScreenState extends State<BenefitSlidesScreen> {
         actions: [
           if (!isLastPage)
             TextButton(
-              onPressed: () => Navigator.pushReplacementNamed(context, 'welcome'), 
+              onPressed: () {
+                _completeOnboarding();
+              },
               child: Text('SALTAR', style: TextStyle(color: primaryColor.withOpacity(0.7), fontWeight: FontWeight.bold, fontSize: 14)),
             ),
         ],
@@ -216,7 +226,8 @@ class _BenefitSlidesScreenState extends State<BenefitSlidesScreen> {
                           curve: Curves.easeIn,
                         );
                       } else {
-                        Navigator.pushReplacementNamed(context, 'welcome');
+                        _completeOnboarding();                        
+                        
                       }
                     },
                     style: ElevatedButton.styleFrom(
