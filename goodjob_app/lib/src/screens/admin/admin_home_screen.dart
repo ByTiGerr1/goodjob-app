@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/firebase_service.dart';
-import '../services/trabajo_service.dart';
+import '../../services/firebase_service.dart';
+import '../../services/trabajo_service.dart';
+import '../../services/postulacion_service.dart'; // Importamos el servicio de postulacion
 import 'admin_pagos_screen.dart';
 import 'admin_trabajo_detalle_screen.dart';
 import 'postulantes_trabajo_screen.dart';
@@ -17,6 +18,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
   final Auth auth = Auth();
   final TrabajoService servicio = TrabajoService();
+  final PostulacionService postulacionService = PostulacionService(); // Instanciamos el servicio
 
   // Colores de estado
   static const Color _ACTIVE_COLOR = Color(0xFF00897B); // Verde Azulado
@@ -26,7 +28,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Widget _buildCardResumen(
       BuildContext context, String titulo, int cantidad, IconData icono, Color color) {
-    // El color del widget será el color que se pasa (Activo o Primario)
     final colorForIconAndNumber = color;
     
     final usePrimaryForIcon = color == _CLOSED_COLOR;
@@ -62,9 +63,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  // --- WIDGETS DE LISTA ---
-
-  Widget _buildTrabajoGestionCard(BuildContext context, DocumentSnapshot doc, Map<String, dynamic> data, String estado, int postulantes) {
+  // Widget para mostrar la tarjeta de gestión, usando FutureBuilder para la cuenta de postulantes
+  Widget _buildTrabajoGestionCard(BuildContext context, DocumentSnapshot doc, Map<String, dynamic> data, String estado) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final esActivo = estado == 'Activo';
     final estadoColor = esActivo ? _ACTIVE_COLOR : _CLOSED_COLOR;
@@ -119,13 +119,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     ),
                   ),
                   
-                  // Cantidad de Postulantes
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('$postulantes', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
-                      const Text('Postulantes', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                    ],
+                  // Cantidad de Postulantes (Usando FutureBuilder)
+                  FutureBuilder<int>(
+                    future: postulacionService.contarPostulaciones(doc.id),
+                    builder: (context, snapshot) {
+                      final postulantes = snapshot.data ?? 0;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (snapshot.connectionState == ConnectionState.waiting)
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                            )
+                          else
+                            Text('$postulantes', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
+                          const Text('Postulantes', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -155,7 +168,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       );
                     },
                     icon: const Icon(Icons.group, size: 20, color: Colors.white),
-                    label: const Text('Gestionar', style: TextStyle(color: Colors.white)),
+                    label: const Text('Ver postulantes', style: TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -203,7 +216,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           return fechaLimite.isBefore(ahora);
         }).toList();
         
-        const postulantesDummy = 0; 
+        // Finalizamos la remoción de la variable dummy
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,7 +291,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(const Duration(days: 1));
                   final estado = fechaLimite.isAfter(ahora) ? 'Activo' : 'Cerrado';
                   
-                  return _buildTrabajoGestionCard(context, doc, data, estado, postulantesDummy);
+                  // Pasamos el documento y datos al nuevo widget constructor
+                  return _buildTrabajoGestionCard(context, doc, data, estado);
                 },
               ),
             ),

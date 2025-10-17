@@ -180,8 +180,6 @@ class PostulantesTrabajoScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Postulantes'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance

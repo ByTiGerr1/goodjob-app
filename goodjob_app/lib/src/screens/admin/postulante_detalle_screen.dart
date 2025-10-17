@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/postulacion_service.dart';
-import '../services/encryption_service.dart';
+import '../../services/postulacion_service.dart';
+import '../../services/encryption_service.dart';
 
 // Pantalla que muestra el perfil detallado de un postulante
 class PostulanteDetalleScreen extends StatelessWidget {

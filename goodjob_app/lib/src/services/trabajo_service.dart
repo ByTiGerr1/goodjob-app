@@ -9,7 +9,6 @@ enum EstadoTrabajo {
 }
 
 class TrabajoService {
-  // Nota: Deberías inicializar Firebase y Firestore adecuadamente en tu proyecto.
   final CollectionReference _trabajos =
       FirebaseFirestore.instance.collection('trabajos');
 
@@ -27,7 +26,6 @@ class TrabajoService {
   }
 
   /// Creates a new job document in Firestore.
-  /// Acepta los DateTime combinados y los nuevos campos de contacto/uniforme.
   Future<void> crearTrabajo({
     required String titulo,
     required String descripcion,
@@ -65,6 +63,44 @@ class TrabajoService {
       'creadoEn': FieldValue.serverTimestamp(),
     });
   }
+
+  // --- NUEVA FUNCIÓN PARA EDICIÓN ---
+  /// Updates an existing job document in Firestore.
+  Future<void> actualizarTrabajo({
+    required String trabajoId,
+    required String titulo,
+    required String descripcion,
+    required String empresa,
+    required Map<String, dynamic> ubicacion,
+    required DateTime fechaLimite,
+    required DateTime fechaInicioTrabajo,
+    required DateTime fechaFinTrabajo,
+    required double precio,
+    required String instrucciones,
+    required bool requiereUniforme,
+    required List<String> implementosUniforme,
+    required Map<String, String> contacto,
+  }) {
+    // Usamos Timestamp.fromDate() con los DateTime no nulos
+    final updateData = {
+      'titulo': titulo,
+      'descripcion': descripcion,
+      'empresa': empresa,
+      'ubicacion': ubicacion,
+      'fechaLimite': Timestamp.fromDate(fechaLimite),
+      'fechaInicioTrabajo': Timestamp.fromDate(fechaInicioTrabajo),
+      'fechaFinTrabajo': Timestamp.fromDate(fechaFinTrabajo),
+      'precio': precio,
+      'instrucciones': instrucciones,
+      'contacto': contacto,
+      'requiereUniforme': requiereUniforme,
+      'implementosUniforme': implementosUniforme,
+      'actualizadoEn': FieldValue.serverTimestamp(),
+    };
+    
+    return _trabajos.doc(trabajoId).update(updateData);
+  }
+  // ---------------------------------
 
 
   /// Cancels a job by updating its state to 'cancelado'.

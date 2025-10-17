@@ -3,6 +3,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PostulacionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// Cuenta el número de postulaciones para un trabajo específico.
+  Future<int> contarPostulaciones(String trabajoId) async {
+    try {
+      // Usamos el método count() para una operación eficiente en la subcolección.
+      final aggregateQuery = await _firestore
+          .collection('trabajos')
+          .doc(trabajoId)
+          .collection('postulaciones')
+          .count()
+          .get();
+      
+      // CORRECCIÓN: Usamos ?? 0 para garantizar que se retorne un int no nulo.
+      return aggregateQuery.count ?? 0;
+    } catch (e) {
+      // Si hay un error de conexión o lectura, retornamos 0.
+      return 0;
+    }
+  }
+  // ************************
+
   // Realiza una consulta de grupo para obtener todas las postulaciones.
   Stream<QuerySnapshot> obtenerTodasLasPostulaciones() {
     return _firestore
@@ -63,7 +83,6 @@ class PostulacionService {
     await batch.commit();
   }
 
-  // *** NUEVO MÉTODO ***
   // Cancela la postulación, eliminando el registro de ambos lados.
   Future<void> cancelarPostulacion({
     required String trabajoId,
@@ -317,7 +336,8 @@ class PostulacionService {
 
     await batch.commit();
   }
-    Future<void> marcarTrabajoPendienteRevision({
+
+  Future<void> marcarTrabajoPendienteRevision({
     required String trabajoId,
     required String usuarioId,
   }) async {

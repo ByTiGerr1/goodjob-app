@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 
+// Simulación de la pantalla de edición, que es la misma que la de creación
+import 'crear_trabajo_screen.dart'; 
+
 class AdminTrabajoDetalleScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
@@ -16,8 +19,11 @@ class AdminTrabajoDetalleScreen extends StatefulWidget {
 
 class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   Timer? _timer;
-  // Esta variable sigue guardando la cuenta regresiva completa (d/h/m/s)
   String _countdownText = '';
+  
+  // CORRECCIÓN CLAVE: Inicializamos _trabajoData directamente desde widget.trabajo.
+  // Esto elimina el LateInitializationError y permite acceso inmediato a los datos.
+  late Map<String, dynamic> _trabajoData = widget.trabajo; 
 
   // --- COLORES Y CONSTANTES UI/UX ---
   static const Color primaryColor = Color(0xFF7B0997); // Púrpura principal
@@ -46,11 +52,11 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   }
 
   DateTime? _getTrabajoStartDateTime() {
-    final newStartTs = widget.trabajo['fechaInicioTrabajo'] as Timestamp?;
+    final newStartTs = _trabajoData['fechaInicioTrabajo'] as Timestamp?;
     if (newStartTs != null) return newStartTs.toDate();
 
-    final oldDateTs = widget.trabajo['fechaTrabajo'] as Timestamp?;
-    final oldHourMap = _safeMapCast(widget.trabajo['horaInicio']);
+    final oldDateTs = _trabajoData['fechaTrabajo'] as Timestamp?;
+    final oldHourMap = _safeMapCast(_trabajoData['horaInicio']);
 
     if (oldDateTs != null && oldHourMap != null) {
       final date = oldDateTs.toDate();
@@ -62,11 +68,11 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   }
 
   DateTime? _getTrabajoEndDateTime() {
-    final newEndTs = widget.trabajo['fechaFinTrabajo'] as Timestamp?;
+    final newEndTs = _trabajoData['fechaFinTrabajo'] as Timestamp?;
     if (newEndTs != null) return newEndTs.toDate();
 
-    final oldDateTs = widget.trabajo['fechaTrabajo'] as Timestamp?;
-    final oldHourMap = _safeMapCast(widget.trabajo['horaFin']);
+    final oldDateTs = _trabajoData['fechaTrabajo'] as Timestamp?;
+    final oldHourMap = _safeMapCast(_trabajoData['horaFin']);
 
     if (oldDateTs != null && oldHourMap != null) {
       final date = oldDateTs.toDate();
@@ -78,12 +84,12 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   }
 
   void _startCountdown() {
-    final fechaFinTs = widget.trabajo['fechaLimite'] as Timestamp? ??
-        widget.trabajo['fechaLimitePostulacion'] as Timestamp?;
+    final fechaFinTs = _trabajoData['fechaLimite'] as Timestamp? ??
+        _trabajoData['fechaLimitePostulacion'] as Timestamp?;
 
     if (fechaFinTs == null) {
       setState(() {
-        _countdownText = 'Fecha límite no disponible';
+        _countdownText = 'Fecha limite no disponible';
       });
       return;
     }
@@ -99,7 +105,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
 
     if (remaining.isNegative) {
       setState(() {
-        _countdownText = 'Ya acabó';
+        _countdownText = 'Ya acabo';
       });
       _timer?.cancel();
     } else {
@@ -114,11 +120,28 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     }
   }
 
-  void _editarTrabajo() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Simulando la edición del trabajo...')),
+  // --- NAVEGACIÓN A EDICIÓN (FUNCIÓN ACTUALIZADA) ---
+  Future<void> _editarTrabajo() async {
+    final resultado = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CrearTrabajoScreen(
+          trabajoIdParaEditar: widget.trabajoId,
+          trabajoInicial: _trabajoData, // Pasamos el dato para precargar
+        ),
+      ),
     );
+    
+    // Si el resultado de la edición es 'true', podemos forzar una recarga o actualizar
+    if (resultado == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vista de detalle actualizada.')),
+      );
+      // En una app con Streams/BLoC/Provider, esto recargaría automáticamente.
+      // Aquí, forzamos un setState para reflejar cualquier cambio simple si es necesario.
+      // setState(() {}); 
+    }
   }
+  // ---------------------------------------------
 
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
     if (ubicacion == null) return 'N/D';
@@ -202,7 +225,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
             _buildDetalleItem(
               Icons.payments,
               'Pago total',
-              '\$${widget.trabajo['precio']?.toString() ?? 'N/D'}',
+              '\$${_trabajoData['precio']?.toString() ?? 'N/D'}',
             ),
           ],
         ),
@@ -241,11 +264,11 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                   runSpacing: 4.0,
                   children: implementosUniforme
                       .map((item) => Chip(
-                            label: Text(item, style: const TextStyle(fontSize: 14)),
-                            backgroundColor: primaryColor.withOpacity(0.1),
-                            labelStyle: const TextStyle(
-                                color: primaryColor, fontWeight: FontWeight.w500),
-                          ))
+                              label: Text(item, style: const TextStyle(fontSize: 14)),
+                              backgroundColor: primaryColor.withOpacity(0.1),
+                              labelStyle: const TextStyle(
+                                  color: primaryColor, fontWeight: FontWeight.w500),
+                            ))
                       .toList(),
                 ),
               ),
@@ -281,7 +304,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
 
   // --- WIDGET DE ADMINISTRACIÓN (Panel de Alerta) ---
   Widget _buildAdministracionSection() {
-    final bool isFinished = _countdownText == 'Ya acabó';
+    final bool isFinished = _countdownText == 'Ya acabo';
     final Color countdownColor = isFinished ? alertColor : secondaryColor;
     
     // Nuevo Título
@@ -290,9 +313,9 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     // Cálculo del formato de tiempo simplificado (Días y Horas)
     String simplifiedCountdownText = _countdownText;
     if (!isFinished && _timer != null) {
-      final fechaFinTs = widget.trabajo['fechaLimite'] as Timestamp? ?? 
-                         widget.trabajo['fechaLimitePostulacion'] as Timestamp?;
-                         
+      final fechaFinTs = _trabajoData['fechaLimite'] as Timestamp? ?? 
+            _trabajoData['fechaLimitePostulacion'] as Timestamp?;
+                        
       if (fechaFinTs != null) {
         final remaining = fechaFinTs.toDate().difference(DateTime.now());
         final days = remaining.inDays;
@@ -366,17 +389,18 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
     final fechaInicio = _getTrabajoStartDateTime();
     final fechaFin = _getTrabajoEndDateTime();
 
-    final Map<String, dynamic>? ubicacion = _safeMapCast(widget.trabajo['ubicacion']);
-    final Map<String, dynamic>? contacto = _safeMapCast(widget.trabajo['contacto']);
+    final Map<String, dynamic>? ubicacion = _safeMapCast(_trabajoData['ubicacion']);
+    // Usamos _safeMapCast para contacto para evitar el error de Map<String, String>
+    final Map<String, dynamic>? contacto = _safeMapCast(_trabajoData['contacto']);
 
-    final bool requiereUniforme = widget.trabajo['requiereUniforme'] as bool? ?? false;
+    final bool requiereUniforme = _trabajoData['requiereUniforme'] as bool? ?? false;
     final List<String> implementosUniforme =
-        (widget.trabajo['implementosUniforme'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
+        (_trabajoData['implementosUniforme'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
             [];
     final String instrucciones =
-        widget.trabajo['instrucciones'] as String? ?? 'No hay requisitos específicos.';
+        _trabajoData['instrucciones'] as String? ?? 'No hay requisitos específicos.';
 
     return Scaffold(
       body: CustomScrollView(
@@ -393,7 +417,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.trabajo['titulo'] ?? 'Título no disponible',
+                    _trabajoData['titulo'] ?? 'Título no disponible',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -401,7 +425,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                     ),
                   ),
                   Text(
-                    widget.trabajo['empresa'] ?? 'Empresa N/D',
+                    _trabajoData['empresa'] ?? 'Empresa N/D',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -422,7 +446,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.white),
                 tooltip: 'Editar Trabajo',
-                onPressed: _editarTrabajo,
+                onPressed: _editarTrabajo, // Llamada a la función de edición
               ),
             ],
           ),
@@ -442,7 +466,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
                               color: Colors.black87)),
                       const Divider(height: 16),
                       Text(
-                        widget.trabajo['descripcion'] ?? 'Descripción no disponible.',
+                        _trabajoData['descripcion'] ?? 'Descripción no disponible.',
                         style: const TextStyle(
                             fontSize: 16, color: Colors.black87, height: 1.5),
                       ),

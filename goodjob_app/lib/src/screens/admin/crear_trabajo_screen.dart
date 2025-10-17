@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/src/services/plantilla_trabajo_service.dart';
+import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'seleccionar_ubicacion_screen.dart'; // Asumiendo que existe
-import '../services/trabajo_service.dart'; // Asumiendo que existe
-import '../services/plantilla_trabajo_service.dart';
+import 'seleccionar_ubicacion_screen.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'dart:async'; // Necesario para Timestamp
 
 enum _MenuPlantillaOption { aplicar, crear }
 
@@ -22,7 +23,15 @@ class _PlantillaDialogResult {
 }
 
 class CrearTrabajoScreen extends StatefulWidget {
-  const CrearTrabajoScreen({super.key});
+  // Parámetros OPCIONALES para el modo edición
+  final String? trabajoIdParaEditar;
+  final Map<String, dynamic>? trabajoInicial;
+
+  const CrearTrabajoScreen({
+    super.key,
+    this.trabajoIdParaEditar,
+    this.trabajoInicial,
+  });
 
   @override
   State<CrearTrabajoScreen> createState() => _CrearTrabajoScreenState();
@@ -35,6 +44,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   final PlantillaTrabajoService _plantillaService = PlantillaTrabajoService();
   List<TrabajoPlantilla> _plantillas = [];
   bool _cargandoPlantillas = false;
+  
+  bool get _esModoEdicion => widget.trabajoIdParaEditar != null;
 
   // Paso 1: Información básica
   final _tituloController = TextEditingController();
@@ -68,6 +79,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   void initState() {
     super.initState();
     _cargarPlantillas(silent: true);
+    if (_esModoEdicion && widget.trabajoInicial != null) {
+      _cargarDatosParaEdicion(widget.trabajoInicial!);
+    }
   }
 
   @override
@@ -85,6 +99,76 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     super.dispose();
   }
   
+  // --- LÓGICA DE CARGA PARA EDICIÓN ---
+  
+  DateTime? _getDateTimeFromTimestamp(dynamic value) {
+    // Usamos runtimeType para manejar el Timestamp de forma segura sin dependencia directa
+    if (value != null && value.runtimeType.toString() == 'Timestamp') {
+      return (value as Timestamp).toDate();
+    }
+    return null;
+  }
+  
+  // Función auxiliar para obtener TimeOfDay a partir de un DateTime combinado
+  TimeOfDay? _getTimeOfDayFromDateTime(DateTime? dateTime) {
+    if (dateTime == null) return null;
+    return TimeOfDay.fromDateTime(dateTime);
+  }
+
+  void _cargarDatosParaEdicion(Map<String, dynamic> data) {
+    // Paso 1
+    _tituloController.text = data['titulo'] ?? '';
+    _descripcionController.text = data['descripcion'] ?? '';
+    _empresaController.text = data['empresa'] ?? '';
+
+    // Paso 2
+    final ubicacion = data['ubicacion'] as Map<String, dynamic>?;
+    if (ubicacion != null) {
+      _ubicacionDireccionCtrl.text = ubicacion['direccion'] ?? '';
+      _ubicacionCiudadCtrl.text = ubicacion['ciudad'] ?? '';
+      _ubicacionPaisCtrl.text = ubicacion['pais'] ?? '';
+      
+      final lat = ubicacion['lat'];
+      final lng = ubicacion['lng'];
+      if (lat is num && lng is num) {
+        _ubicacionLatLng = LatLng(lat.toDouble(), lng.toDouble());
+      }
+    }
+
+    // Manejo de fechas y horas combinadas (esquema nuevo)
+    final fechaInicioTrabajo = _getDateTimeFromTimestamp(data['fechaInicioTrabajo']);
+    final fechaFinTrabajo = _getDateTimeFromTimestamp(data['fechaFinTrabajo']);
+
+    if (fechaInicioTrabajo != null) {
+      _fechaTrabajo = DateTime(fechaInicioTrabajo.year, fechaInicioTrabajo.month, fechaInicioTrabajo.day);
+      _horaInicio = _getTimeOfDayFromDateTime(fechaInicioTrabajo);
+    }
+    if (fechaFinTrabajo != null) {
+      _horaFin = _getTimeOfDayFromDateTime(fechaFinTrabajo);
+    }
+
+    final precio = data['precio'];
+    if (precio is num) {
+      _precioCtrl.text = precio.toString();
+    }
+
+    // Paso 3
+    // CORRECCIÓN APLICADA AQUÍ: Se relaja el tipo esperado a Map<String, dynamic>
+    final contacto = data['contacto'] as Map<String, dynamic>?;
+    if (contacto != null) {
+      // Leemos de forma segura el contenido, asumiendo que son Strings
+      _contactoNombreController.text = (contacto['nombre'] as String?) ?? '';
+      _contactoNumeroController.text = (contacto['numero'] as String?) ?? '';
+    }
+
+    _requiereUniforme = data['requiereUniforme'] == true;
+    _implementosSeleccionados.addAll(((data['implementosUniforme'] as List?) ?? []).map((e) => e.toString()));
+    _instruccionesController.text = data['instrucciones'] ?? '';
+    
+    // Forzar reconstrucción inicial con los datos
+    WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {}));
+  }
+
   // --- LÓGICA DE GEOLOCALIZACIÓN ---
 
   Future<LatLng?> _obtenerCoords(
@@ -114,6 +198,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   Future<void> _cargarPlantillas({bool silent = false}) async {
     if (!mounted) return;
+    // Solo cargamos plantillas en modo creación, no en edición para evitar confusiones
+    if (_esModoEdicion) return; 
+
     setState(() => _cargandoPlantillas = true);
     try {
       final plantillas = await _plantillaService.obtenerPlantillas();
@@ -140,8 +227,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   TimeOfDay? _timeOfDayFromData(dynamic value) {
     if (value is Map) {
-      final hour = value['hour'];
-      final minute = value['minute'];
+      final hour = value['h'] ?? value['hour'];
+      final minute = value['m'] ?? value['minute'];
       if (hour is num && minute is num) {
         return TimeOfDay(hour: hour.toInt(), minute: minute.toInt());
       }
@@ -171,6 +258,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       _descripcionController.text = (data['descripcion'] as String?)?.trim() ?? '';
       _empresaController.text = (data['empresa'] as String?)?.trim() ?? '';
 
+      // UBICACIÓN Y COORDS
       _ubicacionDireccionCtrl.text =
           (data['ubicacionDireccion'] as String?)?.trim() ?? '';
       _ubicacionCiudadCtrl.text =
@@ -180,18 +268,23 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
       final dynamic lat = data['ubicacionLat'];
       final dynamic lng = data['ubicacionLng'];
-      final dynamic geo = data['ubicacion'];
-      if (lat is num && lng is num) {
-        _ubicacionLatLng = LatLng(lat.toDouble(), lng.toDouble());
-      } else if (geo is GeoPoint) {
+      final dynamic geo = data['ubicacion']; 
+      
+      // Manejo de GeoPoint sin referenciar el tipo explícitamente
+      if (geo != null && geo.runtimeType.toString() == 'GeoPoint') {
         _ubicacionLatLng = LatLng(geo.latitude, geo.longitude);
+      } else if (lat is num && lng is num) {
+        _ubicacionLatLng = LatLng(lat.toDouble(), lng.toDouble());
       } else {
         _ubicacionLatLng = null;
       }
 
-      final dynamic fecha = data['fechaTrabajo'];
-      if (fecha is Timestamp) {
-        _fechaTrabajo = fecha.toDate();
+      // FECHA Y HORA
+      final dynamic fecha = data['fechaTrabajo']; 
+      
+      // Manejo de Timestamp sin referenciar el tipo explícitamente
+      if (fecha != null && fecha.runtimeType.toString() == 'Timestamp') {
+        _fechaTrabajo = (fecha as Timestamp).toDate();
       } else if (fecha is String) {
         _fechaTrabajo = DateTime.tryParse(fecha);
       } else {
@@ -210,10 +303,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         _precioCtrl.clear();
       }
 
-      _contactoNombreController.text =
-          (data['contactoNombre'] as String?)?.trim() ?? '';
-      _contactoNumeroController.text =
-          (data['contactoNumero'] as String?)?.trim() ?? '';
+      // CONTACTO
+      final contacto = data['contacto'] as Map<String, dynamic>?; // Corregido el tipo aquí también
+      if (contacto != null) {
+        _contactoNombreController.text = (contacto['nombre'] as String?) ?? '';
+        _contactoNumeroController.text = (contacto['numero'] as String?) ?? '';
+      }
 
       _requiereUniforme = data['requiereUniforme'] == true;
       _implementosSeleccionados
@@ -234,6 +329,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   Future<void> _mostrarSelectorPlantillas() async {
     await _cargarPlantillas();
     if (!mounted) return;
+
+    // Solo mostramos el selector si no estamos en modo edición
+    if (_esModoEdicion) {
+      _showError('No se puede aplicar una plantilla en modo edición.');
+      return;
+    }
 
     final resultado = await showDialog<_PlantillaDialogResult>(
       context: context,
@@ -415,6 +516,119 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     }
   }
 
+  // --- LÓGICA DE GUARDADO/ACTUALIZACIÓN ---
+  Future<void> _guardarTrabajo() async {
+    if (!_validarTodoFormulario()) {
+      return;
+    }
+
+    final fechaTrabajo = _fechaTrabajo!;
+    final horaInicio = _horaInicio!;
+    final horaFin = _horaFin!;
+
+    final trabajoDateTimeStart = DateTime(
+      fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
+      horaInicio.hour, horaInicio.minute,
+    );
+
+    final trabajoDateTimeEnd = DateTime(
+      fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
+      horaFin.hour, horaFin.minute,
+    );
+
+    final fechaLimiteFinal = trabajoDateTimeStart.subtract(const Duration(hours: 1));
+    
+    LatLng? coords = _ubicacionLatLng;
+    if (coords == null && 
+        (_ubicacionDireccionCtrl.text.isNotEmpty || _ubicacionCiudadCtrl.text.isNotEmpty || _ubicacionPaisCtrl.text.isNotEmpty)) {
+      coords = await _obtenerCoords(
+          _ubicacionDireccionCtrl.text,
+          _ubicacionCiudadCtrl.text,
+          _ubicacionPaisCtrl.text);
+      if (coords == null) {
+        _showError('No se pudo encontrar la ubicación de la dirección proporcionada.');
+        return;
+      }
+    } else if (coords == null) {
+        _showError('Debe proporcionar o seleccionar la ubicación del trabajo.');
+        return;
+    }
+
+    final servicio = TrabajoService();
+    try {
+      final ubicacionData = {
+        'direccion': _ubicacionDireccionCtrl.text,
+        'ciudad': _ubicacionCiudadCtrl.text,
+        'pais': _ubicacionPaisCtrl.text,
+        'lat': coords.latitude, 
+        'lng': coords.longitude,
+      };
+
+      final contactoData = {
+        'nombre': _contactoNombreController.text,
+        'numero': _contactoNumeroController.text,
+      };
+
+      if (_esModoEdicion && widget.trabajoIdParaEditar != null) {
+        // MODO EDICIÓN
+        await servicio.actualizarTrabajo(
+          trabajoId: widget.trabajoIdParaEditar!,
+          titulo: _tituloController.text,
+          descripcion: _descripcionController.text,
+          empresa: _empresaController.text,
+          ubicacion: ubicacionData,
+          fechaLimite: fechaLimiteFinal, 
+          fechaInicioTrabajo: trabajoDateTimeStart,
+          fechaFinTrabajo: trabajoDateTimeEnd,
+          precio: double.tryParse(_precioCtrl.text) ?? 0,
+          instrucciones: _instruccionesController.text,
+          requiereUniforme: _requiereUniforme,
+          implementosUniforme: _implementosSeleccionados.toList(),
+          contacto: contactoData,
+        );
+         if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('Trabajo actualizado con éxito.')));
+            Navigator.pop(context, true); // Retorna true para indicar actualización
+         }
+      } else {
+        // MODO CREACIÓN
+        await servicio.crearTrabajo(
+          titulo: _tituloController.text,
+          descripcion: _descripcionController.text,
+          empresa: _empresaController.text,
+          ubicacion: ubicacionData,
+          fechaLimite: fechaLimiteFinal, 
+          fechaInicioTrabajo: trabajoDateTimeStart,
+          fechaFinTrabajo: trabajoDateTimeEnd,
+          precio: double.tryParse(_precioCtrl.text) ?? 0,
+          instrucciones: _instruccionesController.text,
+          requiereUniforme: _requiereUniforme,
+          implementosUniforme: _implementosSeleccionados.toList(),
+          contacto: contactoData,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Trabajo publicado con éxito.')));
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Error al guardar el trabajo: $e');
+      }
+    }
+  }
+
+  String _formatFechaHora(DateTime fecha) {
+    final dia = fecha.day.toString().padLeft(2, '0');
+    final mes = fecha.month.toString().padLeft(2, '0');
+    final anio = fecha.year.toString();
+    final hora = fecha.hour.toString().padLeft(2, '0');
+    final minuto = fecha.minute.toString().padLeft(2, '0');
+    return '$dia/$mes/$anio ${hora}h:${minuto}m';
+  }
+
   // --- WIDGETS DE PASOS (Contenido) ---
 
   Widget _buildStep1Content() {
@@ -491,7 +705,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             decoration: const InputDecoration(labelText: 'Dirección (Calle y número)'),
             validator: (value) {
                if (_ubicacionLatLng == null && (value == null || value.isEmpty)) {
-                  return 'Requerido si no usa el mapa';
+                 return 'Requerido si no usa el mapa';
                }
                return null;
             }
@@ -844,92 +1058,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     );
   }
 
-  // --- LÓGICA DE GUARDADO ---
-
-  Future<void> _guardarTrabajo() async {
-    if (!_validarTodoFormulario()) {
-      return;
-    }
-
-    final fechaTrabajo = _fechaTrabajo!;
-    final horaInicio = _horaInicio!;
-    final horaFin = _horaFin!;
-
-    final trabajoDateTimeStart = DateTime(
-      fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-      horaInicio.hour, horaInicio.minute,
-    );
-
-    final trabajoDateTimeEnd = DateTime(
-      fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-      horaFin.hour, horaFin.minute,
-    );
-
-    final fechaLimiteFinal = trabajoDateTimeStart.subtract(const Duration(hours: 1));
-    
-    LatLng? coords = _ubicacionLatLng;
-    if (coords == null && 
-        (_ubicacionDireccionCtrl.text.isNotEmpty || _ubicacionCiudadCtrl.text.isNotEmpty || _ubicacionPaisCtrl.text.isNotEmpty)) {
-      coords = await _obtenerCoords(
-          _ubicacionDireccionCtrl.text,
-          _ubicacionCiudadCtrl.text,
-          _ubicacionPaisCtrl.text);
-      if (coords == null) {
-        _showError('No se pudo encontrar la ubicación de la dirección proporcionada.');
-        return;
-      }
-    } else if (coords == null) {
-        _showError('Debe proporcionar o seleccionar la ubicación del trabajo.');
-        return;
-    }
-
-    final servicio = TrabajoService();
-    try {
-      await servicio.crearTrabajo(
-        titulo: _tituloController.text,
-        descripcion: _descripcionController.text,
-        empresa: _empresaController.text,
-        ubicacion: {
-          'direccion': _ubicacionDireccionCtrl.text,
-          'ciudad': _ubicacionCiudadCtrl.text,
-          'pais': _ubicacionPaisCtrl.text,
-          'lat': coords.latitude, 
-          'lng': coords.longitude,
-        },
-        fechaLimite: fechaLimiteFinal, 
-        fechaInicioTrabajo: trabajoDateTimeStart,
-        fechaFinTrabajo: trabajoDateTimeEnd,
-        precio: double.tryParse(_precioCtrl.text) ?? 0,
-        instrucciones: _instruccionesController.text,
-        
-        requiereUniforme: _requiereUniforme,
-        implementosUniforme: _implementosSeleccionados.toList(),
-        contacto: {
-          'nombre': _contactoNombreController.text,
-          'numero': _contactoNumeroController.text,
-        },
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Trabajo publicado con éxito.')));
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showError('Error al publicar el trabajo: $e');
-      }
-    }
-  }
-
-  String _formatFechaHora(DateTime fecha) {
-    final dia = fecha.day.toString().padLeft(2, '0');
-    final mes = fecha.month.toString().padLeft(2, '0');
-    final anio = fecha.year.toString();
-    final hora = fecha.hour.toString().padLeft(2, '0');
-    final minuto = fecha.minute.toString().padLeft(2, '0');
-    return '$dia/$mes/$anio ${hora}h:${minuto}m';
-  }
-
   // --- BUILD PRINCIPAL CON STEPPER ---
   
   List<Step> _getSteps() {
@@ -982,36 +1110,37 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Crear Nueva Oferta de Trabajo'),
+        title: Text(_esModoEdicion ? 'Editar Oferta de Trabajo' : 'Crear Nueva Oferta de Trabajo'),
         backgroundColor: _primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          PopupMenuButton<_MenuPlantillaOption>(
-            tooltip: 'Acciones de plantillas',
-            icon: const Icon(Icons.layers_outlined),
-            onSelected: (option) {
-              switch (option) {
-                case _MenuPlantillaOption.aplicar:
-                  _mostrarSelectorPlantillas();
-                  break;
-                case _MenuPlantillaOption.crear:
-                  _abrirCrearPlantilla();
-                  break;
-              }
-            },
-            itemBuilder: (context) {
-              return const [
-                PopupMenuItem(
-                  value: _MenuPlantillaOption.aplicar,
-                  child: Text('Aplicar plantilla'),
-                ),
-                PopupMenuItem(
-                  value: _MenuPlantillaOption.crear,
-                  child: Text('Crear plantilla'),
-                ),
-              ];
-            },
-          ),
+          if (!_esModoEdicion)
+            PopupMenuButton<_MenuPlantillaOption>(
+              tooltip: 'Acciones de plantillas',
+              icon: const Icon(Icons.layers_outlined),
+              onSelected: (option) {
+                switch (option) {
+                  case _MenuPlantillaOption.aplicar:
+                    _mostrarSelectorPlantillas();
+                    break;
+                  case _MenuPlantillaOption.crear:
+                    _abrirCrearPlantilla();
+                    break;
+                }
+              },
+              itemBuilder: (context) {
+                return const [
+                  PopupMenuItem(
+                    value: _MenuPlantillaOption.aplicar,
+                    child: Text('Aplicar plantilla'),
+                  ),
+                  PopupMenuItem(
+                    value: _MenuPlantillaOption.crear,
+                    child: Text('Crear plantilla'),
+                  ),
+                ];
+              },
+            ),
         ],
       ),
       // ELIMINAMOS EL SINGLECHILDSCROLLVIEW EXTERNO (el Stepper se encarga del scroll)
@@ -1059,16 +1188,16 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                 await _onStepContinue();
               },
               icon: Icon(
-                isLast ? Icons.send : Icons.arrow_forward,
+                isLast ? Icons.save : Icons.arrow_forward,
                 color: Colors.white,
               ),
               label: Text(
-                isLast ? 'PUBLICAR TRABAJO' : 'SIGUIENTE',
+                isLast ? (_esModoEdicion ? 'GUARDAR CAMBIOS' : 'PUBLICAR TRABAJO') : 'SIGUIENTE',
                 style: const TextStyle(fontSize: 16, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    isLast ? Colors.green.shade600 : _primaryColor,
+                    isLast ? (_esModoEdicion ? Colors.green.shade600 : _primaryColor) : _primaryColor,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
