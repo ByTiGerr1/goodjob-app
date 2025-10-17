@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/postulacion_service.dart';
+import '../services/encryption_service.dart';
 
 // Pantalla que muestra el perfil detallado de un postulante
 class PostulanteDetalleScreen extends StatelessWidget {
   final String usuarioId;
   final String trabajoId;
   static final PostulacionService _postulacionService = PostulacionService();
+  static final EncryptionService _encryptionService = EncryptionService();
 
   const PostulanteDetalleScreen({
     super.key,
@@ -16,16 +18,37 @@ class PostulanteDetalleScreen extends StatelessWidget {
 
   // Método para obtener los datos completos del usuario de Firestore
   Future<Map<String, dynamic>?> _obtenerDatosUsuario() async {
-    try {
-      final docSnapshot =
-          await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
-      return docSnapshot.data();
-    } catch (e) {
-      print('Error al obtener datos del usuario: $e');
-      return null;
-    }
-  }
+     try {
+       final docSnapshot =
+        await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
+        final userData = docSnapshot.data();
+         if (userData == null) return null;
+          final encryptedBank= userData['banco'] as String?;
+          final encryptedAccountNumber = userData['numeroCuenta'] as String?;
+          final encryptedAccountType= userData['tipoCuenta'] as String?;
+           // Desencriptar los datos sensibles
+          
+           final banco = encryptedBank != null && encryptedBank.isNotEmpty
+            ? await _encryptionService.decrypt(encryptedBank)
+            : 'No disponible / Sin registrar';
+          
+           final numeroCuenta = encryptedAccountNumber != null && encryptedAccountNumber.isNotEmpty
+            ? await _encryptionService.decrypt(encryptedAccountNumber)
+            : 'No disponible / Sin registrar';
+          
+           final tipoCuenta = encryptedAccountType != null && encryptedAccountType.isNotEmpty
+           ? await _encryptionService.decrypt(encryptedAccountType)
+           : 'No disponible / Sin registrar';
 
+           userData['banco_decrypted'] = banco;
+           userData['numeroCuenta_decrypted'] = numeroCuenta;
+           userData['tipoCuenta_decrypted'] = tipoCuenta;
+            return userData;
+            } catch (e) {
+               print('Error al obtener y desencriptar datos del usuario: $e');
+                return null;
+     }
+}
   // Método para actualizar el estado de la postulación en Firestore
   Future<void> _actualizarEstadoPostulacion(
       String estado, BuildContext context) async {
@@ -137,6 +160,10 @@ class PostulanteDetalleScreen extends StatelessWidget {
           final primaryColor = Theme.of(context).colorScheme.primary;
           final successColor = Colors.green.shade600;
           final rejectColor = Colors.red.shade600;
+          // 3.- EXTRAR DATOS BANCARIOS DESENCRIPTADOS
+          final banco = usuarioData['banco_decrypted'] ?? 'No disponible';
+          final numeroCuenta = usuarioData['numeroCuenta_decrypted'] ?? 'No disponible';
+          final tipoCuenta = usuarioData['tipoCuenta_decrypted'] ?? 'No disponible';
 
           return Stack(
             children: [
@@ -197,8 +224,21 @@ class PostulanteDetalleScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
+
+                    //--- 4. DATOS BANCARIOS
+                    _buildSectionCard(context, 
+                    title: 'Datos Bancarios Para Pago', 
+                    children:[
+                      _buildDetailItem(context, Icons.account_balance, 'Banco', banco),
+                      const Divider(indent: 16, endIndent: 16),
+                      _buildDetailItem(context, Icons.credit_card, 'Número de Cuenta', numeroCuenta),
+                      _buildDetailItem(context, Icons.list_alt, 'Tipo de Cuenta', tipoCuenta),
+                    ],
+                    ),
+                    const SizedBox(height: 16),
+
                     
-                    // --- 4. ACCIÓN RÁPIDA (CONTACTAR) ---
+                    // --- 5. ACCIÓN RÁPIDA (CONTACTAR) ---
                     Center(
                       child: ElevatedButton.icon(
                         onPressed: () {
