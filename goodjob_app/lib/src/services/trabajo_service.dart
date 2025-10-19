@@ -1,30 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart'; // Necesario para TimeOfDay
+import 'package:goodjob_app/src/models/trabajo.dart';
 
-enum EstadoTrabajo {
-  activo,        // buscando postulantes
-  porConfirmar,  // se eligió un postulante pero no ha confirmado
-  pendiente,     // postulante confirmó, falta la fecha
-  enCurso,       // trabajo en ejecución
-  porRevisar,    // evidencias pendientes de revisión
-  porPagar,      // evidencias aceptadas, pago pendiente
-  finalizado,    // pago completado
-  cancelado,     // trabajo cancelado por el administrador
-}
-extension EstadoTrabajoExtension on EstadoTrabajo {
-  String get texto {
-    switch (this) {
-      case EstadoTrabajo.activo: return "Activo";
-      case EstadoTrabajo.porConfirmar: return "Por confirmar";
-      case EstadoTrabajo.pendiente: return "Pendiente";
-      case EstadoTrabajo.enCurso: return "En curso";
-      case EstadoTrabajo.porRevisar: return "Por revisar";
-      case EstadoTrabajo.porPagar: return "Por pagar";
-      case EstadoTrabajo.finalizado: return "Finalizado";
-      case EstadoTrabajo.cancelado: return "Cancelado";
-    }
-  }
-}
 class TrabajoService {
   final CollectionReference _trabajos =
       FirebaseFirestore.instance.collection('trabajos');
@@ -116,6 +93,10 @@ class TrabajoService {
     };
     
     return _trabajos.doc(trabajoId).update(updateData);
+  }
+  /// Updates the status of a job.
+  Future<void> actualizarEstado(String trabajoId, EstadoTrabajo estado) {
+    return _trabajos.doc(trabajoId).update({'estado': estado.name});
   }
   // ---------------------------------
 
