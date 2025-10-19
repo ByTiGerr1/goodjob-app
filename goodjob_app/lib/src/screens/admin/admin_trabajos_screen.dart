@@ -1,12 +1,100 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:goodjob_app/src/services/postulacion_service.dart';
-import 'package:goodjob_app/src/services/trabajo_service.dart';
+import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/providers/trabajo_provider.dart';
 import 'postulantes_trabajo_screen.dart';
 import 'admin_trabajo_router.dart';
 
-// Opciones de filtrado para la lista
-enum TrabajoFilter { all, active, closed }
+// Widget separado para los filtros que mantiene su estado
+class _FilterControls extends StatefulWidget {
+  final int totalCount;
+
+  const _FilterControls({required this.totalCount});
+
+  @override
+  State<_FilterControls> createState() => _FilterControlsState();
+}
+
+class _FilterControlsState extends State<_FilterControls> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    // Crear lista con "Todos" primero y luego todos los estados
+    final List<MapEntry<EstadoTrabajo?, String>> filterOptions = [
+      const MapEntry(null, 'Todos'),
+      ...EstadoTrabajo.values.map((e) => MapEntry(e, e.texto)),
+    ];
+
+    return Consumer<TrabajoProvider>(
+      builder: (context, trabajoProvider, child) {
+        final selectedFilter = trabajoProvider.filtroEstado;
+
+        return Padding(
+          padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0, top: 8.0),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: filterOptions.map((entry) {
+                  final estado = entry.key;
+                  final texto = entry.value;
+                  final isSelected = selectedFilter == estado;
+                  final color = isSelected ? primaryColor : Colors.transparent;
+                  final textColor = isSelected ? Colors.white : Colors.black87;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: GestureDetector(
+                      onTap: () {
+                        // Usar el provider para cambiar el filtro (no rebuild del widget)
+                        trabajoProvider.setFiltroEstado(estado);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            texto,
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 class AdminTrabajosScreen extends StatefulWidget {
   const AdminTrabajosScreen({super.key});
@@ -16,79 +104,41 @@ class AdminTrabajosScreen extends StatefulWidget {
 }
 
 class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
-  final TrabajoService servicio = TrabajoService();
   final PostulacionService postulacionService = PostulacionService();
-
-  // Variable de estado para el filtro
-  TrabajoFilter _selectedFilter = TrabajoFilter.active;
-
-  // Colores de estado
-  static const Color _ACTIVE_COLOR = Color(0xFF00897B); // Verde Azulado
-  static const Color _CLOSED_COLOR = Color(0xFF9E9E9E); // Gris para completado/cerrado
-
-  // --- WIDGETS DE FILTRO ---
-
-  Widget _buildFilterControls(BuildContext context, int totalCount) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    
-    final filterOptions = [
-      {'enum': TrabajoFilter.active, 'text': 'Activos'},
-      {'enum': TrabajoFilter.closed, 'text': 'Cerrados'},
-      {'enum': TrabajoFilter.all, 'text': 'Todos ($totalCount)'},
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0, top: 8.0),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300)
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: filterOptions.map((option) {
-            final isSelected = _selectedFilter == option['enum'];
-            final color = isSelected ? primaryColor : Colors.transparent;
-            final textColor = isSelected ? Colors.white : Colors.black87;
-
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedFilter = option['enum'] as TrabajoFilter),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      option['text'] as String,
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
 
   // --- WIDGETS DE LISTA ---
 
-  Widget _buildTrabajoGestionCard(BuildContext context, DocumentSnapshot doc, Map<String, dynamic> data, String estado) {
+  Widget _buildTrabajoGestionCard(BuildContext context, Trabajo trabajo) {
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final esActivo = estado == 'Activo';
-    final estadoColor = esActivo ? _ACTIVE_COLOR : _CLOSED_COLOR;
-    final estadoTexto = esActivo ? 'Activo' : 'Cerrado';
+    
+    // Mapear colores según el estado del trabajo
+    Color estadoColor;
+    switch (trabajo.estado) {
+      case EstadoTrabajo.activo:
+        estadoColor = const Color(0xFF00897B); // Verde Azulado
+        break;
+      case EstadoTrabajo.porConfirmar:
+        estadoColor = const Color(0xFFFFA726); // Naranja
+        break;
+      case EstadoTrabajo.pendiente:
+        estadoColor = const Color(0xFFFFCA28); // Amarillo
+        break;
+      case EstadoTrabajo.enCurso:
+        estadoColor = const Color(0xFF42A5F5); // Azul
+        break;
+      case EstadoTrabajo.porRevisar:
+        estadoColor = const Color(0xFF9C27B0); // Púrpura
+        break;
+      case EstadoTrabajo.porPagar:
+        estadoColor = const Color(0xFFEF5350); // Rojo
+        break;
+      case EstadoTrabajo.finalizado:
+        estadoColor = const Color(0xFF66BB6A); // Verde
+        break;
+      case EstadoTrabajo.cancelado:
+        estadoColor = const Color(0xFF9E9E9E); // Gris
+        break;
+    }
     
     return Card(
       elevation: 2,
@@ -100,8 +150,8 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
             context,
             MaterialPageRoute(
               builder: (_) => getAdminTrabajoView(
-                trabajoId: doc.id,
-                trabajoData: data,
+                trabajoId: trabajo.id,
+                trabajoData: trabajo.toMap(),
               ),
             ),
           );
@@ -120,7 +170,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          data['titulo'] ?? 'Trabajo sin título',
+                          trabajo.titulo,
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
@@ -132,7 +182,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                             decoration: BoxDecoration(
                                 color: estadoColor.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10)),
-                            child: Text(estadoTexto,
+                            child: Text(trabajo.estado.texto,
                                 style: TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.bold, color: estadoColor))),
                       ],
@@ -141,7 +191,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                   
                   // Cantidad de Postulantes (Usando FutureBuilder)
                   FutureBuilder<int>(
-                    future: postulacionService.contarPostulaciones(doc.id),
+                    future: postulacionService.contarPostulaciones(trabajo.id),
                     builder: (context, snapshot) {
                       final postulantes = snapshot.data ?? 0;
                       return Column(
@@ -169,7 +219,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                     icon: const Icon(Icons.edit_note, size: 24),
                     color: primaryColor,
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: doc.id, trabajoData: data)));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: trabajo.id, trabajoData: trabajo.toMap())));
                     },
                   ),
                   const SizedBox(width: 8),
@@ -179,7 +229,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => PostulantesTrabajoScreen(trabajoId: doc.id),
+                          builder: (_) => PostulantesTrabajoScreen(trabajoId: trabajo.id),
                         ),
                       );
                     },
@@ -201,86 +251,45 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
   }
 
   Widget _buildTrabajosPublicados() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: servicio.obtenerTrabajos(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return const Center(child: Text('Error al cargar los trabajos.'));
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No hay trabajos publicados.'));
-        }
+    return Consumer<TrabajoProvider>(
+      builder: (context, trabajoProvider, child) {
+        final trabajosFiltrados = trabajoProvider.trabajosFiltrados;
+        final totalTrabajos = trabajoProvider.trabajos.length;
 
-        final trabajos = snapshot.data!.docs;
-        final ahora = DateTime.now();
-
-        // 1. Clasificación
-        final trabajosConEstado = trabajos.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(const Duration(days: 1));
-            final estado = fechaLimite.isAfter(ahora) ? 'Activo' : 'Cerrado';
-            return {'doc': doc, 'data': data, 'estado': estado, 'id': doc.id};
-        }).toList();
-
-        final trabajosActivos = trabajosConEstado.where((t) => t['estado'] == 'Activo').toList();
-        final trabajosCerrados = trabajosConEstado.where((t) => t['estado'] == 'Cerrado').toList();
-        
-        // 2. Aplicar filtro de estado
-        List<Map<String, dynamic>> trabajosFiltrados;
-        switch (_selectedFilter) {
-          case TrabajoFilter.active:
-            trabajosFiltrados = trabajosActivos;
-            break;
-          case TrabajoFilter.closed:
-            trabajosFiltrados = trabajosCerrados;
-            break;
-          case TrabajoFilter.all:
-            trabajosFiltrados = [...trabajosActivos, ...trabajosCerrados];
-            break;
-        }
-        
-        // 3. Ordenar
-        trabajosFiltrados.sort((a, b) {
-            // Actualmente solo ordena por fecha de creación descendente (más reciente primero)
-            final aTime = (a['data']!['creadoEn'] as Timestamp?)?.toDate();
-            final bTime = (b['data']!['creadoEn'] as Timestamp?)?.toDate();
-            if (aTime == null || bTime == null) return 0;
-            return bTime.compareTo(aTime); 
-        });
+        // Ordenar por fecha de creación (más reciente primero)
+        final trabajosOrdenados = List<Trabajo>.from(trabajosFiltrados)
+          ..sort((a, b) {
+            return b.fechaLimite.compareTo(a.fechaLimite);
+          });
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Controles de Filtro
-            _buildFilterControls(context, trabajos.length),
+            _FilterControls(totalCount: totalTrabajos),
             
             // Título de la Lista
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Text(
-                'Resultados: (${trabajosFiltrados.length})',
+                'Resultados: (${trabajosOrdenados.length})',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 20),
               ),
             ),
 
             // Lista de Trabajos Filtrada
             Expanded(
-              child: ListView.builder(
-                // Padding inferior aumentado para no tapar por el FAB
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0), 
-                itemCount: trabajosFiltrados.length,
-                itemBuilder: (context, index) {
-                  final item = trabajosFiltrados[index];
-                  final doc = item['doc'] as DocumentSnapshot;
-                  final data = item['data'] as Map<String, dynamic>;
-                  final estado = item['estado'] as String;
-                  
-                  return _buildTrabajoGestionCard(context, doc, data, estado);
-                },
-              ),
+              child: trabajosOrdenados.isEmpty
+                  ? const Center(child: Text('No hay trabajos que coincidan con el filtro.'))
+                  : ListView.builder(
+                      // Padding inferior aumentado para no tapar por el FAB
+                      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0),
+                      itemCount: trabajosOrdenados.length,
+                      itemBuilder: (context, index) {
+                        final trabajo = trabajosOrdenados[index];
+                        return _buildTrabajoGestionCard(context, trabajo);
+                      },
+                    ),
             ),
           ],
         );

@@ -1,8 +1,10 @@
 import 'admin_pagos_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:goodjob_app/src/services/firebase_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
+import 'package:goodjob_app/src/providers/trabajo_provider.dart';
 import 'admin_trabajos_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -141,30 +143,32 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final secondaryColor = Theme.of(context).colorScheme.secondary;
     
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard de Administración', style: TextStyle(color: Colors.white),),
-        elevation: 0,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () async {
-              await auth.logout();
-              if (mounted) {
-                // Asumiendo 'login' es la ruta de inicio de sesión
-                Navigator.pushReplacementNamed(context, 'login'); 
-              }
-            },
-          ),
-        ],
-      ),
-      body: _currentIndex == 0
-          ? _buildHomeDashboard()
-          : _currentIndex == 1
-              ? const AdminTrabajosScreen()
-              : const AdminPagosScreen(),
+    return ChangeNotifierProvider(
+      create: (_) => TrabajoProvider(servicio),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Dashboard de Administración', style: TextStyle(color: Colors.white),),
+          elevation: 0,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: () async {
+                await auth.logout();
+                if (mounted) {
+                  // Asumiendo 'login' es la ruta de inicio de sesión
+                  Navigator.pushReplacementNamed(context, 'login'); 
+                }
+              },
+            ),
+          ],
+        ),
+        body: _currentIndex == 0
+            ? _buildHomeDashboard()
+            : _currentIndex == 1
+                ? const AdminTrabajosScreen()
+                : const AdminPagosScreen(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: secondaryColor,
@@ -188,6 +192,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       floatingActionButtonLocation: _currentIndex == 1 
           ? FloatingActionButtonLocation.endFloat 
           : null,
+      ),
     );
   }
 

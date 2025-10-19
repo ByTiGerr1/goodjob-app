@@ -70,24 +70,45 @@ class Trabajo {
 
   factory Trabajo.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Determinar el estado del trabajo (soporta tanto 'name' como 'texto')
+    EstadoTrabajo estado;
+    try {
+      final estadoData = data['estado'] as String?;
+      if (estadoData != null) {
+        // Intentar primero por name (ej: "activo", "porConfirmar")
+        estado = EstadoTrabajo.values.firstWhere(
+          (e) => e.name == estadoData,
+          orElse: () {
+            // Si no funciona, intentar por texto (ej: "Activo", "Por confirmar")
+            return EstadoTrabajo.values.firstWhere(
+              (e) => e.texto == estadoData,
+              orElse: () => EstadoTrabajo.activo,
+            );
+          },
+        );
+      } else {
+        estado = EstadoTrabajo.activo;
+      }
+    } catch (e) {
+      estado = EstadoTrabajo.activo;
+    }
+    
     return Trabajo(
       id: doc.id,
       titulo: data['titulo'] ?? '',
       descripcion: data['descripcion'] ?? '',
       empresa: data['empresa'] ?? '',
       ubicacion: data['ubicacion'] ?? {},
-      fechaLimite: (data['fechaLimite'] as Timestamp).toDate(),
-      fechaInicioTrabajo: (data['fechaInicioTrabajo'] as Timestamp).toDate(),
-      fechaFinTrabajo: (data['fechaFinTrabajo'] as Timestamp).toDate(),
-      precio: (data['precio'] as num).toDouble(),
+      fechaLimite: (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      fechaInicioTrabajo: (data['fechaInicioTrabajo'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      fechaFinTrabajo: (data['fechaFinTrabajo'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(hours: 8)),
+      precio: (data['precio'] as num?)?.toDouble() ?? 0.0,
       instrucciones: data['instrucciones'] ?? '',
       requiereUniforme: data['requiereUniforme'] ?? false,
       implementosUniforme: List<String>.from(data['implementosUniforme'] ?? []),
       contacto: Map<String, String>.from(data['contacto'] ?? {}),
-      estado: EstadoTrabajo.values.firstWhere(
-        (e) => e.texto == data['estado'],
-        orElse: () => EstadoTrabajo.activo,
-      ),
+      estado: estado,
       destacado: data['destacado'] ?? false,
     );
   }
@@ -106,7 +127,7 @@ class Trabajo {
       'requiereUniforme': requiereUniforme,
       'implementosUniforme': implementosUniforme,
       'contacto': contacto,
-      'estado': estado.texto,
+      'estado': estado.name, // Usar .name para consistencia
       'destacado': destacado,
     };
   }

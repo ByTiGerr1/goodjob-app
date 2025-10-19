@@ -70,7 +70,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
       final m = oldHourMap['m'] as int? ?? 0;
       return DateTime(date.year, date.month, date.day, h, m);
     }
-    return null;
+    return DateTime.now(); // Valor predeterminado
   }
 
   DateTime? _getTrabajoEndDateTime() {
@@ -86,7 +86,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
       final m = oldHourMap['m'] as int? ?? 0;
       return DateTime(date.year, date.month, date.day, h, m);
     }
-    return null;
+    return DateTime.now(); // Valor predeterminado
   }
 
   void _startCountdown() {

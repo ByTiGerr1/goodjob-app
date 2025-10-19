@@ -14,6 +14,8 @@ class TrabajoProvider with ChangeNotifier {
 
     // Filtros opcionales
     EstadoTrabajo? _filtroEstado;
+    EstadoTrabajo? get filtroEstado => _filtroEstado;
+    
     DateTime? _filtroFechaInicio;
     DateTime? _filtroFechaFin;
 
@@ -30,10 +32,18 @@ class TrabajoProvider with ChangeNotifier {
 
     void _aplicarFiltros() {
     var filtrados = _trabajos.where((t) {
+      // Filtro por estado
       bool estadoOk = _filtroEstado == null || t.estado == _filtroEstado;
+      
+      // Filtro por fechas (solo si las fechas del filtro están definidas)
       bool fechaOk = true;
-      if (_filtroFechaInicio != null) fechaOk &= t.fechaInicioTrabajo.isAfter(_filtroFechaInicio!);
-      if (_filtroFechaFin != null) fechaOk &= t.fechaFinTrabajo.isBefore(_filtroFechaFin!);
+      if (_filtroFechaInicio != null) {
+        fechaOk = fechaOk && t.fechaInicioTrabajo.isAfter(_filtroFechaInicio!);
+      }
+      if (_filtroFechaFin != null) {
+        fechaOk = fechaOk && t.fechaFinTrabajo.isBefore(_filtroFechaFin!);
+      }
+      
       return estadoOk && fechaOk;
     }).toList();
     _trabajosFiltrados = filtrados;
