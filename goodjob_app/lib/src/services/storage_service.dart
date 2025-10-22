@@ -6,7 +6,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 class StorageService {
   StorageService();
 
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  // Especificar el bucket correcto de Firebase Storage
+  final FirebaseStorage _storage = FirebaseStorage.instanceFor(
+    bucket: 'gs://good-job-1.firebasestorage.app',
+  );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const Map<String, int> _ordenEtapas = {
@@ -127,6 +130,103 @@ class StorageService {
       await ref.delete();
     } catch (e) {
       // Ignorar errores de eliminación para no interrumpir el flujo principal
+    }
+  }
+
+  /// Sube una evidencia de pago para un trabajo
+  /// Solo se permite una evidencia de pago por trabajo
+  /// Retorna la URL de descarga de la imagen o null si hubo un error
+  Future<String?> subirEvidenciaPago({
+    required String trabajoId,
+    required File imagen,
+    required String usuarioId,
+  }) async {
+    try {
+      if (trabajoId.isEmpty) throw Exception('El trabajoId está vacío');
+      if (!await imagen.exists()) throw Exception('El archivo no existe');
+
+      final evidenciasCollection = _firestore
+          .collection('trabajos')
+          .doc(trabajoId)
+          .collection('evidenciasPagos');
+
+      final existingDocs = await evidenciasCollection.limit(1).get();
+      DocumentSnapshot<Map<String, dynamic>>? existingDoc;
+      if (existingDocs.docs.isNotEmpty) {
+        existingDoc = existingDocs.docs.first;
+      }
+
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_comprobante.jpg';
+      final ref =
+          _storage.ref().child('trabajos/$trabajoId/evidenciasPagos/$fileName');
+
+      final uploadTask = ref.putFile(imagen);
+      final snapshot = await uploadTask.whenComplete(() => null);
+      final imageUrl = await snapshot.ref.getDownloadURL();
+
+      if (existingDoc != null) {
+        final previousData = existingDoc.data();
+        final previousPath = previousData?['storagePath'] as String?;
+        if (previousPath != null) {
+          await _storage.ref(previousPath).delete().catchError((_) {});
+        }
+        await existingDoc.reference.delete();
+      }
+
+      await evidenciasCollection.add({
+        'url': imageUrl,
+        'uploadedBy': usuarioId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'storagePath': ref.fullPath,
+      });
+
+      return imageUrl;
+    } catch (e, st) {
+      print('❌ Error al subir evidencia de pago: $e');
+      print(st);
+      return null;
+    }
+  }
+
+
+  /// Obtiene las evidencias de pago de un trabajo
+  /// Retorna un Stream con la lista de evidencias (debe ser solo una)
+  Stream<List<Map<String, dynamic>>> mostrarEvidenciasPagos(String trabajoId) {
+    return _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('evidenciasPagos')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .toList();
+    });
+  }
+
+  /// Elimina una evidencia de pago
+  Future<void> eliminarEvidenciaPago({
+    required String trabajoId,
+    required String evidenciaId,
+  }) async {
+    try {
+      final docRef = _firestore
+          .collection('trabajos')
+          .doc(trabajoId)
+          .collection('evidenciasPagos')
+          .doc(evidenciaId);
+
+      final snapshot = await docRef.get();
+      final data = snapshot.data();
+      final storagePath = data?['storagePath'] as String?;
+
+      await docRef.delete();
+
+      if (storagePath != null) {
+        await _storage.ref(storagePath).delete().catchError((_) {});
+      }
+    } catch (e) {
+      // Ignorar errores de eliminación
     }
   }
 }
