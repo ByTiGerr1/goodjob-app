@@ -11,9 +11,9 @@ Widget getAdminTrabajoView({
   }){
   
   switch (trabajoData['estado']){
-    case "En revisión":
+    case "porRevisar":
       return AdminTrabajoPorRevisarScreen(trabajoId: trabajoId, trabajo: trabajoData);
-    case "Por pagar":
+    case "porPagar":
       return AdminTrabajoPorPagarScreen(trabajoId: trabajoId, trabajo: trabajoData);
     // Agregar más vistas de estado según sea necesario
     
