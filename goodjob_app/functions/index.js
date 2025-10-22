@@ -35,6 +35,7 @@ const admin = require('./firebaseAdmin');
 const {encryptData, decryptData} = require("./encryption");
 const {notifyTrabajoCancelado} = require("./notifications");
 const { liberarPostulacionesExpiradas } = require("./liberarPostulaciones");
+const { programarTareasDeTrabajo, reprogramarTareasSiCambia } = require("./cambiosEstadoTrabajo");
 
 // Exportamos las funciones para Firebase
 exports.encryptData = encryptData;
@@ -43,3 +44,5 @@ exports.notifyTrabajoCancelado = notifyTrabajoCancelado;
 // Exporta la función programada.
 // En este caso, la función se ejecutará cada 15 minutos.
 exports.liberarPostulacionesExpiradas = liberarPostulacionesExpiradas;
+exports.programarTareasDeTrabajo = programarTareasDeTrabajo;
+exports.reprogramarTareasSiCambia = reprogramarTareasSiCambia; 
