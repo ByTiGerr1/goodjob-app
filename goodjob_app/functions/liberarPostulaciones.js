@@ -69,13 +69,37 @@ export const liberarPostulacionesExpiradas = onSchedule({
       });
       operationCount++;
 
+      // 3. Verificar si hay otras postulaciones con estado "aceptado" o "confirmado" para este trabajo
+      const otrasPostulacionesQuery = await db
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .where('estado', 'in', ['aceptado', 'confirmado'])
+        .where('usuarioId', '!=', postulanteId) // Excluir la postulación actual
+        .limit(1) // Solo necesitamos saber si existe al menos una
+        .get();
+
       // 3. Libera el trabajo para que otros puedan postularse
       const trabajoRef = db.collection('trabajos').doc(trabajoId);
-      currentBatch.update(trabajoRef, {
-        trabajadorAsignadoId: null,
-        estadoAsignacion: 'disponible',
-        confirmacionExpiradaEn: ahora,
-      });
+      
+      if (otrasPostulacionesQuery.empty) {
+        // Si no hay otras postulaciones aceptadas o confirmadas, cambiar el estado a "activo"
+        currentBatch.update(trabajoRef, {
+          trabajadorAsignadoId: null,
+          estadoAsignacion: 'disponible',
+          estado: 'activo', // Cambiar estado a activo
+          confirmacionExpiradaEn: ahora,
+        });
+        console.log(`Trabajo ${trabajoId} cambiado a estado "activo"`);
+      } else {
+        // Mantener el estado actual, solo actualizar los campos relacionados con la asignación
+        currentBatch.update(trabajoRef, {
+          trabajadorAsignadoId: null,
+          estadoAsignacion: 'disponible',
+          confirmacionExpiradaEn: ahora,
+        });
+        console.log(`Trabajo ${trabajoId} mantiene su estado actual`);
+      }
       operationCount++;
 
       // Si nos acercamos al límite del batch, guardar y crear uno nuevo

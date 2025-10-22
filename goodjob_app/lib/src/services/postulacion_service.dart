@@ -143,13 +143,58 @@ class PostulacionService {
         .doc(postulanteId)
         .collection('postulaciones')
         .doc(trabajoId);
+    final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
+
+    // Validar que no haya otro usuario con estado "aceptado" o "confirmado"
+    if (estadoNormalizado == 'aceptado') {
+      // Verificar el estado actual del trabajo
+      final trabajoDoc = await trabajoRef.get();
+      final trabajoData = trabajoDoc.data();
+      final estadoTrabajo = trabajoData?['estado'] as String? ?? '';
+      
+      // Solo permitir aceptar postulantes si el trabajo está en estado "activo"
+      if (estadoTrabajo.toLowerCase() != 'activo') {
+        throw Exception(
+            'No se puede aceptar postulaciones porque el trabajo no está en estado Activo. Estado actual: $estadoTrabajo');
+      }
+      
+      final querySnapshot = await _firestore
+          .collection('trabajos')
+          .doc(trabajoId)
+          .collection('postulaciones')
+          .where('estado', whereIn: ['aceptado', 'confirmado'])
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        throw Exception(
+            'Ya existe un usuario con el estado "aceptado" o "confirmado" para este trabajo.');
+      }
+
+      // Cambiar el estado del trabajo a "Por confirmar"
+      await trabajoRef.update({'estado': 'porConfirmar'});
+    }
+
+    if (estadoNormalizado == 'rechazado') {
+      // Verificar si no hay otros postulantes aceptados o confirmados
+      final querySnapshot = await _firestore
+          .collection('trabajos')
+          .doc(trabajoId)
+          .collection('postulaciones')
+          .where('estado', whereIn: ['aceptado', 'confirmado'])
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        // Cambiar el estado del trabajo a "Activo"
+        await trabajoRef.update({'estado': 'activo'});
+      }
+    }
 
     Map<String, dynamic> data = {
       'estado': estadoNormalizado,
     };
 
-    // Registrar fecha de aceptación si es aceptado o confirmado
-    if (estadoNormalizado == 'aceptado' || estadoNormalizado == 'confirmado') {
+    // Registrar fecha de aceptación si es aceptado
+    if (estadoNormalizado == 'aceptado') {
       data['fechaAceptacion'] = FieldValue.serverTimestamp();
     }
 
@@ -249,7 +294,7 @@ class PostulacionService {
       trabajoRef,
       {
         'trabajadorAsignadoId': postulanteId,
-        'estadoAsignacion': 'confirmado',
+        'estado': 'pendiente',
         'confirmadoEn': timestamp,
       },
       SetOptions(merge: true),

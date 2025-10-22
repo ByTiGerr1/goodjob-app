@@ -30,7 +30,7 @@ class PostulanteDetalleScreen extends StatelessWidget {
   Future<void> _actualizarEstadoPostulacion(
       String estado, BuildContext context) async {
     final nuevoEstado = estado.toLowerCase();
-    
+
     // --- Lógica de Loader con AlertDialog (Mantenida) ---
     final mensaje = nuevoEstado == "aceptado"
         ? "Aceptando postulación..."
@@ -85,7 +85,7 @@ class PostulanteDetalleScreen extends StatelessWidget {
       if (!context.mounted) return;
       Navigator.of(context).pop(); // Cerrar loader si hubo error
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al actualizar el estado.')),
+        SnackBar(content: Text('Error al actualizar el estado: $e')),
       );
     }
   }
