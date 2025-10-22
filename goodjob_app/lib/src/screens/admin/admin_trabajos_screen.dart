@@ -110,36 +110,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
 
   Widget _buildTrabajoGestionCard(BuildContext context, Trabajo trabajo) {
     final primaryColor = Theme.of(context).colorScheme.primary;
-    
-    // Mapear colores según el estado del trabajo
-    Color estadoColor;
-    switch (trabajo.estado) {
-      case EstadoTrabajo.activo:
-        estadoColor = const Color(0xFF00897B); // Verde Azulado
-        break;
-      case EstadoTrabajo.porConfirmar:
-        estadoColor = const Color(0xFFFFA726); // Naranja
-        break;
-      case EstadoTrabajo.pendiente:
-        estadoColor = const Color(0xFFFFCA28); // Amarillo
-        break;
-      case EstadoTrabajo.enCurso:
-        estadoColor = const Color(0xFF42A5F5); // Azul
-        break;
-      case EstadoTrabajo.porRevisar:
-        estadoColor = const Color(0xFF9C27B0); // Púrpura
-        break;
-      case EstadoTrabajo.porPagar:
-        estadoColor = const Color(0xFFEF5350); // Rojo
-        break;
-      case EstadoTrabajo.finalizado:
-        estadoColor = const Color(0xFF66BB6A); // Verde
-        break;
-      case EstadoTrabajo.cancelado:
-        estadoColor = const Color(0xFF9E9E9E); // Gris
-        break;
-    }
-    
+        
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
@@ -180,11 +151,10 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                         Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                                color: estadoColor.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10)),
                             child: Text(trabajo.estado.texto,
                                 style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.bold, color: estadoColor))),
+                                    fontSize: 12, fontWeight: FontWeight.bold))),
                       ],
                     ),
                   ),

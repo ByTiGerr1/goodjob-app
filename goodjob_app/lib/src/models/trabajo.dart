@@ -8,7 +8,8 @@ enum EstadoTrabajo {
   porRevisar,
   porPagar,
   finalizado,
-  cancelado, 
+  cancelado,
+  rechazado,
 }
 extension EstadoTrabajoExtension on EstadoTrabajo {
   String get texto {
@@ -29,6 +30,8 @@ extension EstadoTrabajoExtension on EstadoTrabajo {
         return "Finalizado";
       case EstadoTrabajo.cancelado:
         return "Cancelado";
+      case EstadoTrabajo.rechazado:
+        return "Rechazado";
     }
   }
 }
