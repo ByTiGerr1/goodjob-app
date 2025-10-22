@@ -62,6 +62,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   TimeOfDay? _horaInicio;
   TimeOfDay? _horaFin;
   final _precioCtrl = TextEditingController();
+  bool _sinFechaLimite = false;
 
   // Paso 3: Requisitos y contacto
   final _contactoNombreController = TextEditingController();
@@ -151,6 +152,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (precio is num) {
       _precioCtrl.text = precio.toString();
     }
+
+    final fechaLimite = _getDateTimeFromTimestamp(data['fechaLimite']) ??
+        _getDateTimeFromTimestamp(data['fechaLimitePostulacion']);
+    _sinFechaLimite = data['sinFechaLimite'] == true || fechaLimite == null;
 
     // Paso 3
     // CORRECCIÓN APLICADA AQUÍ: Se relaja el tipo esperado a Map<String, dynamic>
@@ -302,6 +307,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       } else {
         _precioCtrl.clear();
       }
+
+      _sinFechaLimite = data['sinFechaLimite'] == true;
 
       // CONTACTO
       final contacto = data['contacto'] as Map<String, dynamic>?; // Corregido el tipo aquí también
@@ -536,7 +543,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       horaFin.hour, horaFin.minute,
     );
 
-    final fechaLimiteFinal = trabajoDateTimeStart.subtract(const Duration(hours: 1));
+    final DateTime? fechaLimiteFinal = _sinFechaLimite
+      ? null
+      : trabajoDateTimeStart.subtract(const Duration(hours: 1));
     
     LatLng? coords = _ubicacionLatLng;
     if (coords == null && 
@@ -577,7 +586,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           descripcion: _descripcionController.text,
           empresa: _empresaController.text,
           ubicacion: ubicacionData,
-          fechaLimite: fechaLimiteFinal, 
+          fechaLimite: fechaLimiteFinal,
           fechaInicioTrabajo: trabajoDateTimeStart,
           fechaFinTrabajo: trabajoDateTimeEnd,
           precio: double.tryParse(_precioCtrl.text) ?? 0,
@@ -585,6 +594,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           requiereUniforme: _requiereUniforme,
           implementosUniforme: _implementosSeleccionados.toList(),
           contacto: contactoData,
+          sinFechaLimite: _sinFechaLimite,
         );
          if (mounted) {
             ScaffoldMessenger.of(context)
@@ -598,7 +608,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           descripcion: _descripcionController.text,
           empresa: _empresaController.text,
           ubicacion: ubicacionData,
-          fechaLimite: fechaLimiteFinal, 
+          fechaLimite: fechaLimiteFinal,
           fechaInicioTrabajo: trabajoDateTimeStart,
           fechaFinTrabajo: trabajoDateTimeEnd,
           precio: double.tryParse(_precioCtrl.text) ?? 0,
@@ -606,6 +616,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           requiereUniforme: _requiereUniforme,
           implementosUniforme: _implementosSeleccionados.toList(),
           contacto: contactoData,
+          sinFechaLimite: _sinFechaLimite,
         );
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -681,7 +692,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   Widget _buildStep2Content() {
     // Calculamos la hora límite (1 hora antes de la fecha de inicio del trabajo)
     DateTime? fechaLimiteAuto;
-    if (_fechaTrabajo != null && _horaInicio != null) {
+    if (!_sinFechaLimite && _fechaTrabajo != null && _horaInicio != null) {
       final trabajoDateTime = DateTime(
         _fechaTrabajo!.year, _fechaTrabajo!.month, _fechaTrabajo!.day,
         _horaInicio!.hour, _horaInicio!.minute,
@@ -819,6 +830,45 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         
         const SizedBox(height: 16),
 
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _sinFechaLimite
+                  ? _primaryColor
+                  : Colors.grey.shade300,
+            ),
+            color: _sinFechaLimite
+                ? _primaryColor.withOpacity(0.08)
+                : Colors.grey.shade100,
+          ),
+          child: SwitchListTile.adaptive(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            secondary: Icon(
+              _sinFechaLimite ? Icons.lock_open_rounded : Icons.schedule_rounded,
+              color: _sinFechaLimite ? _primaryColor : Colors.grey.shade700,
+            ),
+            value: _sinFechaLimite,
+            onChanged: (value) {
+              FocusScope.of(context).unfocus();
+              setState(() {
+                _sinFechaLimite = value;
+              });
+            },
+            title: Text(
+              'Mantener postulaciones abiertas',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            subtitle: const Text(
+              'Activa esta opción para crear trabajos de prueba sin fecha límite de postulación.',
+            ),
+          ),
+        ),
+
         // Fecha Límite Automática (Banner)
         Container(
           padding: const EdgeInsets.all(12),
@@ -830,16 +880,22 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                Icon(Icons.info_outline, color: _primaryColor, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(
-                        fechaLimiteAuto == null
-                            ? 'La fecha límite de postulación aparecerá aquí (ej: 1 hora antes del inicio).'
-                            : '📅 Límite de Postulación: ${_formatFechaHora(fechaLimiteAuto)}.',
-                        style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500, fontSize: 13),
-                    ),
+              Icon(Icons.info_outline, color: _primaryColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _sinFechaLimite
+                      ? '🔓 Las postulaciones permanecerán abiertas hasta que cierres el trabajo manualmente.'
+                      : (fechaLimiteAuto == null
+                          ? 'La fecha límite de postulación aparecerá aquí (ej: 1 hora antes del inicio).'
+                          : '📅 Límite de Postulación: ${_formatFechaHora(fechaLimiteAuto)}.'),
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
                 ),
+              ),
             ],
           ),
         ),

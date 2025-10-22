@@ -229,7 +229,21 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
         // Ordenar por fecha de creación (más reciente primero)
         final trabajosOrdenados = List<Trabajo>.from(trabajosFiltrados)
           ..sort((a, b) {
-            return b.fechaLimite.compareTo(a.fechaLimite);
+            DateTime valorA;
+            if (a.sinFechaLimite || a.fechaLimite == null) {
+              valorA = DateTime(2100);
+            } else {
+              valorA = a.fechaLimite!;
+            }
+
+            DateTime valorB;
+            if (b.sinFechaLimite || b.fechaLimite == null) {
+              valorB = DateTime(2100);
+            } else {
+              valorB = b.fechaLimite!;
+            }
+
+            return valorB.compareTo(valorA);
           });
 
         return Column(

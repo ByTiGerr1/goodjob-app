@@ -90,6 +90,13 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   }
 
   void _startCountdown() {
+    if (_trabajoData['sinFechaLimite'] == true) {
+      setState(() {
+        _countdownText = 'Sin límite';
+      });
+      return;
+    }
+
     final fechaFinTs =
         _trabajoData['fechaLimite'] as Timestamp? ??
         _trabajoData['fechaLimitePostulacion'] as Timestamp?;

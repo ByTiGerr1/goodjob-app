@@ -86,8 +86,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         // Clasificación de trabajos
         final trabajosConEstado = trabajos.map((doc) {
             final data = doc.data() as Map<String, dynamic>;
-            final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now().subtract(const Duration(days: 1));
-            final estado = fechaLimite.isAfter(ahora) ? 'Activo' : 'Cerrado';
+            final sinFechaLimite = data['sinFechaLimite'] == true;
+            final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate();
+            final estado = sinFechaLimite || fechaLimite == null || fechaLimite.isAfter(ahora)
+                ? 'Activo'
+                : 'Cerrado';
             return {'estado': estado};
         }).toList();
 

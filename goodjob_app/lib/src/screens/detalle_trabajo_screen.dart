@@ -137,11 +137,9 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   // --- LÓGICA DE TEMPORIZADOR Y ACCIONES (OPTIMIZADA) ---
 
   void _startCountdown() {
-    final safeFechaFinTs = _getFechaLimiteTs();
-
-    if (safeFechaFinTs == null) {
+    if (widget.trabajo['sinFechaLimite'] == true) {
       setState(() {
-        _countdownText = 'Fecha límite no disponible';
+        _countdownText = 'Postulaciones abiertas';
       });
       return;
     }
@@ -154,6 +152,11 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   }
 
   void _updateCountdown() {
+    if (widget.trabajo['sinFechaLimite'] == true) {
+      _timer?.cancel();
+      return;
+    }
+
     final safeFechaFin = _getFechaLimiteTs();
 
     if (safeFechaFin == null) {

@@ -42,7 +42,7 @@ class Trabajo {
   final String descripcion;
   final String empresa;
   final Map<String, dynamic> ubicacion;
-  final DateTime fechaLimite;
+  final DateTime? fechaLimite;
   final DateTime fechaInicioTrabajo;
   final DateTime fechaFinTrabajo;
   final double precio;
@@ -52,6 +52,7 @@ class Trabajo {
   final Map<String, String> contacto;
   EstadoTrabajo estado;
   final bool destacado;
+  final bool sinFechaLimite;
 
   Trabajo({
     required this.id,
@@ -69,6 +70,7 @@ class Trabajo {
     required this.contacto,
     required this.estado,
     required this.destacado,
+    this.sinFechaLimite = false,
   });
 
   factory Trabajo.fromFirestore(DocumentSnapshot doc) {
@@ -103,7 +105,7 @@ class Trabajo {
       descripcion: data['descripcion'] ?? '',
       empresa: data['empresa'] ?? '',
       ubicacion: data['ubicacion'] ?? {},
-      fechaLimite: (data['fechaLimite'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      fechaLimite: (data['fechaLimite'] as Timestamp?)?.toDate(),
       fechaInicioTrabajo: (data['fechaInicioTrabajo'] as Timestamp?)?.toDate() ?? DateTime.now(),
       fechaFinTrabajo: (data['fechaFinTrabajo'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(hours: 8)),
       precio: (data['precio'] as num?)?.toDouble() ?? 0.0,
@@ -113,16 +115,16 @@ class Trabajo {
       contacto: Map<String, String>.from(data['contacto'] ?? {}),
       estado: estado,
       destacado: data['destacado'] ?? false,
+      sinFechaLimite: data['sinFechaLimite'] == true,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final data = {
       'titulo': titulo,
       'descripcion': descripcion,
       'empresa': empresa,
       'ubicacion': ubicacion,
-      'fechaLimite': Timestamp.fromDate(fechaLimite),
       'fechaInicioTrabajo': Timestamp.fromDate(fechaInicioTrabajo),
       'fechaFinTrabajo': Timestamp.fromDate(fechaFinTrabajo),
       'precio': precio,
@@ -132,6 +134,11 @@ class Trabajo {
       'contacto': contacto,
       'estado': estado.name, // Usar .name para consistencia
       'destacado': destacado,
+      'sinFechaLimite': sinFechaLimite,
     };
+    if (fechaLimite != null && !sinFechaLimite) {
+      data['fechaLimite'] = Timestamp.fromDate(fechaLimite!);
+    }
+    return data;
   }
 }

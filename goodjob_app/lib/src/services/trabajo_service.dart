@@ -25,7 +25,7 @@ class TrabajoService {
     required String descripcion,
     required String empresa,
     required Map<String, dynamic> ubicacion,
-    required DateTime fechaLimite,
+    DateTime? fechaLimite,
     required DateTime fechaInicioTrabajo,
     required DateTime fechaFinTrabajo,
     required double precio,
@@ -33,15 +33,15 @@ class TrabajoService {
     required bool requiereUniforme, // Nuevo campo
     required List<String> implementosUniforme, // Nuevo campo
     required Map<String, String> contacto, // Nuevo campo
+    bool sinFechaLimite = false,
     bool destacado = false,
   }) {
     // Usamos Timestamp.fromDate() con los DateTime no nulos que vienen del Canvas
-    return _trabajos.add({
+    final data = {
       'titulo': titulo,
       'descripcion': descripcion,
       'empresa': empresa,
       'ubicacion': ubicacion,
-      'fechaLimite': Timestamp.fromDate(fechaLimite),
       'fechaInicioTrabajo': Timestamp.fromDate(fechaInicioTrabajo),
       'fechaFinTrabajo': Timestamp.fromDate(fechaFinTrabajo),
       'precio': precio,
@@ -51,11 +51,18 @@ class TrabajoService {
       'contacto': contacto,
       'requiereUniforme': requiereUniforme,
       'implementosUniforme': implementosUniforme,
-      
+
       'destacado': destacado,
       'estado': EstadoTrabajo.activo.name, // Estado default
       'creadoEn': FieldValue.serverTimestamp(),
-    });
+      'sinFechaLimite': sinFechaLimite,
+    };
+
+    if (fechaLimite != null && !sinFechaLimite) {
+      data['fechaLimite'] = Timestamp.fromDate(fechaLimite);
+    }
+
+    return _trabajos.add(data);
   }
 
   // --- NUEVA FUNCIÓN PARA EDICIÓN ---
@@ -66,7 +73,7 @@ class TrabajoService {
     required String descripcion,
     required String empresa,
     required Map<String, dynamic> ubicacion,
-    required DateTime fechaLimite,
+    DateTime? fechaLimite,
     required DateTime fechaInicioTrabajo,
     required DateTime fechaFinTrabajo,
     required double precio,
@@ -74,6 +81,7 @@ class TrabajoService {
     required bool requiereUniforme,
     required List<String> implementosUniforme,
     required Map<String, String> contacto,
+    bool sinFechaLimite = false,
   }) {
     // Usamos Timestamp.fromDate() con los DateTime no nulos
     final updateData = {
@@ -81,7 +89,6 @@ class TrabajoService {
       'descripcion': descripcion,
       'empresa': empresa,
       'ubicacion': ubicacion,
-      'fechaLimite': Timestamp.fromDate(fechaLimite),
       'fechaInicioTrabajo': Timestamp.fromDate(fechaInicioTrabajo),
       'fechaFinTrabajo': Timestamp.fromDate(fechaFinTrabajo),
       'precio': precio,
@@ -90,8 +97,15 @@ class TrabajoService {
       'requiereUniforme': requiereUniforme,
       'implementosUniforme': implementosUniforme,
       'actualizadoEn': FieldValue.serverTimestamp(),
+      'sinFechaLimite': sinFechaLimite,
     };
-    
+
+    if (fechaLimite != null && !sinFechaLimite) {
+      updateData['fechaLimite'] = Timestamp.fromDate(fechaLimite);
+    } else {
+      updateData['fechaLimite'] = FieldValue.delete();
+    }
+
     return _trabajos.doc(trabajoId).update(updateData);
   }
   /// Updates the status of a job.
