@@ -31,7 +31,6 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         fontFamily: 'Ubuntu',
-        // Aseguramos que los colores del tema sean los correctos
         primaryColor: const Color(0xFF601272),
         colorScheme: const ColorScheme(
           primary: Color(0xFF601272), // Púrpura
@@ -50,9 +49,10 @@ class MainApp extends StatelessWidget {
           titleTextStyle: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF601272),
+            color: Color.fromARGB(255, 255, 255, 255),
             fontFamily: 'Ubuntu',
           ),
+          backgroundColor: Color(0xFF601272),
         ),
 
         elevatedButtonTheme: ElevatedButtonThemeData(

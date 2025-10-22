@@ -1,12 +1,60 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../services/postulacion_service.dart';
+// Importaciones de tus servicios
+import 'package:goodjob_app/src/services/postulacion_service.dart';
+import 'package:goodjob_app/src/services/postulante_service.dart';
 
-// Pantalla que muestra el perfil detallado de un postulante
+// ====================================================================
+// WIDGET AUXILIAR: Avatar con manejo de foto o iniciales
+// ====================================================================
+
+class _PostulanteAvatar extends StatelessWidget {
+  const _PostulanteAvatar({
+    required this.nombre,
+    required this.fotoUrl,
+    required this.primaryColor,
+  });
+
+  final String nombre;
+  final String? fotoUrl;
+  final Color primaryColor;
+
+  @override
+  Widget build(BuildContext context) {
+    // Verifica si la URL de la foto es válida
+    final hasPhoto = fotoUrl != null && fotoUrl!.isNotEmpty;
+    // Obtiene la inicial para el placeholder
+    final initials = nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?';
+
+    return CircleAvatar(
+      radius: 60,
+      backgroundColor: primaryColor.withOpacity(0.1),
+      // Usa NetworkImage si la foto existe
+      backgroundImage: hasPhoto ? NetworkImage(fotoUrl!) : null,
+      child: hasPhoto
+          ? null // Si hay foto, no mostrar el Text
+          : Text(
+              initials,
+              style: TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
+              ),
+            ),
+    );
+  }
+}
+
+
+// ====================================================================
+// PANTALLA PRINCIPAL: PostulanteDetalleScreen
+// ====================================================================
+
 class PostulanteDetalleScreen extends StatelessWidget {
   final String usuarioId;
   final String trabajoId;
+  
   static final PostulacionService _postulacionService = PostulacionService();
+  static final PostulanteService _postulanteService = PostulanteService();
 
   const PostulanteDetalleScreen({
     super.key,
@@ -14,24 +62,12 @@ class PostulanteDetalleScreen extends StatelessWidget {
     required this.trabajoId,
   });
 
-  // Método para obtener los datos completos del usuario de Firestore
-  Future<Map<String, dynamic>?> _obtenerDatosUsuario() async {
-    try {
-      final docSnapshot =
-          await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
-      return docSnapshot.data();
-    } catch (e) {
-      print('Error al obtener datos del usuario: $e');
-      return null;
-    }
-  }
-
-  // Método para actualizar el estado de la postulación en Firestore
+  // Método para actualizar el estado de la postulación
   Future<void> _actualizarEstadoPostulacion(
       String estado, BuildContext context) async {
     final nuevoEstado = estado.toLowerCase();
 
-    // --- Lógica de Loader con AlertDialog (Mantenida) ---
+    // Lógica de Loader
     final mensaje = nuevoEstado == "aceptado"
         ? "Aceptando postulación..."
         : "Rechazando postulación...";
@@ -46,10 +82,7 @@ class PostulanteDetalleScreen extends StatelessWidget {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text(
-              mensaje,
-              style: const TextStyle(fontSize: 16),
-            ),
+            Text(mensaje, style: const TextStyle(fontSize: 16)),
           ],
         ),
       ),
@@ -63,9 +96,7 @@ class PostulanteDetalleScreen extends StatelessWidget {
       );
 
       if (!context.mounted) return;
-
-      // Cerrar loader
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(); // Cerrar loader
 
       final estadoCapitalizado = nuevoEstado.isEmpty
           ? nuevoEstado
@@ -77,9 +108,7 @@ class PostulanteDetalleScreen extends StatelessWidget {
           backgroundColor: nuevoEstado == "aceptado" ? Colors.green : Colors.red,
         ),
       );
-
-      // Opcional: volver a la pantalla anterior
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(); // Volver a la pantalla anterior
     } catch (e) {
       print('Error al actualizar el estado: $e');
       if (!context.mounted) return;
@@ -90,43 +119,72 @@ class PostulanteDetalleScreen extends StatelessWidget {
     }
   }
 
-  // --- WIDGET AUXILIAR: Ítem de Detalle (Jerarquía mejorada) ---
-  Widget _buildDetailItem(BuildContext context, IconData icon, String title, String value) {
+  // --- WIDGET AUXILIAR: Ítem de Detalle ---
+  Widget _buildDetailItem(
+      BuildContext context, IconData icon, String title, String value) {
     return ListTile(
       leading: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 28),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
+        style: const TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
       ),
       subtitle: Text(
         value,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+        style: const TextStyle(
+            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
     );
   }
 
+  // Widget auxiliar para crear tarjetas de sección
+  Widget _buildSectionCard(BuildContext context, {required String title, required List<Widget> children}) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 18, 
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const Divider(height: 20, thickness: 1),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Usamos el Builder para acceder al Context y pasar las acciones al contenido
     return Scaffold(
       appBar: AppBar(
         title: const Text('Perfil del Postulante'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
       ),
       body: FutureBuilder<Map<String, dynamic>?>(
-        future: _obtenerDatosUsuario(),
+        // Usando el servicio refactorizado
+        future: _postulanteService.obtenerDatosUsuario(usuarioId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
             return const Center(
-                child: Text('Error al cargar los datos del postulante.'));
+                child: Text('Error al cargar los datos del postulante o no encontrado.'));
           }
 
           final usuarioData = snapshot.data!;
+          // Extracción de datos, incluyendo la nueva fotoUrl
+          final fotoUrl = usuarioData['fotoUrl'] as String?; // Puede ser null
           final nombre = usuarioData['nombre'] ?? 'Sin nombre';
           final apellido = usuarioData['apellido'] ?? '';
           final nombreCompleto = '$nombre $apellido';
@@ -141,7 +199,7 @@ class PostulanteDetalleScreen extends StatelessWidget {
           return Stack(
             children: [
               SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 120.0), // Padding extra para el CTA fijo
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 120.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -149,17 +207,11 @@ class PostulanteDetalleScreen extends StatelessWidget {
                     Center(
                       child: Column(
                         children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundColor: primaryColor.withOpacity(0.1),
-                            child: Text(
-                              nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?',
-                              style: TextStyle(
-                                fontSize: 48,
-                                fontWeight: FontWeight.bold,
-                                color: primaryColor,
-                              ),
-                            ),
+                          // Usando el widget auxiliar para el Avatar
+                          _PostulanteAvatar(
+                            nombre: nombre,
+                            fotoUrl: fotoUrl,
+                            primaryColor: primaryColor,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -193,34 +245,15 @@ class PostulanteDetalleScreen extends StatelessWidget {
                         _buildDetailItem(context, Icons.email_outlined, 'Correo electrónico', email),
                         const Divider(indent: 16, endIndent: 16),
                         _buildDetailItem(context, Icons.phone_outlined, 'Teléfono', telefono),
-                        // Aquí podrías añadir más datos relevantes como Experiencia, Habilidades, etc.
                       ],
                     ),
                     const SizedBox(height: 16),
                     
-                    // --- 4. ACCIÓN RÁPIDA (CONTACTAR) ---
-                    Center(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Simulando chat/llamada con $nombre...')),
-                          );
-                          // Lógica para abrir chat o hacer llamada
-                        },
-                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                        label: const Text('Abrir Chat/Contactar', style: TextStyle(color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
 
-              // --- BOTONES DE ACCIÓN FIJOS EN EL BOTTOM (UX CRÍTICA) ---
+              // --- BOTONES DE ACCIÓN FIJOS EN EL BOTTOM ---
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -265,32 +298,6 @@ class PostulanteDetalleScreen extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-  
-  // Widget auxiliar para crear tarjetas de sección
-  Widget _buildSectionCard(BuildContext context, {required String title, required List<Widget> children}) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18, 
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const Divider(height: 20, thickness: 1),
-            ...children,
-          ],
-        ),
       ),
     );
   }

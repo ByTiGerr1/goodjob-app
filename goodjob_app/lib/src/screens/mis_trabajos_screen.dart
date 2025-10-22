@@ -550,8 +550,8 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Theme.of(context).colorScheme.primary,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, color: Colors.white70),
           tabs: const [
             Tab(text: 'Confirmados'),
             Tab(text: 'Pendientes'),
