@@ -201,6 +201,18 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             postulacionData['fechaPostulacion'] as Timestamp?;
         final fechaPostulacion = fechaPostulacionTs?.toDate();
 
+        void abrirSeguimiento() {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SeguimientoPostulacionScreen(
+                trabajoId: trabajoId,
+                trabajo: Map<String, dynamic>.from(trabajoData),
+              ),
+            ),
+          );
+        }
+
         if (estado == 'confirmado' &&
             fechaTrabajo != null &&
             DateTime.now().isAfter(fechaTrabajo.add(const Duration(days: 1)))) {
@@ -234,17 +246,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             ],
           );
           actionButtons = ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SeguimientoPostulacionScreen(
-                    trabajoId: trabajoId,
-                    trabajo: trabajoData,
-                  ),
-                ),
-              );
-            },
+            onPressed: abrirSeguimiento,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
@@ -263,33 +265,43 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             ),
           );
 
-          actionButtons = Row(
-            mainAxisSize: MainAxisSize.min,
+          actionButtons = Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              ElevatedButton(
-                onPressed: () => _actualizarEstadoPostulacion(
-                  trabajoId,
-                  'confirmado',
-                  trabajoTitulo: titulo,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _COLOR_ACEPTADO,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Confirmar'),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _actualizarEstadoPostulacion(
+                      trabajoId,
+                      'confirmado',
+                      trabajoTitulo: titulo,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _COLOR_ACEPTADO,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Confirmar'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => _actualizarEstadoPostulacion(
+                      trabajoId,
+                      'rechazado',
+                      trabajoTitulo: titulo,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _COLOR_RECHAZADO,
+                      side: BorderSide(color: _COLOR_RECHAZADO),
+                    ),
+                    child: const Text('Rechazar'),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () => _actualizarEstadoPostulacion(
-                  trabajoId,
-                  'rechazado',
-                  trabajoTitulo: titulo,
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _COLOR_RECHAZADO,
-                  side: BorderSide(color: _COLOR_RECHAZADO),
-                ),
-                child: const Text('Rechazar'),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: abrirSeguimiento,
+                child: const Text('Ver detalles'),
               ),
             ],
           );
@@ -299,7 +311,10 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             'Postulado el ${_formatFecha(fechaPostulacion)}',
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           );
-          actionButtons = const SizedBox.shrink(); // No hay acción directa
+          actionButtons = TextButton(
+            onPressed: abrirSeguimiento,
+            child: const Text('Ver detalles'),
+          );
         }
 
         // --- Layout de la Tarjeta ---
