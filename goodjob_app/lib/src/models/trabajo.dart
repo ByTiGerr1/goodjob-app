@@ -37,43 +37,51 @@ extension EstadoTrabajoExtension on EstadoTrabajo {
     }
   }
 
-  // UX: Color de fondo claro para el chip
+  // UX: Color de fondo claro para el chip - PALETA MEJORADA PARA DISTINCIÓN Y CONTRASTE
   Color get colorChip {
     switch (this) {
       case EstadoTrabajo.activo:
-        return Colors.green.shade50; 
+        return Colors.green.shade100; // Verde claro (Éxito/Disponible)
       case EstadoTrabajo.enCurso:
-      case EstadoTrabajo.porPagar:
-        return Colors.blue.shade50;
+        return Colors.blue.shade100; // Azul claro (Proceso Activo)
       case EstadoTrabajo.porConfirmar:
+        return Colors.orange.shade100; // Naranja claro (Advertencia, requiere acción)
       case EstadoTrabajo.pendiente:
+        return Colors.yellow.shade100; // Amarillo claro (Esperando)
       case EstadoTrabajo.porRevisar:
-        return Colors.orange.shade50;
+        return Colors.cyan.shade100; // Cian claro (Necesita atención)
+      case EstadoTrabajo.porPagar:
+        return Colors.purple.shade100; // Púrpura claro (Acción financiera)
       case EstadoTrabajo.finalizado:
-        return Colors.grey.shade300;
+        return Colors.grey.shade300; // Gris medio (Completado, historial)
       case EstadoTrabajo.cancelado:
+        return Colors.red.shade100; // Rojo claro (Fallo/Interrumpido)
       case EstadoTrabajo.rechazado:
-        return Colors.red.shade50;
+        return Colors.pink.shade100; // Rosa claro (Decisión final/Rechazo - Distinto de Cancelado)
     }
   }
 
-  // UX: Color de texto oscuro para el chip
+  // UX: Color de texto oscuro para el chip - PALETA MEJORADA PARA CONTRASTE
   Color get colorTextoChip {
     switch (this) {
       case EstadoTrabajo.activo:
-        return Colors.green.shade700; 
+        return Colors.green.shade800; 
       case EstadoTrabajo.enCurso:
-      case EstadoTrabajo.porPagar:
-        return Colors.blue.shade700;
+        return Colors.blue.shade800;
       case EstadoTrabajo.porConfirmar:
+        return Colors.orange.shade800;
       case EstadoTrabajo.pendiente:
+        return Colors.brown.shade800; // Cambiado a Marrón oscuro para un contraste superior sobre Amarillo claro
       case EstadoTrabajo.porRevisar:
-        return Colors.orange.shade700;
+        return Colors.cyan.shade900;
+      case EstadoTrabajo.porPagar:
+        return Colors.purple.shade800;
       case EstadoTrabajo.finalizado:
-        return Colors.grey.shade700;
+        return Colors.grey.shade800;
       case EstadoTrabajo.cancelado:
+        return Colors.red.shade800;
       case EstadoTrabajo.rechazado:
-        return Colors.red.shade700;
+        return Colors.pink.shade900; // Magenta oscuro (Distinto de Rojo estándar)
     }
   }
 }
