@@ -102,6 +102,7 @@ class Trabajo {
   final Map<String, String> contacto;
   EstadoTrabajo estado;
   final bool sinFechaLimite;
+  final bool pagado;
 
   Trabajo({
     required this.id,
@@ -119,6 +120,7 @@ class Trabajo {
     required this.contacto,
     required this.estado,
     this.sinFechaLimite = false,
+    this.pagado = false,
   });
 
   factory Trabajo.fromFirestore(DocumentSnapshot doc) {
@@ -168,6 +170,7 @@ class Trabajo {
       contacto: Map<String, String>.from(data['contacto'] ?? {}),
       estado: estado,
       sinFechaLimite: data['sinFechaLimite'] == true,
+      pagado: data['pagado'] == true,
     );
   }
 
@@ -186,6 +189,7 @@ class Trabajo {
       'contacto': contacto,
       'estado': estado == EstadoTrabajo.activo && sinFechaLimite ? 'abierto' : estado.name, // Usar .name para consistencia
       'sinFechaLimite': sinFechaLimite,
+      'pagado': pagado,
     };
     if (fechaLimite != null && !sinFechaLimite) {
       data['fechaLimite'] = Timestamp.fromDate(fechaLimite!);

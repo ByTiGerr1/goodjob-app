@@ -124,6 +124,14 @@ class TrabajoService {
     return _trabajos.doc(trabajoId).update({'estado': estado.name});
   }
 
+  /// Updates the status of a job to 'finalizado' and marks it as paid.
+  Future<void> finalizarYMarcarComoPagado(String trabajoId) {
+    return _trabajos.doc(trabajoId).update({
+      'estado': EstadoTrabajo.finalizado.name,
+      'pagado': true,
+    });
+  }
+
   /// Cancels a job by updating its state to 'cancelado'.
   Future<void> cancelarTrabajo(String trabajoId) {
     return _trabajos.doc(trabajoId).update({'estado': EstadoTrabajo.cancelado.name});
