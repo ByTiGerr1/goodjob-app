@@ -85,7 +85,7 @@ class MainApp extends StatelessWidget {
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: primaryPurple, width: 2),
-            foregroundColor: primaryPurple,
+            foregroundColor: const Color.fromARGB(255, 255, 255, 255),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
@@ -94,7 +94,7 @@ class MainApp extends StatelessWidget {
 
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: accentYellow, // Asegura que los textbuttons usen el color primario
+            foregroundColor: primaryPurple, 
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),

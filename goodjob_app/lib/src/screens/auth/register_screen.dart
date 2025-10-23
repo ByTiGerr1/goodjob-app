@@ -370,7 +370,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
           // Botón para volver
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pushNamed(context, 'login'),
             child: const Text('Iniciar Sesión'),
           ),

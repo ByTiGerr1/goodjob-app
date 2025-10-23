@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     // Botón para volver
-                    TextButton(
+                    OutlinedButton(
                       onPressed: () => Navigator.pushNamed(context, 'register'),
                       child: const Text('Registrarse'),
                     ),
