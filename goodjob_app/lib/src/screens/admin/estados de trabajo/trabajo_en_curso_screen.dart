@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/screens/admin/admin_trabajo_router.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
-import 'package:goodjob_app/src/widgets/trabajo_detalles_card.dart';
 // Asumiendo que esta es la pantalla de redireccionamiento para edición o gestión
 
 

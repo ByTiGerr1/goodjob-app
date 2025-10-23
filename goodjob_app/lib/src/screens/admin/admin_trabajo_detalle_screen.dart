@@ -27,7 +27,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
 
   // CORRECCIÓN CLAVE: Inicializamos _trabajoData directamente desde widget.trabajo.
   // Esto elimina el LateInitializationError y permite acceso inmediato a los datos.
-  late Map<String, dynamic> _trabajoData = widget.trabajo;
+  late final Map<String, dynamic> _trabajoData = widget.trabajo;
 
   // --- COLORES Y CONSTANTES UI/UX ---
   static const Color primaryColor = Color(0xFF7B0997); // Púrpura principal

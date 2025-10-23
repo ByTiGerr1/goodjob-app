@@ -42,7 +42,10 @@ class StorageService {
           .child('profile_photo.jpg'); // Nombre de archivo fijo para sobrescribir
 
       // 2. Subir el archivo
-      final uploadTask = ref.putFile(imagen);
+      final uploadTask = ref.putFile(
+        imagen,
+        _buildImageMetadata(imagen),
+      );
       await uploadTask.whenComplete(() {});
 
       // 3. Obtener y retornar la URL
@@ -79,7 +82,10 @@ class StorageService {
           .child('cover_image.jpg'); // Nombre fijo para sobrescribir si se edita
 
       // 2. Subir el archivo
-      final uploadTask = await ref.putFile(imagen);
+      final uploadTask = await ref.putFile(
+        imagen,
+        _buildImageMetadata(imagen),
+      );
       final imageUrl = await uploadTask.ref.getDownloadURL();
 
       // NOTA: La URL obtenida debe ser guardada en el documento del trabajo por el 'TrabajoService'.
@@ -135,7 +141,10 @@ class StorageService {
           .child(usuarioId)
           .child('$stageSegment.jpg');
 
-      final uploadTask = await ref.putFile(imagen);
+      final uploadTask = await ref.putFile(
+        imagen,
+        _buildImageMetadata(imagen),
+      );
       final imageUrl = await uploadTask.ref.getDownloadURL();
 
       // 2. Guardar Metadatos en Firestore (sobrescribe la metadata si existe)
@@ -256,7 +265,10 @@ class StorageService {
       final ref =
           _storage.ref().child('trabajos/$trabajoId/evidenciasPagos/$fileName');
 
-      final uploadTask = ref.putFile(imagen);
+      final uploadTask = ref.putFile(
+        imagen,
+        _buildImageMetadata(imagen),
+      );
       final snapshot = await uploadTask.whenComplete(() => null);
       final imageUrl = await snapshot.ref.getDownloadURL();
 
@@ -384,5 +396,32 @@ class StorageService {
       return 'etapa';
     }
     return sanitized;
-  }  
+  }
+
+  SettableMetadata _buildImageMetadata(File file) {
+    final extension = _extractExtension(file.path);
+    final contentType = _mimeTypesByExtension[extension] ?? 'image/jpeg';
+
+    return SettableMetadata(
+      contentType: contentType,
+      cacheControl: 'public,max-age=3600',
+    );
+  }
+
+  String? _extractExtension(String path) {
+    final dotIndex = path.lastIndexOf('.');
+    if (dotIndex == -1 || dotIndex == path.length - 1) {
+      return null;
+    }
+    return path.substring(dotIndex + 1).toLowerCase();
+  }
+
+  static const Map<String, String> _mimeTypesByExtension = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'heic': 'image/heic',
+    'heif': 'image/heif',
+    'webp': 'image/webp',
+  };
 }
