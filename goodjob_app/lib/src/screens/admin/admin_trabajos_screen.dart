@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/models/trabajo.dart'; // Asegurar que Trabajo y su extensión están importados
@@ -543,13 +544,13 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                   const Icon(
                     Icons.error_outline_rounded,
                     size: 60,
-                    color: Colors.redAccent,
+                    color: AppColors.accent,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Error al cargar trabajos: ${trabajoProvider.errorMessage}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                    style: const TextStyle(color: AppColors.alertColor, fontSize: 16),
                   ),
                 ],
               ),

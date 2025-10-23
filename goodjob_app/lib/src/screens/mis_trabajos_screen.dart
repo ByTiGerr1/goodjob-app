@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import '../services/firebase_service.dart';
 import '../services/postulacion_service.dart';
 import '../services/user_eligibility_service.dart';
@@ -11,14 +12,10 @@ import 'auth/login_screen.dart';
 import 'seguimiento_postulacion_screen.dart';
 
 // Definición de colores de estado centralizados (CONFIRMADO actualizado a Verde Azulado)
-const Color _COLOR_ACEPTADO = Color(0xFF4CAF50); // Verde (Aceptado por Admin)
-const Color _COLOR_RECHAZADO = Color(0xFFF44336); // Rojo (Rechazado)
-const Color _COLOR_CONFIRMADO = Color(
-  0xFF00897B,
-); // VERDE AZULADO (Confirmado por Usuario - Compromiso)
-const Color _COLOR_PENDIENTE = Color(
-  0xFF9C27B0,
-); // Púrpura (Pendiente de Revisión)
+const Color _COLOR_ACEPTADO = AppColors.success; // Verde (Aceptado por Admin)
+const Color _COLOR_RECHAZADO = AppColors.rejectColor; // Rojo (Rechazado)
+const Color _COLOR_CONFIRMADO = AppColors.confirmadoPorUsuario;
+const Color _COLOR_PENDIENTE = AppColors.pendingColor;
 
 class MisTrabajosScreen extends StatefulWidget {
   const MisTrabajosScreen({super.key});

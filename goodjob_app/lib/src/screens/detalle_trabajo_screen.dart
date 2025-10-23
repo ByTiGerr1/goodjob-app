@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import '../services/postulacion_service.dart'; // Asumiendo que PostulacionService existe
 
 class DetalleTrabajoScreen extends StatefulWidget {
@@ -28,10 +29,10 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   bool _liberacionExpiracionRealizada = false;
 
   // Colores de la aplicación
-  static const Color primaryColor = Color(0xFF7B0997);
-  static const Color secondaryColor = Color(0xFF7B0997);
-  static const Color alertColor = Color(0xFFD32F2F); // Rojo para expirar
-  static const Color cancelColor = Color(0xFF757575); // Gris para cancelar
+  static const Color primaryColor = AppColors.primary;
+  static const Color secondaryColor = AppColors.accent;
+  static const Color alertColor = AppColors.alertColor; // Rojo para expirar
+  static const Color cancelColor = AppColors.cancelColor; // Gris para cancelar
 
   // --- LÓGICA DE TIEMPO Y ESTADOS ---
 

@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -16,9 +17,9 @@ import '../services/postulacion_service.dart';
 import '../services/storage_service.dart';
 
 // --- CONSTANTES GLOBALES (MOVIDAS AQUI PARA ACCESO EN EL MODAL) ---
-const Color _PRIMARY_COLOR = Color(0xFF7B0997);
-const Color _ACCENT_COLOR = Color(0xFFFFD900);
-const Color _SUCCESS_COLOR = Color(0xFF4CAF50); // Verde
+const Color _PRIMARY_COLOR = AppColors.primary;
+const Color _ACCENT_COLOR = AppColors.accent;
+const Color _SUCCESS_COLOR = AppColors.success; // Verde
 // --- FIN CONSTANTES GLOBALES ---
 
 enum EvidenceStage { inicio, medio, finalizacion }

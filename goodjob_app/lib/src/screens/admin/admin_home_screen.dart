@@ -1,3 +1,5 @@
+import 'package:goodjob_app/theme/app_colors.dart';
+
 import 'pagos_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -25,11 +27,10 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
   final TrabajoService servicio = TrabajoService(); 
+  
 
-  // Colores de estado (ACTUALIZADOS para reflejar la nueva métrica)
-  static const Color _ACTIVE_COLOR = Color(0xFF00897B); // Verde Azulado para Activo/Abierto
-  // Usamos un color que sugiera 'dinero' o 'atención', como un Naranja/Ámbar.
-  static const Color _PENDING_PAYMENT_COLOR = Color(0xFFF9A825); // Ámbar/Naranja para Pago Pendiente
+  static const Color _ACTIVE_COLOR = AppColors.activo; // Verde Azulado para Activo/Abierto
+  static const Color _PENDING_PAYMENT_COLOR = AppColors.warning; // Ámbar/Naranja para Pago Pendiente
 
   // --- WIDGET: Tarjeta de Métrica Refinada ---
 

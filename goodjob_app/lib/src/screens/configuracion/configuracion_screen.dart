@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:image_picker/image_picker.dart'; 
 import 'package:goodjob_app/src/screens/configuracion/editar_datos_bancarios_screen.dart';
 import 'package:goodjob_app/src/screens/configuracion/editar_perfil.dart';
@@ -14,11 +15,11 @@ import '../../services/storage_service.dart';
 import '../../services/firebase_service.dart'; // Asumiendo que Auth está aquí
 
 // Constantes de color para mantener la estética
-const Color _PRIMARY_COLOR = Color(0xFF7B0997);
-const Color _ACCENT_COLOR = Color(0xFFFFD900);
-const Color _verifiedColor = Color(0xFF4CAF50); // Verde
-const Color _pendingColor = Color(0xFFFFC107); // Naranja/Ámbar
-const Color _dangerColor = Color(0xFFFF5252); // Rojo
+const Color _PRIMARY_COLOR = AppColors.primary;
+const Color _ACCENT_COLOR = AppColors.accent;
+const Color _verifiedColor = AppColors.success; // Verde
+const Color _pendingColor = AppColors.pendingColor; // Naranja/Ámbar
+const Color _dangerColor = AppColors.alertColor; // Rojo
 
 class ConfiguracionScreen extends StatefulWidget {
   const ConfiguracionScreen({super.key});

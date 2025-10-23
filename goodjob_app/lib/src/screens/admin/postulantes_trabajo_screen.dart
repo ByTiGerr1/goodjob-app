@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'postulante_detalle_screen.dart'; // Asegúrate de que esta importación sea correcta
 
 // ====================================================================
@@ -15,8 +16,8 @@ class _PostulanteCard extends StatelessWidget {
   
 // Colores de estado
   final Color primaryColor;
-  final Color successColor = Colors.green.shade600;
-  final Color rejectColor = Colors.red.shade600;
+  final Color successColor = AppColors.success;
+  final Color rejectColor = AppColors.rejectColor;
   final Color pendingColor = Colors.orange.shade800; 
 
   _PostulanteCard({

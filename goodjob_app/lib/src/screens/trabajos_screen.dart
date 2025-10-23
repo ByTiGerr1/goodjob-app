@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
 
@@ -37,8 +38,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
 
   // Color primario utilizado en los selectores/marcadores
-  static const Color _primaryAppColor = Color(0xFF7B0997);
-  static const Color _secondaryAppColor = Color(0xFFE91E63);
+  static const Color _primaryAppColor = AppColors.primary;
+  static const Color _secondaryAppColor = AppColors.accent;
 
   bool get _mapReady =>
       _mapController is MapControllerImpl &&

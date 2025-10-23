@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 class TiempoRestante extends StatefulWidget {
   final DateTime? fechaLimite;
@@ -65,7 +66,7 @@ class _TiempoRestanteState extends State<TiempoRestante> {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Colors.green,
+          color: AppColors.activo,
         ),
       );
     }
@@ -76,7 +77,7 @@ class _TiempoRestanteState extends State<TiempoRestante> {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Colors.grey,
+          color: AppColors.disabledColor,
         ),
       );
     }

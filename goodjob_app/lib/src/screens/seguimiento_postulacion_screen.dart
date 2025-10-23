@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 import 'instrucciones_trabajo_screen.dart';
 import 'mapa_checkin_screen.dart'; // Importamos la nueva pantalla
@@ -10,9 +11,9 @@ import 'mapa_checkin_screen.dart'; // Importamos la nueva pantalla
 enum _PasoEstado { completado, actual, pendiente }
 
 // Colores consistentes
-const Color _PRIMARY_COLOR = Color(0xFF7B0997); // Morado principal
-const Color _ACCENT_COLOR = Color(0xFFFFD900); // AMARILLO BRILLANTE/DORADO
-const Color _WARNING_COLOR = Color(0xFFFF9800); // Naranja para advertencias UX
+const Color _PRIMARY_COLOR = AppColors.primary; // Morado principal
+const Color _ACCENT_COLOR = AppColors.accent; // AMARILLO BRILLANTE/DORADO
+const Color _WARNING_COLOR = AppColors.warning; // Naranja para advertencias UX
 
 class SeguimientoPostulacionScreen extends StatefulWidget {
   final String trabajoId;

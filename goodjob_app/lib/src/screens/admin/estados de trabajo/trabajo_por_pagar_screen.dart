@@ -7,6 +7,7 @@ import 'package:goodjob_app/src/services/encryption_service.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:image_picker/image_picker.dart';
 
 class TrabajoPorPagarScreen extends StatefulWidget {
@@ -38,12 +39,12 @@ class _TrabajoPorPagarScreenState extends State<TrabajoPorPagarScreen> {
   String? _tipoCuenta;
 
   // --- COLORES Y CONSTANTES UI/UX ---
-  static const Color primaryColor = Color(0xFF7B0997);
-  static const Color successColor = Color(0xFF4CAF50);
-  static const Color alertColor = Color(0xFFD32F2F);
-  static const Color disabledColor = Color(0xFF9E9E9E);
-  static const Color securityColor = Color(0xFF00796B); // Color para datos sensibles/bancarios
-  static const Color neutralColor = Colors.black54;
+  static const Color primaryColor = AppColors.primary;
+  static const Color successColor = AppColors.success;
+  static const Color alertColor = AppColors.alertColor;
+  static const Color disabledColor = AppColors.disabledColor;
+  static const Color securityColor = AppColors.securityColor; // Color para datos sensibles/bancarios
+  static const Color neutralColor = AppColors.neutralColor;
 
   @override
   void initState() {

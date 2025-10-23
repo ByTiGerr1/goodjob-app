@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:latlong2/latlong.dart';
 
 class SeleccionarUbicacionScreen extends StatefulWidget {
@@ -105,7 +106,7 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.search, color: Color(0xFF7B0997)),
+                  icon: const Icon(Icons.search, color: AppColors.primary),
                   onPressed: _buscarDireccion,
                 )
               ],
@@ -148,7 +149,7 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF7B0997),
+        backgroundColor: AppColors.primary,
         onPressed: _selected == null
             ? null
             : () {

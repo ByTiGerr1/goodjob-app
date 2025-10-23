@@ -4,6 +4,7 @@ import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 class TrabajoPorRevisarScreen extends StatefulWidget {
   final String trabajoId;
@@ -28,10 +29,10 @@ class _TrabajoPorRevisarScreenState extends State<TrabajoPorRevisarScreen> {
   Map<String, dynamic>? _usuarioData;
 
   // --- COLORES Y CONSTANTES UI/UX ---
-  static const Color primaryColor = Color(0xFF7B0997);
-  static const Color secondaryColor = Color(0xFFE91E63);
-  static const Color successColor = Color(0xFF4CAF50);
-  static const Color alertColor = Color(0xFFD32F2F);
+  static const Color primaryColor = AppColors.primary;
+  static const Color secondaryColor = AppColors.accent;
+  static const Color successColor = AppColors.success;
+  static const Color alertColor = AppColors.alertColor;
 
   @override
   void initState() {

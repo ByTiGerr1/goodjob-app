@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 class AdminTrabajoPagadoScreen extends StatefulWidget {
   final String trabajoId;
@@ -25,10 +26,10 @@ class _AdminTrabajoPagadoScreenState extends State<AdminTrabajoPagadoScreen> {
   Map<String, dynamic>? _usuarioData;
 
   // --- COLORES Y CONSTANTES UI/UX ---
-  static const Color primaryColor = Color(0xFF7B0997);
-  static const Color successColor = Color(0xFF4CAF50);
-  static const Color alertColor = Color(0xFFD32F2F);
-  static const Color neutralColor = Colors.black54;
+  static const Color primaryColor = AppColors.primary;
+  static const Color successColor = AppColors.success;
+  static const Color alertColor  = AppColors.alertColor;
+  static const Color neutralColor = AppColors.neutralColor;
 
   @override
   void initState() {

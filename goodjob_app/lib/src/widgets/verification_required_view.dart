@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 class VerificationRequiredView extends StatelessWidget {
   const VerificationRequiredView({
@@ -31,7 +32,7 @@ class VerificationRequiredView extends StatelessWidget {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.06),
+                color: AppColors.primary.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(24),
               ),
               padding: const EdgeInsets.all(24),

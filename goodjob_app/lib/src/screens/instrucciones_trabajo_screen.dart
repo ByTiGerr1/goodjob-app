@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 // Modelo de datos simple para una instrucción
 class Instruccion {
@@ -52,9 +53,9 @@ class InstruccionesTrabajoScreen extends StatelessWidget {
   InstruccionesTrabajoScreen({super.key});
 
   // Color primario de la aplicación (asumido)
-  static const Color _primaryColor = Color(0xFF7B0997);
-  static const Color _alertColor = Color(0xFFE53935); // Rojo para la alerta crítica
-  static const Color _timelineColor = Color(0xFFB39DDB); // Púrpura más claro para la línea
+  static const Color _primaryColor = AppColors.primary;
+  static const Color _alertColor = AppColors.alertColor; // Rojo para la alerta crítica
+  static const Color _timelineColor = AppColors.timelineColor; // Púrpura más claro para la línea
 
   // Widget auxiliar para construir cada paso de la línea de tiempo
   Widget _buildInstruccionTimelineItem(

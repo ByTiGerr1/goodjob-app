@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'dart:async';
 
 // Simulación de la pantalla de edición, que es la misma que la de creación
@@ -30,11 +31,9 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   late final Map<String, dynamic> _trabajoData = widget.trabajo;
 
   // --- COLORES Y CONSTANTES UI/UX ---
-  static const Color primaryColor = Color(0xFF7B0997); // Púrpura principal
-  static const Color secondaryColor = Color(0xFFE91E63); // Rosa/Rojo de acento
-  static const Color alertColor = Color(
-    0xFFD32F2F,
-  ); // Rojo para estados críticos
+  static const Color primaryColor = AppColors.primary; // Púrpura principal
+  static const Color secondaryColor = AppColors.accent; // Rosa/Rojo de acento
+  static const Color alertColor = AppColors.alertColor;
 
   @override
   void initState() {

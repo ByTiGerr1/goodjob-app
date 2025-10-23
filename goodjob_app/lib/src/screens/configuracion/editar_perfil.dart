@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 // Constantes de color para mantener la estética
-const Color _PRIMARY_COLOR = Color(0xFF7B0997); 
-const Color _ACCENT_COLOR = Color(0xFFFFD900);
+const Color _PRIMARY_COLOR = AppColors.primary; 
+const Color _ACCENT_COLOR = AppColors.accent;
 
 class EditarPerfilScreen extends StatefulWidget {
   const EditarPerfilScreen({super.key});

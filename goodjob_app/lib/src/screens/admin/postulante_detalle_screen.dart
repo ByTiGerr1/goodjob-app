@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 // Importaciones de tus servicios
 import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/services/postulante_service.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 // ====================================================================
 // WIDGET AUXILIAR: Avatar con manejo de foto o iniciales
@@ -193,8 +194,8 @@ class PostulanteDetalleScreen extends StatelessWidget {
           final telefono = usuarioData['telefono'] ?? 'No disponible';
           final descripcion = usuarioData['descripcion'] ?? 'Sin descripción.';
           final primaryColor = Theme.of(context).colorScheme.primary;
-          final successColor = Colors.green.shade600;
-          final rejectColor = Colors.red.shade600;
+          final successColor = AppColors.success;
+          final rejectColor = AppColors.rejectColor;
 
           return Stack(
             children: [

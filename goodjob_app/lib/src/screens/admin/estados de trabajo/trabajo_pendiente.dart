@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 // Asumiendo que esta es la pantalla de redireccionamiento para edición o gestión
 import '../admin_trabajo_router.dart'; 
 
@@ -28,8 +29,8 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
   late EstadoTrabajo _estadoTrabajo;
 
   // --- COLORES Y CONSTANTES UI/UX ---
-  static const Color primaryColor = Color(0xFF7B0997);
-  static const Color alertColor = Color(0xFFD32F2F);
+  static const Color primaryColor = AppColors.primary;
+  static const Color alertColor = AppColors.alertColor;
   
   // Obtenemos los colores semánticos del modelo
   late Color _estadoBackgroundColor;

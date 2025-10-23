@@ -4,13 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/screens/admin/seleccionar_ubicacion_screen.dart';
 import 'package:goodjob_app/src/services/plantilla_trabajo_service.dart';
+import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
-// Importaciones de utilidades y servicios requeridos:
 import 'package:image_picker/image_picker.dart'; 
-import '../../services/storage_service.dart'; // Importado
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // --- ENUMS Y CLASES AUXILIARES ---

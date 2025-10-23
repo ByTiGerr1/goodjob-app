@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
@@ -34,7 +35,7 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
   // Establece un radio de 100 metros (personalizable)
   static const double _CHECKIN_RADIUS_METERS = 100.0;
   // Color Morado principal
-  static const Color _PRIMARY_COLOR = Color(0xFF7B0997);
+  static const Color _PRIMARY_COLOR = AppColors.primary;
 
   DateTime? _scheduledStartTime;
   DateTime? _scheduledEndTime;

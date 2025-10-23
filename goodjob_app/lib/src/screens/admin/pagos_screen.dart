@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/screens/admin/estados%20de%20trabajo/trabajo_por_pagar_screen.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
@@ -49,7 +50,7 @@ class _PagosFilterControlsState extends State<_PagosFilterControls> {
   @override
   Widget build(BuildContext context) {
     // Usamos los colores del tema para la estética
-    final primaryColor = const Color(0xFF7B0997); 
+    final primaryColor = AppColors.primary; 
 
     return Consumer<TrabajoProvider>(
       builder: (context, trabajoProvider, child) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -34,7 +35,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     // Usa el color principal definido en tu ThemeData para el fondo
-    final primaryColor = Theme.of(context).primaryColor;
+    final primaryColor = AppColors.primary;
 
     return Scaffold(
       backgroundColor: primaryColor,

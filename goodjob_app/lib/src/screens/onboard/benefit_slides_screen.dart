@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // --- CONSTANTES GLOBALES (Centralizadas aquí para el Onboarding) ---
-const Color _PRIMARY_COLOR = Color(0xFF601272); 
-const Color _ACCENT_COLOR = Color(0xFFFFD900);
+const Color _PRIMARY_COLOR = AppColors.primary; 
+const Color _ACCENT_COLOR = AppColors.accent;
 // --- FIN CONSTANTES GLOBALES ---
 
 

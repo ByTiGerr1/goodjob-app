@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme.of(context).colorScheme.primary;
-    final Color secondaryColor = Theme.of(context).colorScheme.secondary;
+    final Color primaryColor = AppColors.primary;
+    final Color secondaryColor = AppColors.accent;
 
     final double bottomSafeArea = MediaQuery.of(context).padding.bottom;
 
