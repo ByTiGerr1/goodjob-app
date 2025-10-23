@@ -111,9 +111,12 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   DateTime? _scheduledStartTime;
   DateTime? _scheduledEndTime;
   Duration? _expectedDuration;
+  Timer? _nowTimer;
+  DateTime _now = DateTime.now();
 
   // --- CONFIGURACION DE LA ZONA DELIMITADA ---
   static const double _CHECKIN_RADIUS_METERS = 50.0;
+  static const Duration _EVIDENCE_MARGIN = Duration(minutes: 5);
   // Las constantes de color se eliminaron de aqui
 
   @override
@@ -123,12 +126,14 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     _initializeSchedule();
     _startLocationUpdates();
     _subscribeToEvidencias();
+    _startNowTimer();
   }
 
   @override
   void dispose() {
     _positionSubscription?.cancel();
     _evidenciasSubscription?.cancel();
+    _nowTimer?.cancel();
     super.dispose();
   }
 
@@ -168,6 +173,16 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
       if (!mounted) return;
       setState(() {
         _evidencias = data;
+      });
+    });
+  }
+
+  void _startNowTimer() {
+    _nowTimer?.cancel();
+    _nowTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _now = DateTime.now();
       });
     });
   }
@@ -272,7 +287,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
       _capturedStages.length == EvidenceStage.values.length;
 
   bool _hasReachedStageThreshold(EvidenceStage stage) {
-    final now = DateTime.now();
+    final now = _now;
     switch (stage) {
       case EvidenceStage.inicio:
         return true;
@@ -310,6 +325,84 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
     // Si no hay referencia tomamos 1 hora como estimación mínima
     return now.difference(widget.startTime) >= const Duration(hours: 1);
+  }
+
+  DateTime? _stageBaseTime(EvidenceStage stage) {
+    switch (stage) {
+      case EvidenceStage.inicio:
+        return widget.startTime;
+      case EvidenceStage.medio:
+        if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
+          return widget.startTime.add(_expectedDuration! ~/ 2);
+        }
+        if (_scheduledStartTime != null && _scheduledEndTime != null) {
+          final total = _scheduledEndTime!.difference(_scheduledStartTime!);
+          return _scheduledStartTime!.add(total ~/ 2);
+        }
+        if (_scheduledEndTime != null) {
+          final tentative = _scheduledEndTime!.difference(widget.startTime);
+          if (!tentative.isNegative) {
+            return widget.startTime.add(tentative ~/ 2);
+          }
+        }
+        return widget.startTime;
+      case EvidenceStage.finalizacion:
+        if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
+          return widget.startTime.add(_expectedDuration!);
+        }
+        if (_scheduledEndTime != null) {
+          return _scheduledEndTime!;
+        }
+        return widget.startTime.add(const Duration(hours: 1));
+    }
+  }
+
+  Duration? _marginRemainingForStage(EvidenceStage stage) {
+    final baseTime = _stageBaseTime(stage);
+    if (baseTime == null) {
+      return null;
+    }
+    if (_now.isBefore(baseTime)) {
+      return null;
+    }
+    final unlockTime = baseTime.add(_EVIDENCE_MARGIN);
+    if (_now.isBefore(unlockTime)) {
+      return unlockTime.difference(_now);
+    }
+    return Duration.zero;
+  }
+
+  bool _isMarginActive(EvidenceStage stage) {
+    final remaining = _marginRemainingForStage(stage);
+    return remaining != null && remaining > Duration.zero;
+  }
+
+  String? _formattedMarginCountdown(EvidenceStage stage) {
+    final remaining = _marginRemainingForStage(stage);
+    if (remaining == null || remaining <= Duration.zero) {
+      return null;
+    }
+    final minutes = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  bool get _canUploadEvidenceNow {
+    final stage = _nextPendingStage();
+    if (stage == null) return false;
+    if (!_hasReachedStageThreshold(stage)) return false;
+    return !_isMarginActive(stage);
+  }
+
+  String? get _currentUploadCountdown {
+    final stage = _nextPendingStage();
+    if (stage == null) {
+      return null;
+    }
+    if (!_hasReachedStageThreshold(stage)) {
+      return null;
+    }
+    return _formattedMarginCountdown(stage);
   }
 
   String _thresholdMessage(EvidenceStage stage) {
@@ -358,6 +451,48 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     return formatter.format(dateTime.toLocal());
   }
 
+  Widget _buildCountdownChip(String countdown) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        countdown,
+        style: TextStyle(
+          color: Colors.orange.shade800,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountdownBanner(String countdown) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer, color: Colors.orange.shade600, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            'Disponible en $countdown',
+            style: TextStyle(
+              color: Colors.orange.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEvidencePanel() {
     final nextStage = _nextPendingStage();
     final theme = Theme.of(context);
@@ -389,6 +524,11 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                 _timestampFromEvidence(evidencia),
               );
               final isNext = stage == nextStage;
+              final stageThresholdReached = _hasReachedStageThreshold(stage);
+              final countdownText = stageThresholdReached
+                  ? _formattedMarginCountdown(stage)
+                  : null;
+              final marginActive = countdownText != null;
 
               final leadingIcon = completed
                   ? Icons.check_circle
@@ -407,20 +547,38 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                       : 'Registrada')
                   : stage.description;
 
-              final trailingWidget = completed
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : isNext
-                      ? const Text(
-                          'Pendiente',
-                          style: TextStyle(
-                            color: _PRIMARY_COLOR,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        )
-                      : const Text(
-                          'Esperando',
-                          style: TextStyle(color: Colors.black54),
-                        );
+              Widget trailingWidget;
+              if (completed) {
+                trailingWidget = const Icon(Icons.check, color: Colors.green);
+              } else if (isNext) {
+                if (!stageThresholdReached) {
+                  trailingWidget = const Text(
+                    'Pendiente',
+                    style: TextStyle(
+                      color: _PRIMARY_COLOR,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                } else if (marginActive) {
+                  trailingWidget = _buildCountdownChip(countdownText!);
+                } else {
+                  trailingWidget = const Text(
+                    'Disponible',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                }
+              } else {
+                trailingWidget = const Text(
+                  'Esperando',
+                  style: TextStyle(color: Colors.black54),
+                );
+              }
+
+              final countdownStyleBase =
+                  subtitleStyle ?? const TextStyle(fontSize: 12);
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -445,6 +603,32 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                             subtitleText,
                             style: subtitleStyle,
                           ),
+                          if (!completed && isNext && !stageThresholdReached)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                _thresholdMessage(stage),
+                                style: countdownStyleBase.copyWith(
+                                  color: Colors.blueGrey.shade600,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          if (!completed && isNext && stageThresholdReached)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                marginActive
+                                    ? 'Disponible en $countdownText'
+                                    : 'Disponible para subir ahora',
+                                style: countdownStyleBase.copyWith(
+                                  color: marginActive
+                                      ? Colors.deepOrange.shade600
+                                      : Colors.green.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -595,6 +779,16 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
       return;
     }
 
+    if (_isMarginActive(stage)) {
+      final countdown = _formattedMarginCountdown(stage);
+      if (countdown != null) {
+        _showSnack('Podrás subir la evidencia en $countdown.');
+      } else {
+        _showSnack('Podrás subir la evidencia en unos minutos.');
+      }
+      return;
+    }
+
     XFile? capture;
     try {
       capture = await _imagePicker.pickImage(
@@ -692,6 +886,8 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('HH:mm');
     final screenSize = MediaQuery.of(context).size;
+    final countdownLabel = _currentUploadCountdown;
+    final isUploadEnabled = _canUploadEvidenceNow && !_isUploadingEvidence;
 
     return Scaffold(
       // Usamos la pantalla completa sin AppBar
@@ -809,13 +1005,25 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
           ),
 
           // Botón Subir Foto (Inferior Izquierda)
+          if (countdownLabel != null)
+            Positioned(
+              bottom: 110,
+              left: 16,
+              child: _buildCountdownBanner(countdownLabel),
+            ),
           Positioned(
             bottom: 40,
             left: 16,
             child: FloatingActionButton(
               heroTag: 'uploadPhoto',
-              onPressed: _isUploadingEvidence ? null : _uploadPhotoEvidence,
-              backgroundColor: _ACCENT_COLOR,
+              onPressed: isUploadEnabled ? _uploadPhotoEvidence : null,
+              backgroundColor:
+                  isUploadEnabled ? _ACCENT_COLOR : Colors.grey.shade400,
+              tooltip: isUploadEnabled
+                  ? 'Registrar evidencia'
+                  : countdownLabel != null
+                      ? 'Disponible en $countdownLabel'
+                      : 'Aún no disponible',
               child: _isUploadingEvidence
                   ? const SizedBox(
                       width: 26,
