@@ -104,6 +104,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   List<Map<String, dynamic>> _evidencias = [];
+  final Set<EvidenceStage> _skippedStages = <EvidenceStage>{};
   bool _isUploadingEvidence = false;
   bool _isSendingEvidences = false;
   EvidenceStage? _uploadingStage;
@@ -116,7 +117,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   // --- CONFIGURACION DE LA ZONA DELIMITADA ---
   static const double _CHECKIN_RADIUS_METERS = 50.0;
-    static const Duration _EVIDENCE_WINDOW = Duration(minutes: 5);
+  static const Duration _EVIDENCE_WINDOW = Duration(minutes: 5);
   // Las constantes de color se eliminaron de aqui
 
   @override
@@ -171,20 +172,32 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
         .mostrarEvidencias(widget.trabajoId)
         .listen((data) {
       if (!mounted) return;
+      final capturedNow = data
+          .map((e) => _stageFromString(e['etapa'] as String?))
+          .whereType<EvidenceStage>()
+          .toSet();
       setState(() {
         _evidencias = data;
+        _skippedStages.removeWhere(capturedNow.contains);
+        _skipExpiredStagesInternal();
       });
     });
   }
 
   void _startNowTimer() {
     _nowTimer?.cancel();
-    _nowTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    void handleTick() {
       if (!mounted) return;
       setState(() {
         _now = DateTime.now();
+        _skipExpiredStagesInternal();
       });
+    }
+
+    _nowTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      handleTick();
     });
+    handleTick();
   }
 
   DateTime? _extractStartDateTime(Map<String, dynamic> trabajo) {
@@ -276,6 +289,9 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   EvidenceStage? _nextPendingStage() {
     final captured = _capturedStages;
     for (final stage in EvidenceStage.values) {
+      if (_skippedStages.contains(stage)) {
+        continue;
+      }
       if (!captured.contains(stage)) {
         return stage;
       }
@@ -285,6 +301,26 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   bool get _hasAllEvidences =>
       _capturedStages.length == EvidenceStage.values.length;
+
+  void _skipExpiredStagesInternal() {
+    while (true) {
+      final stage = _nextPendingStage();
+      if (stage == null) {
+        break;
+      }
+      if (_skippedStages.contains(stage)) {
+        break;
+      }
+      if (!_hasReachedStageThreshold(stage)) {
+        break;
+      }
+      final remaining = _windowRemainingForStage(stage);
+      if (remaining == null || remaining.inMilliseconds > 0) {
+        break;
+      }
+      _skippedStages.add(stage);
+    }
+  }
 
   bool _hasReachedStageThreshold(EvidenceStage stage) {
     final now = _now;
@@ -571,6 +607,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
               final stageThresholdReached = _hasReachedStageThreshold(stage);
               final windowActive = _isWindowActive(stage);
               final windowExpired = _isWindowExpired(stage);
+              final skipped = _skippedStages.contains(stage);
               final countdownText =
                   windowActive ? _formattedWindowCountdown(stage) : null;
 
@@ -578,12 +615,16 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                   ? Icons.check_circle
                   : isNext
                       ? Icons.photo_camera_front
-                      : Icons.camera_alt_outlined;
+                      : skipped
+                          ? Icons.block
+                          : Icons.camera_alt_outlined;
               final leadingColor = completed
                   ? Colors.green.shade600
                   : isNext
                       ? _PRIMARY_COLOR
-                      : Colors.grey.shade500;
+                      : skipped
+                          ? Colors.redAccent
+                          : Colors.grey.shade500;
 
               final subtitleText = completed
                   ? (timestamp.isNotEmpty
@@ -594,6 +635,14 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
               Widget trailingWidget;
               if (completed) {
                 trailingWidget = const Icon(Icons.check, color: Colors.green);
+              } else if (skipped) {
+                trailingWidget = const Text(
+                  'Expirado',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                );
               } else if (isNext) {
                 if (!stageThresholdReached) {
                   trailingWidget = const Text(
