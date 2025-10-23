@@ -571,4 +571,122 @@ class PostulacionService {
 
     await batch.commit();
   }
+
+  Future<void> registrarCheckIn({
+    required String trabajoId,
+    required String usuarioId,
+    DateTime? checkInLocal,
+  }) async {
+    final postulacionTrabajoRef = _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .doc(usuarioId);
+
+    final postulacionUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(usuarioId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+
+    final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
+
+    final serverTimestamp = FieldValue.serverTimestamp();
+
+    final updates = {
+      'estadoTrabajo': 'en_curso',
+      'inicioTrabajoReal': serverTimestamp,
+      'finTrabajoReal': FieldValue.delete(),
+      'duracionTrabajoMinutos': FieldValue.delete(),
+      'trabajoCompletado': false,
+      if (checkInLocal != null) 'inicioTrabajoLocal': Timestamp.fromDate(checkInLocal),
+    };
+
+    final batch = _firestore.batch();
+    batch.set(postulacionTrabajoRef, updates, SetOptions(merge: true));
+    batch.set(postulacionUsuarioRef, updates, SetOptions(merge: true));
+    batch.set(
+      trabajoRef,
+      {
+        'estado': 'enCurso',
+        'estadoTrabajo': 'en_curso',
+        'inicioTrabajoReal': serverTimestamp,
+        'finTrabajoReal': FieldValue.delete(),
+        'duracionTrabajoMinutos': FieldValue.delete(),
+        'trabajoCompletado': false,
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
+  }
+
+  Future<void> registrarCheckOut({
+    required String trabajoId,
+    required String usuarioId,
+    DateTime? checkOutLocal,
+  }) async {
+    final postulacionTrabajoRef = _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .doc(usuarioId);
+
+    final postulacionUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(usuarioId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+
+    final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
+
+    Timestamp? inicioTrabajo;
+    try {
+      final snapshot = await postulacionTrabajoRef.get();
+      if (snapshot.exists) {
+        final data = snapshot.data();
+        final rawInicio = data?['inicioTrabajoReal'];
+        if (rawInicio is Timestamp) {
+          inicioTrabajo = rawInicio;
+        } else if (rawInicio is DateTime) {
+          inicioTrabajo = Timestamp.fromDate(rawInicio);
+        }
+      }
+    } catch (_) {
+      inicioTrabajo = null;
+    }
+
+    final checkOutMoment = checkOutLocal ?? DateTime.now();
+    int? duracionMinutos;
+    if (inicioTrabajo != null) {
+      final duracion = checkOutMoment.difference(inicioTrabajo.toDate());
+      if (!duracion.isNegative) {
+        duracionMinutos = duracion.inMinutes;
+      }
+    }
+
+    final serverTimestamp = FieldValue.serverTimestamp();
+
+    final updates = {
+      'finTrabajoReal': serverTimestamp,
+      'trabajoCompletado': true,
+      if (checkOutLocal != null) 'finTrabajoLocal': Timestamp.fromDate(checkOutLocal),
+      if (duracionMinutos != null) 'duracionTrabajoMinutos': duracionMinutos,
+    };
+
+    final batch = _firestore.batch();
+    batch.set(postulacionTrabajoRef, updates, SetOptions(merge: true));
+    batch.set(postulacionUsuarioRef, updates, SetOptions(merge: true));
+    batch.set(
+      trabajoRef,
+      {
+        'finTrabajoReal': serverTimestamp,
+        if (duracionMinutos != null) 'duracionTrabajoMinutos': duracionMinutos,
+        'trabajoCompletado': true,
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
+  }
 }

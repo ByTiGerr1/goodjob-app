@@ -6,6 +6,7 @@ import 'package:goodjob_app/theme/app_colors.dart';
 
 import 'instrucciones_trabajo_screen.dart';
 import 'mapa_checkin_screen.dart'; // Importamos la nueva pantalla
+import 'trabajo_en_curso_screen.dart';
 
 // Definición de estados
 enum _PasoEstado { completado, actual, pendiente }
@@ -31,8 +32,9 @@ class SeguimientoPostulacionScreen extends StatefulWidget {
 }
 
 // Se define el tipo de función para el callback de iniciar tarea.
-typedef IniciarTareaCallback =
-    void Function(BuildContext context, Map<String, dynamic> trabajo);
+typedef IniciarTareaCallback = void Function(
+    BuildContext context, Map<String, dynamic> trabajo,
+    Map<String, dynamic> postulacion);
 
 class _SeguimientoPostulacionScreenState
     extends State<SeguimientoPostulacionScreen>
@@ -63,7 +65,36 @@ class _SeguimientoPostulacionScreenState
   }
 
   // CORRECCIÓN CLAVE: Esta función debe recibir el BuildContext y el mapa de trabajo
-  void _iniciarTarea(BuildContext context, Map<String, dynamic> trabajo) {
+  DateTime? _parseDateTime(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  void _iniciarTarea(BuildContext context, Map<String, dynamic> trabajo,
+      Map<String, dynamic> postulacion) {
+    final inicioTrabajo = _parseDateTime(
+          postulacion['inicioTrabajoReal'] ?? trabajo['inicioTrabajoReal'],
+        ) ??
+        _parseDateTime(postulacion['inicioTrabajoLocal']);
+    final finTrabajo = _parseDateTime(
+      postulacion['finTrabajoReal'] ?? trabajo['finTrabajoReal'],
+    );
+
+    if (inicioTrabajo != null && finTrabajo == null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TrabajoEnCursoScreen(
+            trabajoId: widget.trabajoId,
+            trabajo: trabajo,
+            startTime: inicioTrabajo,
+          ),
+        ),
+      );
+      return;
+    }
+
     if (!_instruccionesVistas) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -146,7 +177,7 @@ class _SeguimientoPostulacionScreenState
                 instruccionesVistas: _instruccionesVistas,
                 onInstruccionesVistas: _marcarInstruccionesVistas,
                 // CORRECCIÓN DE TIPO: Pasamos una función que encapsula la llamada con el BuildContext y el mapa
-                onIniciarTarea: (c, t) => _iniciarTarea(c, t),
+                onIniciarTarea: (c, t, p) => _iniciarTarea(c, t, p),
                 animationController: _animationController,
               );
             },
@@ -180,6 +211,13 @@ class _PostulacionContent extends StatelessWidget {
   // --- LÓGICA DE FORMATO Y ESTADO (Mantenida) ---
 
   // Lógica de lectura dual (Antiguo y Nuevo esquema)
+
+  DateTime? _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
 
   DateTime? _getTrabajoStartDateTime(Map<String, dynamic> t) {
     Timestamp? ts = t['fechaInicioTrabajo'] as Timestamp?;
@@ -571,6 +609,16 @@ class _PostulacionContent extends StatelessWidget {
             ) &&
             DateTime.now().isBefore(fechaTrabajo.add(const Duration(days: 1))));
 
+    final inicioTrabajoReal =
+        _parseDate(postulacion['inicioTrabajoReal']) ??
+            _parseDate(postulacion['inicioTrabajoLocal']) ??
+            _parseDate(trabajo['inicioTrabajoReal']);
+    final finTrabajoReal =
+        _parseDate(postulacion['finTrabajoReal']) ??
+            _parseDate(trabajo['finTrabajoReal']);
+    final tieneCheckInActivo =
+        inicioTrabajoReal != null && finTrabajoReal == null && esTrabajoActivo;
+
     final pasos = [
       (
         titulo: 'Postulación enviada',
@@ -618,7 +666,25 @@ class _PostulacionContent extends StatelessWidget {
 
     // Lógica para el botón principal
     Widget mainActionButton;
-    if (esTrabajoActivo) {
+    if (tieneCheckInActivo) {
+      mainActionButton = ElevatedButton.icon(
+        onPressed: () => onIniciarTarea(context, trabajo, postulacion),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: Colors.green.shade700,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 4,
+        ),
+        icon: const Icon(Icons.play_circle_fill),
+        label: const Text(
+          'CONTINUAR TRABAJO',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      );
+    } else if (esTrabajoActivo) {
       if (!instruccionesVistas) {
         // Botón de Instrucciones (Obligatorio)
         mainActionButton = ElevatedButton.icon(
@@ -646,6 +712,7 @@ class _PostulacionContent extends StatelessWidget {
           onPressed: () => onIniciarTarea(
             context,
             trabajo,
+            postulacion,
           ), // Llamada con los argumentos corregidos
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),

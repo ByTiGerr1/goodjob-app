@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
@@ -7,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
 
 import 'trabajo_en_curso_screen.dart'; // Importamos la nueva pantalla
+import '../services/postulacion_service.dart';
 
 class MapaCheckinScreen extends StatefulWidget {
  final String trabajoId;
@@ -23,9 +25,10 @@ class MapaCheckinScreen extends StatefulWidget {
 }
 
 class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
- LatLng? _currentPosition;
- late LatLng _trabajoCoords;
- final MapController _mapController = MapController();
+  LatLng? _currentPosition;
+  late LatLng _trabajoCoords;
+  final MapController _mapController = MapController();
+  final PostulacionService _postulacionService = PostulacionService();
  
   // --- MODO DE PRUEBA: Cambia a 'false' en producción ---
   // Si es true, el check-in se puede realizar sin estar dentro de la zona delimitada.
@@ -39,6 +42,7 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
 
   DateTime? _scheduledStartTime;
   DateTime? _scheduledEndTime;
+  bool _isRegisteringCheckIn = false;
 
   @override
   void initState() {
@@ -280,7 +284,8 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
     return '$day/$month/$year a las $hour:$minute';
   }
 
-  void _performCheckIn() {
+  Future<void> _performCheckIn() async {
+    if (_isRegisteringCheckIn) return;
     // Si no estamos en modo de prueba, aplica la restricción
     if (!_testingMode && !_isWithinSchedule()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -307,27 +312,70 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
     }
 
     // --- LÓGICA DE INICIO DE TRABAJO ---
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Debes iniciar sesión para registrar el check-in.',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final DateTime startTime = DateTime.now();
 
-    // Simulación de guardado en Firestore y actualización de estado
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('¡Check-in realizado! Iniciando trabajo...',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.green,
-      ),
-    );
+    setState(() {
+      _isRegisteringCheckIn = true;
+    });
 
-    // Navegar a la nueva pantalla de trabajo en curso, pasando la hora de inicio.
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => TrabajoEnCursoScreen(
-          trabajoId: widget.trabajoId,
-          trabajo: widget.trabajo,
-          startTime: startTime,
+    try {
+      await _postulacionService.registrarCheckIn(
+        trabajoId: widget.trabajoId,
+        usuarioId: user.uid,
+        checkInLocal: startTime,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Check-in realizado! Iniciando trabajo...',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.green,
         ),
-      ),
-    );
+      );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => TrabajoEnCursoScreen(
+            trabajoId: widget.trabajoId,
+            trabajo: widget.trabajo,
+            startTime: startTime,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se pudo registrar el check-in. Intenta nuevamente. ($e)',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRegisteringCheckIn = false;
+        });
+      }
+    }
   }
 
   @override
@@ -335,7 +383,7 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
     final isInside = _isInsideGeofence();
     final isWithinSchedule = _isWithinSchedule();
     final buttonActive =
-        _testingMode || (isInside && isWithinSchedule);
+        (_testingMode || (isInside && isWithinSchedule)) && !_isRegisteringCheckIn;
     final buttonColor = buttonActive ? Colors.green.shade600 : Colors.grey;
     final scheduleMessage = _scheduleStatusMessage(isWithinSchedule);
     final locationMessage = _locationStatusMessage(isInside);
@@ -456,8 +504,20 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
                   onPressed: buttonActive ? _performCheckIn : null,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('HACER CHECK-IN'),
+                  icon: _isRegisteringCheckIn
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.qr_code_scanner),
+                  label: Text(
+                    _isRegisteringCheckIn ? 'REGISTRANDO...' : 'HACER CHECK-IN',
+                  ),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: buttonColor,
