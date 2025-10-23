@@ -94,7 +94,7 @@ class MainApp extends StatelessWidget {
 
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: primaryPurple, // Asegura que los textbuttons usen el color primario
+            foregroundColor: accentYellow, // Asegura que los textbuttons usen el color primario
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
