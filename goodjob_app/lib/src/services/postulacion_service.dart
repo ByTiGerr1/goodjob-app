@@ -3,6 +3,85 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PostulacionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  DateTime? _parseDateTime(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  int _parseEntero(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  DateTime? _combinarFechaYHora(DateTime fechaBase, dynamic horaData) {
+    if (horaData is Map) {
+      final horas = _parseEntero(horaData['h']);
+      final minutos = _parseEntero(horaData['m']);
+      return DateTime(fechaBase.year, fechaBase.month, fechaBase.day, horas, minutos);
+    }
+
+    if (horaData is String && horaData.contains(':')) {
+      final partes = horaData.split(':');
+      if (partes.length >= 2) {
+        final horas = int.tryParse(partes[0]) ?? 0;
+        final minutos = int.tryParse(partes[1]) ?? 0;
+        return DateTime(fechaBase.year, fechaBase.month, fechaBase.day, horas, minutos);
+      }
+    }
+
+    return DateTime(fechaBase.year, fechaBase.month, fechaBase.day);
+  }
+
+  DateTime? _obtenerFechaInicioTrabajo(Map<String, dynamic>? trabajoData) {
+    if (trabajoData == null) return null;
+
+    final fechaInicio = _parseDateTime(trabajoData['fechaInicioTrabajo']);
+    if (fechaInicio != null) return fechaInicio;
+
+    final fechaTrabajo = _parseDateTime(trabajoData['fechaTrabajo']);
+    if (fechaTrabajo != null) {
+      return _combinarFechaYHora(fechaTrabajo, trabajoData['horaInicio']);
+    }
+
+    final fechaFin = _parseDateTime(trabajoData['fechaFinTrabajo']);
+    return fechaFin;
+  }
+
+  Timestamp _calcularConfirmarAntesDe(Map<String, dynamic>? trabajoData) {
+    final ahora = DateTime.now();
+    final fechaInicioTrabajo = _obtenerFechaInicioTrabajo(trabajoData);
+
+    DateTime limite = ahora.add(const Duration(hours: 24));
+
+    if (fechaInicioTrabajo != null) {
+      final candidato = fechaInicioTrabajo.subtract(const Duration(hours: 1));
+      if (candidato.isBefore(limite)) {
+        limite = candidato;
+      }
+
+      if (limite.isAfter(fechaInicioTrabajo)) {
+        limite = fechaInicioTrabajo;
+      }
+    }
+
+    final minimoPermitido = ahora.add(const Duration(minutes: 30));
+    if (!limite.isAfter(minimoPermitido)) {
+      if (fechaInicioTrabajo != null &&
+          fechaInicioTrabajo.isAfter(ahora) &&
+          fechaInicioTrabajo.isBefore(minimoPermitido)) {
+        limite = fechaInicioTrabajo;
+      } else {
+        limite = minimoPermitido;
+      }
+    }
+
+    return Timestamp.fromDate(limite);
+  }
+
   /// Cuenta el número de postulaciones para un trabajo específico.
   Future<int> contarPostulaciones(String trabajoId) async {
     try {
@@ -66,15 +145,12 @@ class PostulacionService {
         .doc(usuarioId)
         .collection('postulaciones')
         .doc(trabajoId);
-    final confirmarAntesDe = Timestamp.now().toDate().add(const Duration(hours: 24));
-
     final data = <String, dynamic>{
       'trabajoId': trabajoId,
       'trabajoTitulo': trabajoTitulo,
       'usuarioId': usuarioId,
       'estado': 'pendiente',
       'fechaPostulacion': FieldValue.serverTimestamp(),
-      'confirmarAntesDe': Timestamp.fromDate(confirmarAntesDe), // Agregado
     };
 
     final batch = _firestore.batch();
@@ -147,15 +223,16 @@ class PostulacionService {
 
     String estadoTrabajo = '';
     bool sinFechaLimiteTrabajo = false;
+    Map<String, dynamic>? trabajoData;
 
     if (estadoNormalizado == 'aceptado' || estadoNormalizado == 'rechazado') {
       final trabajoDoc = await trabajoRef.get();
       if (!trabajoDoc.exists) {
         throw Exception('El trabajo $trabajoId no existe.');
       }
-      final data = trabajoDoc.data() as Map<String, dynamic>?;
-      estadoTrabajo = data?['estado'] as String? ?? '';
-      sinFechaLimiteTrabajo = data?['sinFechaLimite'] == true;
+      trabajoData = trabajoDoc.data();
+      estadoTrabajo = trabajoData?['estado'] as String? ?? '';
+      sinFechaLimiteTrabajo = trabajoData?['sinFechaLimite'] == true;
     }
 
     // Validar que no haya otro usuario con estado "aceptado" o "confirmado"
@@ -181,7 +258,48 @@ class PostulacionService {
       }
 
       // Cambiar el estado del trabajo a "Por confirmar"
-      await trabajoRef.update({'estado': 'porConfirmar'});
+      final confirmarAntesDe = _calcularConfirmarAntesDe(trabajoData);
+      final timestamp = FieldValue.serverTimestamp();
+
+      final trabajoUpdate = {
+        'estado': 'porConfirmar',
+        'aceptadoEn': timestamp,
+        'confirmarAntesDe': confirmarAntesDe,
+        'trabajadorAsignadoId': postulanteId,
+        'estadoAsignacion': 'pendiente_confirmacion',
+      };
+
+      final batch = _firestore.batch();
+      batch.set(trabajoRef, trabajoUpdate, SetOptions(merge: true));
+
+      Map<String, dynamic> data = {
+        'estado': estadoNormalizado,
+        'fechaAceptacion': timestamp,
+        'aceptadoEn': timestamp,
+        'confirmarAntesDe': confirmarAntesDe,
+      };
+
+      final usuarioData = {
+        ...data,
+        'trabajoId': trabajoId,
+        'usuarioId': postulanteId,
+        if (trabajoTitulo != null) 'trabajoTitulo': trabajoTitulo,
+      };
+
+      batch.set(
+        postulacionRef,
+        data,
+        SetOptions(merge: true),
+      );
+
+      batch.set(
+        postulacionesUsuarioRef,
+        usuarioData,
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
+      return;
     }
 
     if (estadoNormalizado == 'rechazado') {
@@ -196,7 +314,14 @@ class PostulacionService {
       if (querySnapshot.docs.isEmpty) {
         // Cambiar el estado del trabajo a "Abierto" o "Activo" según corresponda
         final nuevoEstado = sinFechaLimiteTrabajo ? 'abierto' : 'activo';
-        await trabajoRef.update({'estado': nuevoEstado});
+        final updateData = {
+          'estado': nuevoEstado,
+          'trabajadorAsignadoId': FieldValue.delete(),
+          'estadoAsignacion': FieldValue.delete(),
+          'confirmarAntesDe': FieldValue.delete(),
+          'aceptadoEn': FieldValue.delete(),
+        };
+        await trabajoRef.set(updateData, SetOptions(merge: true));
       }
     }
 
@@ -204,9 +329,10 @@ class PostulacionService {
       'estado': estadoNormalizado,
     };
 
-    // Registrar fecha de aceptación si es aceptado
-    if (estadoNormalizado == 'aceptado') {
-      data['fechaAceptacion'] = FieldValue.serverTimestamp();
+    if (estadoNormalizado == 'rechazado') {
+      data['fechaAceptacion'] = FieldValue.delete();
+      data['aceptadoEn'] = FieldValue.delete();
+      data['confirmarAntesDe'] = FieldValue.delete();
     }
 
     final usuarioData = {
@@ -217,6 +343,11 @@ class PostulacionService {
     };
 
     if (limitarAUsuario) {
+      usuarioData.remove('aceptadoEn');
+      usuarioData.remove('confirmarAntesDe');
+    }
+    
+    if (limitarAUsuario) {
       await postulacionesUsuarioRef.set(
         usuarioData,
         SetOptions(merge: true),
@@ -225,7 +356,11 @@ class PostulacionService {
     }
 
     final batch = _firestore.batch();
-    batch.update(postulacionRef, data);
+    batch.set(
+      postulacionRef,
+      data,
+      SetOptions(merge: true),
+    );
 
     batch.set(
       postulacionesUsuarioRef,
