@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      let usuario = getUsuario(request.auth.uid);
+      return isSignedIn() && usuario.data != null && usuario.data.rol == 'admin';
+    }
+
+    function isTrabajadorAsignado(trabajoId) {
+      let trabajo = getTrabajo(trabajoId);
+      return isSignedIn() &&
+        trabajo.data != null &&
+        trabajo.data.trabajadorAsignadoId == request.auth.uid;
+    }
+
+    function getUsuario(uid) {
+      return get(/databases/(default)/documents/usuarios/$(uid));
+    }
+
+    function getTrabajo(trabajoId) {
+      return get(/databases/(default)/documents/trabajos/$(trabajoId));
+    }
+
+    match /profile_pictures/{userId}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /trabajos/{trabajoId} {
+      match /principal/{fileName} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      match /evidencias/{usuarioId}/{fileName} {
+        allow read: if isAdmin() || isTrabajadorAsignado(trabajoId);
+        allow write: if request.auth != null && (
+          isAdmin() ||
+          (request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId))
+        );
+        allow delete: if isAdmin() || (request.auth != null &&
+          request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId));
+      }
+
+      match /evidenciasPagos/{fileName} {
+        allow read: if isAdmin() || isTrabajadorAsignado(trabajoId);
+        allow write: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /Evidencias/{trabajoId}/{usuarioId}/{fileName} {
+      allow read: if isAdmin() || isTrabajadorAsignado(trabajoId);
+      allow write: if request.auth != null && (
+        isAdmin() ||
+        (request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId))
+      );
+      allow delete: if isAdmin() || (request.auth != null &&
+        request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId));
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
