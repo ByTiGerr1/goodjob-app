@@ -131,21 +131,57 @@ class StorageService {
         etapaSnapshot = null;
       }
 
-      // 1. Subir a Storage
+      // 1. Subir a Storage siguiendo la convención de las reglas de seguridad
+      //    (/trabajos/{trabajoId}/evidencias/{usuarioId}/{etapa}.jpg)
+      //    Si la regla legacy "Evidencias/..." sigue activa, reintentamos ahí.
       final stageSegment = _sanitizeStage(etapa);
-      // Nueva estructura: Evidencias/{trabajoId}/{usuarioId}/{etapa}.jpg
-      final ref = _storage
-          .ref()
-          .child('Evidencias')
-          .child(trabajoId)
-          .child(usuarioId)
-          .child('$stageSegment.jpg');
-
-      final uploadTask = await ref.putFile(
-        imagen,
-        _buildImageMetadata(imagen),
+      final metadata = _buildImageMetadata(imagen);
+      Reference ref = _buildStageEvidenceRef(
+        trabajoId: trabajoId,
+        usuarioId: usuarioId,
+        stageSegment: stageSegment,
       );
-      final imageUrl = await uploadTask.ref.getDownloadURL();
+
+      String? imageUrl;
+      try {
+        imageUrl = await _uploadFileAndGetUrl(
+          ref: ref,
+          file: imagen,
+          metadata: metadata,
+        );
+      } on FirebaseException catch (primaryError) {
+        if (_isUnauthorizedStorageError(primaryError)) {
+          final legacyRef = _buildLegacyStageEvidenceRef(
+            trabajoId: trabajoId,
+            usuarioId: usuarioId,
+            stageSegment: stageSegment,
+          );
+
+          try {
+            imageUrl = await _uploadFileAndGetUrl(
+              ref: legacyRef,
+              file: imagen,
+              metadata: metadata,
+            );
+            ref = legacyRef;
+            print(
+              'ℹ️ Reintentando subida de evidencia en ruta legacy permitida por reglas de Storage: ${legacyRef.fullPath}',
+            );
+          } on FirebaseException catch (legacyError) {
+            print(
+              '❌ Error al subir evidencia en rutas configuradas. Primaria: ${ref.fullPath} (${primaryError.code}) -> ${primaryError.message}. '
+              'Legacy: ${legacyRef.fullPath} (${legacyError.code}) -> ${legacyError.message}',
+            );
+            rethrow;
+          }
+        } else {
+          rethrow;
+        }
+      }
+
+      if (imageUrl == null) {
+        return null;
+      }
 
       // 2. Guardar Metadatos en Firestore (sobrescribe la metadata si existe)
       await etapaDoc.set({
@@ -175,8 +211,9 @@ class StorageService {
       }
 
       return imageUrl;
-    } catch (e) {
+    } catch (e, st) {
       print('❌ Error al subir evidencia de etapa: $e');
+      print(st);
       return null;
     }
   }
@@ -388,6 +425,7 @@ class StorageService {
     // dominio (.firebasestorage.app). En ambos casos Firebase acepta el prefijo gs://.
     return 'gs://$bucketName';
   }
+
   String _sanitizeStage(String etapa) {
     final normalized = etapa.trim().toLowerCase();
     final sanitized =
@@ -396,6 +434,52 @@ class StorageService {
       return 'etapa';
     }
     return sanitized;
+  }
+
+  Reference _buildStageEvidenceRef({
+    required String trabajoId,
+    required String usuarioId,
+    required String stageSegment,
+  }) {
+    return _storage
+        .ref()
+        .child('trabajos')
+        .child(trabajoId)
+        .child('evidencias')
+        .child(usuarioId)
+        .child('$stageSegment.jpg');
+  }
+
+  Reference _buildLegacyStageEvidenceRef({
+    required String trabajoId,
+    required String usuarioId,
+    required String stageSegment,
+  }) {
+    return _storage
+        .ref()
+        .child('Evidencias')
+        .child(trabajoId)
+        .child(usuarioId)
+        .child('$stageSegment.jpg');
+  }
+
+  Future<String> _uploadFileAndGetUrl({
+    required Reference ref,
+    required File file,
+    required SettableMetadata metadata,
+  }) async {
+    final uploadTask = ref.putFile(file, metadata);
+    await uploadTask.whenComplete(() {});
+    return ref.getDownloadURL();
+  }
+
+  bool _isUnauthorizedStorageError(FirebaseException error) {
+    if (error.plugin != 'firebase_storage') {
+      return false;
+    }
+
+    final code = error.code.toLowerCase();
+    return code.contains('unauthorized') || code == 'permission-denied';
   }
 
   SettableMetadata _buildImageMetadata(File file) {
