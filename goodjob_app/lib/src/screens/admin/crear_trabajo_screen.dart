@@ -599,16 +599,27 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     
     setState(() => _isSaving = true);
     String? finalImageUrl; // URL final que se guardará en Firestore
+    DocumentReference<Map<String, dynamic>>? nuevoTrabajoRef;
+    bool documentoTemporalCreado = false;
+    String? trabajoId = widget.trabajoIdParaEditar;
 
     try {
       // 1. Manejo de la IMAGEN PRINCIPAL (Sube o mantiene la existente)
       // Solo subimos si hay un archivo local nuevo.
       if (_imagenPrincipal != null) {
-        // Usamos un ID temporal si estamos creando (TrabajoService generará el ID final).
-        final id = widget.trabajoIdParaEditar ?? 'temp-id-${DateTime.now().millisecondsSinceEpoch}';
-        
+        if (trabajoId == null) {
+          // Creamos un documento preliminar para obtener un ID válido y respetar las reglas de Storage.
+          nuevoTrabajoRef = FirebaseFirestore.instance.collection('trabajos').doc();
+          trabajoId = nuevoTrabajoRef.id;
+          await nuevoTrabajoRef.set({
+            'estado': 'creando',
+            'creadoEn': FieldValue.serverTimestamp(),
+          });
+          documentoTemporalCreado = true;
+        }
+
         finalImageUrl = await _storageService.subirImagenPrincipal(
-          trabajoId: id,
+          trabajoId: trabajoId!,
           imagen: _imagenPrincipal!,
         );
 
@@ -622,7 +633,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
          // En modo creación, si llega aquí sin imagen, es un error de validación grave.
          throw Exception('La imagen principal es obligatoria.');
       }
-      
+
+      if (!_esModoEdicion && trabajoId == null) {
+        throw Exception('No se pudo preparar el identificador del trabajo.');
+      }   
+
       // 2. Preparar los datos restantes (Fechas, Horarios, Coordenadas)
       if (_fechaTrabajo == null || _horaInicio == null || _horaFin == null) {
         throw Exception('Falta la información de fecha/horario.');
@@ -713,6 +728,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           contacto: contactoData,
           sinFechaLimite: _sinFechaLimite,
           imagenPrincipalUrl: finalImageUrl, // ENVIAR URL
+          trabajoId: trabajoId,
         );
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -721,6 +737,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         }
       }
     } catch (e) {
+      if (documentoTemporalCreado && nuevoTrabajoRef != null) {
+        await nuevoTrabajoRef.delete().catchError((_) {});
+      }
       if (mounted) {
         _showError('Error al guardar el trabajo: ${e.toString().replaceAll('Exception: ', '')}');
       }
