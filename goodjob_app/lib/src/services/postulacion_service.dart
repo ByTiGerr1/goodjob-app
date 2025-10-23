@@ -415,6 +415,8 @@ class PostulacionService {
     final timestamp = FieldValue.serverTimestamp();
 
     final batch = _firestore.batch();
+    
+    // Actualizar la postulación en la subcolección del trabajo
     batch.set(
       postulacionRef,
       {
@@ -424,6 +426,8 @@ class PostulacionService {
       },
       SetOptions(merge: true),
     );
+    
+    // Actualizar la postulación en la subcolección del usuario
     batch.set(
       postulacionesUsuarioRef,
       {
@@ -436,15 +440,20 @@ class PostulacionService {
       },
       SetOptions(merge: true),
     );
+    
+    // Actualizar el estado del trabajo
     batch.set(
       trabajoRef,
       {
         'trabajadorAsignadoId': postulanteId,
         'estado': 'pendiente',
         'confirmadoEn': timestamp,
+        'estadoAsignacion': 'confirmado',
       },
       SetOptions(merge: true),
     );
+    
+    // Crear notificación para el admin
     batch.set(
       notificacionesRef,
       {

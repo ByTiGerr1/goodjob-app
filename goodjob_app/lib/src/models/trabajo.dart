@@ -137,7 +137,7 @@ class Trabajo {
         } else {
           // Intentar primero por name (ej: "activo", "porConfirmar")
           estado = EstadoTrabajo.values.firstWhere(
-            (e) => e.name == estadoLower,
+            (e) => e.name.toLowerCase() == estadoLower,
             orElse: () {
               // Si no funciona, intentar por texto (ej: "Activo", "Por confirmar")
               return EstadoTrabajo.values.firstWhere(
