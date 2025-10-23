@@ -16,6 +16,21 @@ service cloud.firestore {
         get(/databases/$(database)/documents/trabajos/$(trabajoId)).data.trabajadorAsignadoId == request.auth.uid;
     }
 
+    function isPropietarioPostulacionUsuario(usuarioId, postulacionId) {
+      return isSignedIn() &&
+        request.auth.uid == usuarioId &&
+        resource.data.usuarioId == request.auth.uid &&
+        resource.data.trabajoId == postulacionId &&
+        (
+          !request.resource.data.keys().hasAny(['usuarioId']) ||
+          request.resource.data.usuarioId == request.auth.uid
+        ) &&
+        (
+          !request.resource.data.keys().hasAny(['trabajoId']) ||
+          request.resource.data.trabajoId == postulacionId
+        );
+    }
+
 
     match /usuarios/{usuarioId} {
       allow create: if isSignedIn() && request.auth.uid == usuarioId;
@@ -36,12 +51,21 @@ service cloud.firestore {
           request.resource.data.usuarioId == request.auth.uid &&
           request.resource.data.trabajoId == postulacionId;
         allow update: if isAdmin() || (
-          isSignedIn() &&
-          request.auth.uid == usuarioId &&
-          request.resource.data.usuarioId == request.auth.uid &&
-          request.resource.data.trabajoId == postulacionId &&
+          isPropietarioPostulacionUsuario(usuarioId, postulacionId) &&
           request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(['estado', 'fechaAceptacion', 'trabajoTitulo'])
+            .hasOnly([
+              'estado',
+              'fechaAceptacion',
+              'trabajoTitulo',
+              'confirmadoEn',
+              'confirmarAntesDe',
+              'aceptadoEn',
+              'liberadoPorExpiracionEn',
+              'estadoTrabajo',
+              'trabajoCompletado',
+              'pendienteRevisionEn',
+              'estadoAsignacion'
+            ])
         );
         allow delete: if isAdmin() || (
           isSignedIn() &&
@@ -54,7 +78,22 @@ service cloud.firestore {
 
     match /trabajos/{trabajoId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isTrabajadorAsignado(trabajoId) &&
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly([
+            'estado',
+            'trabajadorAsignadoId',
+            'estadoAsignacion',
+            'confirmadoEn',
+            'confirmacionExpiradaEn'
+          ]) &&
+        (
+          !request.resource.data.keys().hasAny(['trabajadorAsignadoId']) ||
+          request.resource.data.trabajadorAsignadoId == request.auth.uid
+        )
+      );
 
       match /evidencias/{evidenciaId} {
         allow read: if isAdmin() || isTrabajadorAsignado(trabajoId);
@@ -70,7 +109,28 @@ service cloud.firestore {
           request.resource.data.trabajoId == trabajoId;
         allow read: if isAdmin() ||
           (isSignedIn() && resource.data.usuarioId == request.auth.uid);
-        allow update: if isAdmin();
+        allow update: if isAdmin() || (
+          isSignedIn() &&
+          postulacionId == request.auth.uid &&
+          resource.data.usuarioId == request.auth.uid &&
+          (
+            !request.resource.data.keys().hasAny(['usuarioId']) ||
+            request.resource.data.usuarioId == request.auth.uid
+          ) &&
+          (
+            !request.resource.data.keys().hasAny(['trabajoId']) ||
+            request.resource.data.trabajoId == trabajoId
+          ) &&
+          request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly([
+              'estado',
+              'fechaAceptacion',
+              'confirmadoEn',
+              'confirmarAntesDe',
+              'aceptadoEn',
+              'liberadoPorExpiracionEn'
+            ])
+        );
         allow delete: if isAdmin() || (
           isSignedIn() &&
           resource.data.usuarioId == request.auth.uid &&
@@ -79,6 +139,13 @@ service cloud.firestore {
       }
     }
 
+    match /notificaciones_admin/{notificacionId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.postulanteId == request.auth.uid &&
+        request.resource.data.tipo in ['confirmacion_trabajo', 'confirmacion_expirada'];
+      allow read, update, delete: if isAdmin();
+    }
+    
     match /trabajoPlantillas/{plantillaId} {
       allow read, create, update, delete: if isAdmin();
     }
