@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:goodjob_app/src/utils/location_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/postulacion_service.dart';
@@ -133,14 +134,9 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   void _parseTrabajoCoords() {
     final ubicacion = widget.trabajo['ubicacion'] as Map<String, dynamic>?;
-    final lat = ubicacion?['lat'];
-    final lng = ubicacion?['lng'];
+    final coords = extractLatLngFromUbicacion(ubicacion);
 
-    if (lat is num && lng is num) {
-      _trabajoCoords = LatLng(lat.toDouble(), lng.toDouble());
-    } else {
-      _trabajoCoords = const LatLng(-33.447487, -70.673676);
-    }
+    _trabajoCoords = coords ?? const LatLng(-33.447487, -70.673676);
   }
 
   void _initializeSchedule() {

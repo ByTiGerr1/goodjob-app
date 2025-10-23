@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:goodjob_app/src/services/format_utils.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:goodjob_app/src/utils/location_utils.dart';
 
 import '../services/trabajo_service.dart';
 import '../services/user_eligibility_service.dart';
@@ -142,11 +143,9 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   void _centrarEnTrabajo(Map<String, dynamic> trabajo) {
     if (!_mapReady) return;
     final ubicacion = trabajo['ubicacion'] as Map<String, dynamic>?;
-    final lat = ubicacion?['lat'];
-    final lng = ubicacion?['lng'];
-    if (lat == null || lng == null) return;
-    final destino = LatLng((lat as num).toDouble(), (lng as num).toDouble());
-    _mapController.move(destino, 17.0);
+    final coords = extractLatLngFromUbicacion(ubicacion);
+    if (coords == null) return;
+    _mapController.move(coords, 17.0);
   }
 
   void _onTrabajoCarruselTap(
@@ -181,14 +180,13 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   double? _calcularDistancia(Map<String, dynamic> trabajo) {
     if (_currentPosition == null) return null;
     final ubicacion = trabajo['ubicacion'] as Map<String, dynamic>?;
-    final lat = ubicacion?['lat'];
-    final lng = ubicacion?['lng'];
-    if (lat == null || lng == null) return null;
+    final coords = extractLatLngFromUbicacion(ubicacion);
+    if (coords == null) return null;
     return Geolocator.distanceBetween(
           _currentPosition!.latitude,
           _currentPosition!.longitude,
-          (lat as num).toDouble(),
-          (lng as num).toDouble(),
+          coords.latitude,
+          coords.longitude,
         ) /
         1000;
   }
@@ -656,11 +654,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         // Añadir marcadores de trabajos
         for (final t in trabajos) {
           final ubicacion = t['ubicacion'] as Map<String, dynamic>?;
-          final lat = ubicacion?['lat'];
-          final lng = ubicacion?['lng'];
-          if (lat == null || lng == null) continue;
-          final pos = LatLng((lat as num).toDouble(), (lng as num).toDouble());
-
+          final pos = extractLatLngFromUbicacion(ubicacion);
+          if (pos == null) continue;
           final isSelected = t['id'] == _ultimoTrabajoSeleccionadoId;
 
           markers.add(

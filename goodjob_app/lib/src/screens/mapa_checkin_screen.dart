@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:goodjob_app/src/utils/location_utils.dart';
 
 import 'trabajo_en_curso_screen.dart'; // Importamos la nueva pantalla
 
@@ -56,11 +57,10 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
   void _parseTrabajoCoords() {
     // Lectura robusta de las coordenadas del trabajo
     final ubicacion = widget.trabajo['ubicacion'] as Map<String, dynamic>?;
-    final lat = ubicacion?['lat'];
-    final lng = ubicacion?['lng'];
+    final coords = extractLatLngFromUbicacion(ubicacion);
 
-    if (lat is num && lng is num) {
-      _trabajoCoords = LatLng(lat.toDouble(), lng.toDouble());
+    if (coords != null) {
+      _trabajoCoords = coords;
     } else {
       // Fallback si no hay coordenadas válidas (ej. centro de Santiago, Chile)
       _trabajoCoords = const LatLng(-33.447487, -70.673676);

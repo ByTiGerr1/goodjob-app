@@ -104,6 +104,7 @@ class TrabajoService {
       updateData['fechaLimite'] = Timestamp.fromDate(fechaLimite);
     } else {
       updateData['fechaLimite'] = FieldValue.delete();
+      updateData['fechaLimitePostulacion'] = FieldValue.delete();
     }
 
     return _trabajos.doc(trabajoId).update(updateData);

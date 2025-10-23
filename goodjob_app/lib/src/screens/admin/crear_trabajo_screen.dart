@@ -3,9 +3,10 @@ import 'package:goodjob_app/src/services/plantilla_trabajo_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
-import 'seleccionar_ubicacion_screen.dart'; 
-import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'seleccionar_ubicacion_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async'; // Necesario para Timestamp
+import 'package:goodjob_app/src/utils/location_utils.dart';
 
 enum _MenuPlantillaOption { aplicar, crear }
 
@@ -128,13 +129,13 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       _ubicacionDireccionCtrl.text = ubicacion['direccion'] ?? '';
       _ubicacionCiudadCtrl.text = ubicacion['ciudad'] ?? '';
       _ubicacionPaisCtrl.text = ubicacion['pais'] ?? '';
-      
-      final lat = ubicacion['lat'];
-      final lng = ubicacion['lng'];
-      if (lat is num && lng is num) {
-        _ubicacionLatLng = LatLng(lat.toDouble(), lng.toDouble());
+
+      final coords = extractLatLngFromUbicacion(ubicacion);
+      if (coords != null) {
+        _ubicacionLatLng = coords;
       }
     }
+
 
     // Manejo de fechas y horas combinadas (esquema nuevo)
     final fechaInicioTrabajo = _getDateTimeFromTimestamp(data['fechaInicioTrabajo']);
@@ -273,11 +274,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
       final dynamic lat = data['ubicacionLat'];
       final dynamic lng = data['ubicacionLng'];
-      final dynamic geo = data['ubicacion']; 
-      
-      // Manejo de GeoPoint sin referenciar el tipo explícitamente
-      if (geo != null && geo.runtimeType.toString() == 'GeoPoint') {
+      final dynamic geo = data['ubicacion'];
+
+      if (geo is GeoPoint) {
         _ubicacionLatLng = LatLng(geo.latitude, geo.longitude);
+      } else if (geo is Map<String, dynamic>) {
+        _ubicacionLatLng = extractLatLngFromUbicacion(geo);
       } else if (lat is num && lng is num) {
         _ubicacionLatLng = LatLng(lat.toDouble(), lng.toDouble());
       } else {
@@ -529,6 +531,14 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       return;
     }
 
+    if (_fechaTrabajo == null || _horaInicio == null || _horaFin == null) {
+      // En escenarios atípicos la validación podría no activarse a tiempo y
+      // provocar un crash al forzar el operador '!'.
+      _showError('Completa la fecha y el horario del trabajo antes de publicarlo.');
+      setState(() => _currentStep = 1);
+      return;
+    }
+
     final fechaTrabajo = _fechaTrabajo!;
     final horaInicio = _horaInicio!;
     final horaFin = _horaFin!;
@@ -565,13 +575,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
     final servicio = TrabajoService();
     try {
-      final ubicacionData = {
-        'direccion': _ubicacionDireccionCtrl.text,
-        'ciudad': _ubicacionCiudadCtrl.text,
-        'pais': _ubicacionPaisCtrl.text,
-        'lat': coords.latitude, 
-        'lng': coords.longitude,
-      };
+      final ubicacionData = buildUbicacionPayload(
+        direccion: _ubicacionDireccionCtrl.text,
+        ciudad: _ubicacionCiudadCtrl.text,
+        pais: _ubicacionPaisCtrl.text,
+        coordenadas: coords,
+      );
 
       final contactoData = {
         'nombre': _contactoNombreController.text,
