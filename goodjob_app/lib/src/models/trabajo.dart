@@ -15,7 +15,7 @@ extension EstadoTrabajoExtension on EstadoTrabajo {
   String get texto {
     switch (this) {
       case EstadoTrabajo.activo:
-        return "Activo";
+        return "Abierto";
       case EstadoTrabajo.porConfirmar:
         return "Por confirmar";
       case EstadoTrabajo.pendiente:
@@ -81,17 +81,22 @@ class Trabajo {
     try {
       final estadoData = data['estado'] as String?;
       if (estadoData != null) {
-        // Intentar primero por name (ej: "activo", "porConfirmar")
-        estado = EstadoTrabajo.values.firstWhere(
-          (e) => e.name == estadoData,
-          orElse: () {
-            // Si no funciona, intentar por texto (ej: "Activo", "Por confirmar")
-            return EstadoTrabajo.values.firstWhere(
-              (e) => e.texto == estadoData,
-              orElse: () => EstadoTrabajo.activo,
-            );
-          },
-        );
+        final estadoLower = estadoData.toLowerCase();
+        if (estadoLower == 'abierto') {
+          estado = EstadoTrabajo.activo;
+        } else {
+          // Intentar primero por name (ej: "activo", "porConfirmar")
+          estado = EstadoTrabajo.values.firstWhere(
+            (e) => e.name == estadoLower,
+            orElse: () {
+              // Si no funciona, intentar por texto (ej: "Activo", "Por confirmar")
+              return EstadoTrabajo.values.firstWhere(
+                (e) => e.texto.toLowerCase() == estadoLower,
+                orElse: () => EstadoTrabajo.activo,
+              );
+            },
+          );
+        }
       } else {
         estado = EstadoTrabajo.activo;
       }
@@ -132,7 +137,7 @@ class Trabajo {
       'requiereUniforme': requiereUniforme,
       'implementosUniforme': implementosUniforme,
       'contacto': contacto,
-      'estado': estado.name, // Usar .name para consistencia
+      'estado': estado == EstadoTrabajo.activo && sinFechaLimite ? 'abierto' : estado.name, // Usar .name para consistencia
       'destacado': destacado,
       'sinFechaLimite': sinFechaLimite,
     };

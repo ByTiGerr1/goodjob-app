@@ -339,6 +339,7 @@ class _PostulacionContent extends StatelessWidget {
         estadoTrabajo == 'en curso' ||
         estadoTrabajo == 'en_curso' ||
         estadoTrabajo == 'activo' ||
+        estadoTrabajo == 'abierto' ||
         estadoTrabajo == 'ejecutando' ||
         estadoTrabajo == 'realizando';
     final trabajoCompletado =

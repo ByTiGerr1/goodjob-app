@@ -53,7 +53,7 @@ class TrabajoService {
       'implementosUniforme': implementosUniforme,
 
       'destacado': destacado,
-      'estado': EstadoTrabajo.activo.name, // Estado default
+      'estado': sinFechaLimite ? 'abierto' : EstadoTrabajo.activo.name, // Estado default
       'creadoEn': FieldValue.serverTimestamp(),
       'sinFechaLimite': sinFechaLimite,
     };

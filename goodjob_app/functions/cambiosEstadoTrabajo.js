@@ -88,11 +88,12 @@ export const cambioEstadoTrabajo = onRequest(async (req, res) => {
         
         const trabajoData = trabajoDoc.data();
         const estadoActual = trabajoData.estado;
+        const estadoActualNormalizado = (estadoActual || '').toLowerCase();
         
         // Validaciones según el nuevo estado
         if (nuevoEstado === 'enCurso') {
             // Verificar que el estado actual sea "pendiente"
-            if (estadoActual === 'pendiente') {
+            if (estadoActualNormalizado === 'pendiente') {
                 // Si está en pendiente, cambiar a "En curso"
                 await trabajoRef.update({
                     estado: 'enCurso',
@@ -104,7 +105,7 @@ export const cambioEstadoTrabajo = onRequest(async (req, res) => {
             }
             
             // Solo finalizar si estaba en "activo" o "porConfirmar" (estados sin trabajador confirmado)
-            if (estadoActual === 'activo' || estadoActual === 'porConfirmar') {
+            if (estadoActualNormalizado === 'activo' || estadoActualNormalizado === 'abierto' || estadoActualNormalizado === 'porconfirmar') {
                 await trabajoRef.update({
                     estado: 'finalizado',
                     actualizadoEn: admin.firestore.FieldValue.serverTimestamp(),

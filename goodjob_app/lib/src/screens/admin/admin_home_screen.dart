@@ -89,12 +89,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             final sinFechaLimite = data['sinFechaLimite'] == true;
             final fechaLimite = (data['fechaLimite'] as Timestamp?)?.toDate();
             final estado = sinFechaLimite || fechaLimite == null || fechaLimite.isAfter(ahora)
-                ? 'Activo'
+                ? 'Abierto'
                 : 'Cerrado';
             return {'estado': estado};
         }).toList();
 
-        final trabajosActivos = trabajosConEstado.where((t) => t['estado'] == 'Activo').toList();
+        final trabajosAbiertos = trabajosConEstado.where((t) => t['estado'] == 'Abierto').toList();
         final trabajosCerrados = trabajosConEstado.where((t) => t['estado'] == 'Cerrado').toList();
 
         return Padding(
@@ -115,8 +115,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   Expanded(
                     child: _buildCardResumen(
                       context,
-                      'Trabajos Activos',
-                      trabajosActivos.length,
+                      'Trabajos Abiertos',
+                      trabajosAbiertos.length,
                       Icons.work_history,
                       _ACTIVE_COLOR,
                     ),

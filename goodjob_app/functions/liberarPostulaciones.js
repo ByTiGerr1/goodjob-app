@@ -81,16 +81,24 @@ export const liberarPostulacionesExpiradas = onSchedule({
 
       // 3. Libera el trabajo para que otros puedan postularse
       const trabajoRef = db.collection('trabajos').doc(trabajoId);
-      
+      const trabajoDoc = await trabajoRef.get();
+      if (!trabajoDoc.exists) {
+        console.warn(`Trabajo ${trabajoId} no encontrado al liberar postulación expirada.`);
+        continue;
+      }
+      const trabajoData = trabajoDoc.data();
+      const sinFechaLimiteTrabajo = trabajoData?.sinFechaLimite === true;
+      const nuevoEstadoAbierto = sinFechaLimiteTrabajo ? 'abierto' : 'activo';
+
       if (otrasPostulacionesQuery.empty) {
         // Si no hay otras postulaciones aceptadas o confirmadas, cambiar el estado a "activo"
         currentBatch.update(trabajoRef, {
           trabajadorAsignadoId: null,
           estadoAsignacion: 'disponible',
-          estado: 'activo', // Cambiar estado a activo
+          estado: nuevoEstadoAbierto, // Cambiar estado a activo/abierto
           confirmacionExpiradaEn: ahora,
         });
-        console.log(`Trabajo ${trabajoId} cambiado a estado "activo"`);
+        console.log(`Trabajo ${trabajoId} cambiado a estado "${nuevoEstadoAbierto}"`);
       } else {
         // Mantener el estado actual, solo actualizar los campos relacionados con la asignación
         currentBatch.update(trabajoRef, {

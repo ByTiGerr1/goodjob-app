@@ -145,17 +145,27 @@ class PostulacionService {
         .doc(trabajoId);
     final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
 
+    String estadoTrabajo = '';
+    bool sinFechaLimiteTrabajo = false;
+
+    if (estadoNormalizado == 'aceptado' || estadoNormalizado == 'rechazado') {
+      final trabajoDoc = await trabajoRef.get();
+      if (!trabajoDoc.exists) {
+        throw Exception('El trabajo $trabajoId no existe.');
+      }
+      final data = trabajoDoc.data() as Map<String, dynamic>?;
+      estadoTrabajo = data?['estado'] as String? ?? '';
+      sinFechaLimiteTrabajo = data?['sinFechaLimite'] == true;
+    }
+
     // Validar que no haya otro usuario con estado "aceptado" o "confirmado"
     if (estadoNormalizado == 'aceptado') {
-      // Verificar el estado actual del trabajo
-      final trabajoDoc = await trabajoRef.get();
-      final trabajoData = trabajoDoc.data();
-      final estadoTrabajo = trabajoData?['estado'] as String? ?? '';
-      
-      // Solo permitir aceptar postulantes si el trabajo está en estado "activo"
-      if (estadoTrabajo.toLowerCase() != 'activo') {
+      final estadoTrabajoNormalizado = estadoTrabajo.toLowerCase();
+
+      // Solo permitir aceptar postulantes si el trabajo está en estado "activo" o "abierto"
+      if (estadoTrabajoNormalizado != 'activo' && estadoTrabajoNormalizado != 'abierto') {
         throw Exception(
-            'No se puede aceptar postulaciones porque el trabajo no está en estado Activo. Estado actual: $estadoTrabajo');
+            'No se puede aceptar postulaciones porque el trabajo no está en estado Abierto. Estado actual: $estadoTrabajo');
       }
       
       final querySnapshot = await _firestore
@@ -184,8 +194,9 @@ class PostulacionService {
           .get();
 
       if (querySnapshot.docs.isEmpty) {
-        // Cambiar el estado del trabajo a "Activo"
-        await trabajoRef.update({'estado': 'activo'});
+        // Cambiar el estado del trabajo a "Abierto" o "Activo" según corresponda
+        final nuevoEstado = sinFechaLimiteTrabajo ? 'abierto' : 'activo';
+        await trabajoRef.update({'estado': nuevoEstado});
       }
     }
 
