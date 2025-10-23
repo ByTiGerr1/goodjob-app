@@ -1,61 +1,73 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
 import '/src/models/trabajo.dart';
 import '/src/services/trabajo_service.dart';
 
 class TrabajoProvider with ChangeNotifier {
   final TrabajoService _service;
-  
-  TrabajoProvider(this._service){
-      _escucharTrabajos();
-    }
+  StreamSubscription<QuerySnapshot>? _trabajosSubscription;
+  bool _isDisposed = false;
 
-    List<Trabajo> _trabajos = [];
-    List<Trabajo> get trabajos => _trabajos;
+  TrabajoProvider(this._service) {
+    _escucharTrabajos();
+  }
 
-    // Filtros opcionales
-    EstadoTrabajo? _filtroEstado;
-    EstadoTrabajo? get filtroEstado => _filtroEstado;
-    
-    DateTime? _filtroFechaInicio;
-    DateTime? _filtroFechaFin;
+  List<Trabajo> _trabajos = [];
+  List<Trabajo> get trabajos => _trabajos;
 
-    void setFiltroEstado(EstadoTrabajo? estado) {
-      _filtroEstado = estado;
-      _aplicarFiltros();
-    }
+  // Filtros opcionales
+  EstadoTrabajo? _filtroEstado;
+  EstadoTrabajo? get filtroEstado => _filtroEstado;
 
-    void setFiltroFechas(DateTime? inicio, DateTime? fin) {
-      _filtroFechaInicio = inicio;
-      _filtroFechaFin = fin;
-      _aplicarFiltros();
-    }
+  DateTime? _filtroFechaInicio;
+  DateTime? _filtroFechaFin;
 
-    void _aplicarFiltros() {
-    var filtrados = _trabajos.where((t) {
+  void setFiltroEstado(EstadoTrabajo? estado) {
+    _filtroEstado = estado;
+    _aplicarFiltros();
+  }
+
+  void setFiltroFechas(DateTime? inicio, DateTime? fin) {
+    _filtroFechaInicio = inicio;
+    _filtroFechaFin = fin;
+    _aplicarFiltros();
+  }
+
+  void _aplicarFiltros() {
+    if (_isDisposed) return;
+
+    final filtrados = _trabajos.where((t) {
       // Filtro por estado
-      bool estadoOk = _filtroEstado == null || t.estado == _filtroEstado;
-      
+      final estadoOk = _filtroEstado == null || t.estado == _filtroEstado;
+
       // Filtro por fechas (solo si las fechas del filtro están definidas)
-      bool fechaOk = true;
+      var fechaOk = true;
       if (_filtroFechaInicio != null) {
         fechaOk = fechaOk && t.fechaInicioTrabajo.isAfter(_filtroFechaInicio!);
       }
       if (_filtroFechaFin != null) {
         fechaOk = fechaOk && t.fechaFinTrabajo.isBefore(_filtroFechaFin!);
       }
-      
+
       return estadoOk && fechaOk;
     }).toList();
     _trabajosFiltrados = filtrados;
     notifyListeners();
   }
+
   List<Trabajo> _trabajosFiltrados = [];
   List<Trabajo> get trabajosFiltrados => _trabajosFiltrados;
 
   // Escucha los cambios en la colección de trabajos
   void _escucharTrabajos() {
-    _service.obtenerTrabajos().listen((snapshot) {
-      _trabajos = snapshot.docs.map((doc) => Trabajo.fromFirestore(doc)).toList();
+    _trabajosSubscription?.cancel();
+    _trabajosSubscription = _service.obtenerTrabajos().listen((snapshot) {
+      if (_isDisposed) return;
+      _trabajos =
+          snapshot.docs.map((doc) => Trabajo.fromFirestore(doc)).toList();
       _aplicarFiltros();
     });
   }
@@ -63,10 +75,20 @@ class TrabajoProvider with ChangeNotifier {
   // Actualizar la lista de trabajos desde el servicio
   Future<void> actualizarEstado(String trabajoId, EstadoTrabajo estado) async {
     await _service.actualizarEstado(trabajoId, estado);
+    if (_isDisposed) return;
+
     final index = _trabajos.indexWhere((t) => t.id == trabajoId);
     if (index != -1) {
       _trabajos[index].estado = estado;
       _aplicarFiltros();
     }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _trabajosSubscription?.cancel();
+    _trabajosSubscription = null;
+    super.dispose();
   }
 }
