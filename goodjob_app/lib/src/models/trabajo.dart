@@ -101,7 +101,6 @@ class Trabajo {
   final List<String> implementosUniforme;
   final Map<String, String> contacto;
   EstadoTrabajo estado;
-  final bool destacado;
   final bool sinFechaLimite;
 
   Trabajo({
@@ -119,7 +118,6 @@ class Trabajo {
     required this.implementosUniforme,
     required this.contacto,
     required this.estado,
-    required this.destacado,
     this.sinFechaLimite = false,
   });
 
@@ -169,7 +167,6 @@ class Trabajo {
       implementosUniforme: List<String>.from(data['implementosUniforme'] ?? []),
       contacto: Map<String, String>.from(data['contacto'] ?? {}),
       estado: estado,
-      destacado: data['destacado'] ?? false,
       sinFechaLimite: data['sinFechaLimite'] == true,
     );
   }
@@ -188,7 +185,6 @@ class Trabajo {
       'implementosUniforme': implementosUniforme,
       'contacto': contacto,
       'estado': estado == EstadoTrabajo.activo && sinFechaLimite ? 'abierto' : estado.name, // Usar .name para consistencia
-      'destacado': destacado,
       'sinFechaLimite': sinFechaLimite,
     };
     if (fechaLimite != null && !sinFechaLimite) {

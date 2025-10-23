@@ -371,6 +371,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
   
   // --- WIDGETS DE VISTA Y FORMATO ---
 
+  
+
   ButtonStyle get _primaryButtonStyle {
     return ElevatedButton.styleFrom(
       backgroundColor: primaryColor,

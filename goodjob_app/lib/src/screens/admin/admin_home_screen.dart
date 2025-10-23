@@ -2,8 +2,6 @@ import 'admin_pagos_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-// Asumo que estos servicios y providers existen
-import 'package:goodjob_app/src/services/firebase_service.dart'; 
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/providers/trabajo_provider.dart';
 import 'admin_trabajos_screen.dart';
@@ -286,15 +284,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return ChangeNotifierProvider(
       create: (_) => TrabajoProvider(servicio),
       child: Scaffold(
-        appBar: _currentIndex != 0 ? AppBar(
-          title: Text(
-            _currentIndex == 1 ? 'Gestión de Trabajos' : 'Gestión de Pagos', 
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ) : null,
         
         body: IndexedStack( 
           index: _currentIndex,
