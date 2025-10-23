@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 class SeleccionarUbicacionScreen extends StatefulWidget {
   final LatLng initialPosition;
@@ -22,6 +23,9 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
     _mapController = MapController();
     // Usa la posición inicial proporcionada o una ubicación por defecto
     _selected = widget.initialPosition;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _centerOnCurrentLocation();
+    });
   }
 
   @override
@@ -30,6 +34,30 @@ class _SeleccionarUbicacionScreenState extends State<SeleccionarUbicacionScreen>
     super.dispose();
   }
 
+  Future<void> _centerOnCurrentLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      final current = LatLng(position.latitude, position.longitude);
+      _mapController.move(current, 15);
+      setState(() => _selected = current);
+    } catch (_) {
+      // Ignoramos los errores silenciosamente para no interrumpir la selección manual.
+    }
+  }
   Future<void> _buscarDireccion() async {
     final query = _searchCtrl.text;
     if (query.isEmpty) return;
