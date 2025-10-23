@@ -125,9 +125,14 @@ class StorageService {
       }
 
       // 1. Subir a Storage
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref =
-          _storage.ref().child('trabajos/$trabajoId/evidencias/$fileName'); 
+      final stageSegment = _sanitizeStage(etapa);
+      // Nueva estructura: Evidencias/{trabajoId}/{usuarioId}/{etapa}.jpg
+      final ref = _storage
+          .ref()
+          .child('Evidencias')
+          .child(trabajoId)
+          .child(usuarioId)
+          .child('$stageSegment.jpg');
 
       final uploadTask = await ref.putFile(imagen);
       final imageUrl = await uploadTask.ref.getDownloadURL();
@@ -322,4 +327,13 @@ class StorageService {
       print('❌ Error al eliminar evidencia de pago: $e');
     }
   }
+  String _sanitizeStage(String etapa) {
+    final normalized = etapa.trim().toLowerCase();
+    final sanitized =
+        normalized.replaceAll(RegExp(r'[^a-z0-9_-]+', caseSensitive: false), '_');
+    if (sanitized.isEmpty) {
+      return 'etapa';
+    }
+    return sanitized;
+  }  
 }
