@@ -2,19 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'postulante_detalle_screen.dart'; // Asegúrate de que esta importación sea correcta
 
-// --- WIDGET AUXILIAR: Tarjeta de Postulante (Maneja FutureBuilder internamente) ---
+// ====================================================================
+// WIDGET AUXILIAR: Tarjeta de Postulante
+// ====================================================================
 
 class _PostulanteCard extends StatelessWidget {
   final String usuarioId;
   final String trabajoId;
   final Map<String, dynamic> postulacionData;
+  // La firma del Future es importante: Future<Map<String, dynamic>>
   final Future<Map<String, dynamic>> Function(String) obtenerDatosUsuario;
   
-  // Colores de estado basados en el Theme
+// Colores de estado
   final Color primaryColor;
   final Color successColor = Colors.green.shade600;
   final Color rejectColor = Colors.red.shade600;
-  final Color pendingColor; // Usaremos el secondaryColor del tema
+  final Color pendingColor = Colors.orange.shade800; 
 
   _PostulanteCard({
     required this.usuarioId,
@@ -22,8 +25,8 @@ class _PostulanteCard extends StatelessWidget {
     required this.postulacionData,
     required this.obtenerDatosUsuario,
     required this.primaryColor,
-    required Color secondaryColor,
-  }) : pendingColor = secondaryColor; // Asignamos secondaryColor a pendingColor
+    required Color secondaryColor, // Secondary Color se ignora en este widget
+  });
 
   // Mapeo de estado a colores y texto
   Map<String, dynamic> _getEstadoInfo() {
@@ -37,7 +40,6 @@ class _PostulanteCard extends StatelessWidget {
       case 'confirmado':
         return {'color': primaryColor, 'icono': Icons.task_alt, 'texto': 'Confirmado'};
       default:
-        // Usamos el color de acento (amarillo) para pendiente
         return {'color': pendingColor, 'icono': Icons.hourglass_bottom, 'texto': 'Pendiente'};
     }
   }
@@ -60,9 +62,15 @@ class _PostulanteCard extends StatelessWidget {
           );
         }
         
+        // Manejo de datos del usuario
         final usuarioData = usuarioSnapshot.data ?? {};
         final nombre = usuarioData['nombre'] ?? 'Nombre N/D';
         final carrera = usuarioData['carrera'] ?? 'Carrera N/D';
+        
+        // ⬅️ NUEVO: Obtener la URL de la foto de perfil
+        final fotoUrl = usuarioData['fotoUrl'] as String?; 
+        final hasPhoto = fotoUrl != null && fotoUrl.isNotEmpty;
+
         final inicial = nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?';
 
         return Card(
@@ -71,6 +79,7 @@ class _PostulanteCard extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: InkWell(
             onTap: () {
+              // Navega a la pantalla de detalle (asumiendo que está definida en el import)
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => PostulanteDetalleScreen(
@@ -85,18 +94,22 @@ class _PostulanteCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Avatar de Perfil
+                  // ⬅️ CAMBIO CLAVE: Lógica para mostrar la foto o la inicial
                   CircleAvatar(
                     radius: 28,
                     backgroundColor: primaryColor.withOpacity(0.15),
-                    child: Text(
-                      inicial,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                      ),
-                    ),
+                    // Usar NetworkImage si la URL existe, sino dejar null
+                    backgroundImage: hasPhoto ? NetworkImage(fotoUrl!) : null,
+                    child: hasPhoto
+                        ? null // Si hay foto, el child es null
+                        : Text( // Si no hay foto, mostrar la inicial
+                            inicial,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 16),
                   
@@ -153,17 +166,21 @@ class _PostulanteCard extends StatelessWidget {
   }
 }
 
-// --- PANTALLA PRINCIPAL ---
+// ====================================================================
+// PANTALLA PRINCIPAL: PostulantesTrabajoScreen
+// ====================================================================
 
 class PostulantesTrabajoScreen extends StatelessWidget {
   final String trabajoId;
 
   const PostulantesTrabajoScreen({super.key, required this.trabajoId});
 
-  // Reubicación y simplificación del método de obtención de datos del usuario
+  /// Método de obtención de datos del usuario, modificado para ser más robusto
+  /// e incluir todos los datos, incluida la 'fotoUrl'.
   Future<Map<String, dynamic>> _obtenerDatosUsuario(String usuarioId) async {
     try {
       final docSnapshot = await FirebaseFirestore.instance.collection('usuarios').doc(usuarioId).get();
+      // ⬅️ Retorna los datos que deben incluir la 'fotoUrl' si existe.
       return docSnapshot.data() ?? {};
     } catch (e) {
       print('Error al obtener datos del usuario: $e');
@@ -220,7 +237,7 @@ class PostulantesTrabajoScreen extends StatelessWidget {
             );
           }
 
-          // Ordenar por estado (Pendiente primero, luego Aceptado/Confirmado, luego Rechazado)
+          // Ordenar por estado
           final postulaciones = snapshot.data!.docs.toList();
           postulaciones.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>;
@@ -238,7 +255,8 @@ class PostulantesTrabajoScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final postulacionDoc = postulaciones[index];
               final postulacionData = postulacionDoc.data() as Map<String, dynamic>;
-              final usuarioId = postulacionData['usuarioId'];
+              // El ID del documento de postulación es el usuarioId
+              final usuarioId = postulacionData['usuarioId']; 
 
               if (usuarioId == null || usuarioId.isEmpty) {
                 return const SizedBox.shrink(); 
