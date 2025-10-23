@@ -66,7 +66,10 @@ class StorageService {
   }) async {
     try {
       if (trabajoId.isEmpty) throw Exception('El trabajoId está vacío');
-      
+      if (!await imagen.exists()) {
+        throw Exception('El archivo de imagen no existe en el dispositivo.');
+      }
+
       // 1. Definir la RUTA LIMPIA: trabajos/{trabajoId}/principal/cover_image.jpg
       final ref = _storage
           .ref()
@@ -329,37 +332,50 @@ class StorageService {
     try {
       final app = Firebase.app();
       final rawBucket = app.options.storageBucket;
-      if (rawBucket != null && rawBucket.isNotEmpty) {
+      if (rawBucket != null && rawBucket.trim().isNotEmpty) {
         final normalizedBucket = _normalizeBucket(rawBucket);
         if (normalizedBucket != null) {
-          return FirebaseStorage.instanceFor(bucket: normalizedBucket);
+          try {
+            return FirebaseStorage.instanceFor(bucket: normalizedBucket);
+          } catch (_) {
+            // Si fallara por un formato inesperado del bucket, regresamos a la instancia por defecto.
+          }
         }
       }
     } catch (_) {
-      // Si no se puede resolver la app o el bucket, usamos la instancia por defecto
+      // Si no se puede resolver la app o el bucket, usamos la instancia por defecto.
     }
     return FirebaseStorage.instance;
   }
 
   String? _normalizeBucket(String bucket) {
-    var sanitized = bucket.trim();
+    final sanitized = bucket.trim();
     if (sanitized.isEmpty) {
       return null;
     }
-    if (sanitized.startsWith('gs://')) {
-      sanitized = sanitized.substring(5);
+
+    final lowerSanitized = sanitized.toLowerCase();
+
+    // Si ya viene con un esquema válido, lo reutilizamos directamente.
+    if (lowerSanitized.startsWith('gs://') ||
+        lowerSanitized.startsWith('https://') ||
+        lowerSanitized.startsWith('http://')) {
+      return sanitized;
     }
-    if (sanitized.endsWith('.firebasestorage.app')) {
-      sanitized = sanitized.replaceFirst(
-        RegExp(r'\.firebasestorage\.app$'),
-        '.appspot.com',
-      );
-    }
-    if (sanitized.isEmpty) {
+
+    // Quitamos posibles barras finales para evitar rutas con doble '/'.
+    final bucketName = sanitized.endsWith('/')
+        ? sanitized.substring(0, sanitized.length - 1)
+        : sanitized;
+
+    if (bucketName.isEmpty) {
       return null;
     }
-    return 'gs://$sanitized';
-  }  
+
+    // Compatibilidad tanto con buckets legacy (.appspot.com) como con el nuevo
+    // dominio (.firebasestorage.app). En ambos casos Firebase acepta el prefijo gs://.
+    return 'gs://$bucketName';
+  }
   String _sanitizeStage(String etapa) {
     final normalized = etapa.trim().toLowerCase();
     final sanitized =

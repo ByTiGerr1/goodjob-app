@@ -20,7 +20,7 @@ class TrabajoService {
   }
 
   /// Creates a new job document in Firestore.
-  Future<void> crearTrabajo({
+  Future<String> crearTrabajo({
     required String titulo,
     required String descripcion,
     required String empresa,
@@ -36,6 +36,7 @@ class TrabajoService {
     bool sinFechaLimite = false,
     bool destacado = false,
     String? imagenPrincipalUrl, // AÑADIDO: URL de la imagen principal
+    String? trabajoId,
   }) async {
     // Usamos Timestamp.fromDate() con los DateTime no nulos que vienen del Canvas
     final data = {
@@ -63,7 +64,13 @@ class TrabajoService {
       data['fechaLimite'] = Timestamp.fromDate(fechaLimite);
     }
 
-    await _trabajos.add(data);
+    if (trabajoId != null) {
+      await _trabajos.doc(trabajoId).set(data);
+      return trabajoId;
+    } else {
+      final docRef = await _trabajos.add(data);
+      return docRef.id;
+    }
   }
 
   /// Updates an existing job document in Firestore.
