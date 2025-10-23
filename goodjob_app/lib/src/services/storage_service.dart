@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 /// Servicio encargado de la gestión de archivos (Firebase Storage)
@@ -9,10 +10,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 class StorageService {
   StorageService();
 
-  // Especificar el bucket correcto de Firebase Storage
-  final FirebaseStorage _storage = FirebaseStorage.instanceFor(
-    bucket: 'gs://good-job-1.firebasestorage.app',
-  );
+  late final FirebaseStorage _storage = _createStorageInstance();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const Map<String, int> _ordenEtapas = {
@@ -327,6 +325,41 @@ class StorageService {
       print('❌ Error al eliminar evidencia de pago: $e');
     }
   }
+  FirebaseStorage _createStorageInstance() {
+    try {
+      final app = Firebase.app();
+      final rawBucket = app.options.storageBucket;
+      if (rawBucket != null && rawBucket.isNotEmpty) {
+        final normalizedBucket = _normalizeBucket(rawBucket);
+        if (normalizedBucket != null) {
+          return FirebaseStorage.instanceFor(bucket: normalizedBucket);
+        }
+      }
+    } catch (_) {
+      // Si no se puede resolver la app o el bucket, usamos la instancia por defecto
+    }
+    return FirebaseStorage.instance;
+  }
+
+  String? _normalizeBucket(String bucket) {
+    var sanitized = bucket.trim();
+    if (sanitized.isEmpty) {
+      return null;
+    }
+    if (sanitized.startsWith('gs://')) {
+      sanitized = sanitized.substring(5);
+    }
+    if (sanitized.endsWith('.firebasestorage.app')) {
+      sanitized = sanitized.replaceFirst(
+        RegExp(r'\.firebasestorage\.app$'),
+        '.appspot.com',
+      );
+    }
+    if (sanitized.isEmpty) {
+      return null;
+    }
+    return 'gs://$sanitized';
+  }  
   String _sanitizeStage(String etapa) {
     final normalized = etapa.trim().toLowerCase();
     final sanitized =
