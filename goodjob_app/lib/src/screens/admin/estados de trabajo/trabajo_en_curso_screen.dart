@@ -1,27 +1,28 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/screens/admin/admin_trabajo_router.dart';
+import 'package:goodjob_app/src/screens/trabajo_en_curso_screen.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
 import 'package:goodjob_app/src/widgets/trabajo_detalles_card.dart';
 // Asumiendo que esta es la pantalla de redireccionamiento para edición o gestión
 
 
-class AdminTrabajoEnCursoScreen extends StatefulWidget {
+class TrabajoEnCursoScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
 
-  const AdminTrabajoEnCursoScreen({
+  const TrabajoEnCursoScreen({
     super.key,
     required this.trabajoId,
     required this.trabajo,
   });
 
   @override
-  State<AdminTrabajoEnCursoScreen> createState() => _AdminTrabajoEnCursoScreenState();
+  State<TrabajoEnCursoScreen> createState() => _TrabajoEnCursoScreenState();
 }
 
-class _AdminTrabajoEnCursoScreenState extends State<AdminTrabajoEnCursoScreen> {
+class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _isLoading = false;

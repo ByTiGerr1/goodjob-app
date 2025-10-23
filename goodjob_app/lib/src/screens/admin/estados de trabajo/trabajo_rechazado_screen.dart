@@ -3,21 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 
-class AdminTrabajoRechazadoScreen extends StatefulWidget {
+class TrabajoRechazadoScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
 
-  const AdminTrabajoRechazadoScreen({
+  const TrabajoRechazadoScreen({
     super.key,
     required this.trabajoId,
     required this.trabajo,
   });
 
   @override
-  State<AdminTrabajoRechazadoScreen> createState() => _AdminTrabajoRechazadoScreenState();
+  State<TrabajoRechazadoScreen> createState() => _TrabajoRechazadoScreenState();
 }
 
-class _AdminTrabajoRechazadoScreenState extends State<AdminTrabajoRechazadoScreen> {
+class _TrabajoRechazadoScreenState extends State<TrabajoRechazadoScreen> {
   final StorageService _storageService = StorageService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 

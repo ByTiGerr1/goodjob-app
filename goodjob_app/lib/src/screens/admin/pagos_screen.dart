@@ -233,7 +233,7 @@ class _PagosScreenState extends State<PagosScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => AdminTrabajoPorPagarScreen(
+              builder: (_) => TrabajoPorPagarScreen(
                 trabajoId: trabajo.id,
                 trabajo: trabajo.toMap(),
               ),

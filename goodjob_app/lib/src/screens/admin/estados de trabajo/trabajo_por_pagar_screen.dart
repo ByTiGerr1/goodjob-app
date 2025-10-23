@@ -10,21 +10,21 @@ import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
 import 'package:image_picker/image_picker.dart';
 
-class AdminTrabajoPorPagarScreen extends StatefulWidget {
+class TrabajoPorPagarScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
 
-  const AdminTrabajoPorPagarScreen({
+  const TrabajoPorPagarScreen({
     super.key,
     required this.trabajoId,
     required this.trabajo,
   });
 
   @override
-  State<AdminTrabajoPorPagarScreen> createState() => _AdminTrabajoPorPagarScreenState();
+  State<TrabajoPorPagarScreen> createState() => _TrabajoPorPagarScreenState();
 }
 
-class _AdminTrabajoPorPagarScreenState extends State<AdminTrabajoPorPagarScreen> {
+class _TrabajoPorPagarScreenState extends State<TrabajoPorPagarScreen> {
   final StorageService _storageService = StorageService();
   final TrabajoService _trabajoService = TrabajoService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

@@ -17,19 +17,19 @@ Widget getAdminTrabajoView({
   
   switch (trabajoData['estado']){
     case "pendiente":
-      return AdminTrabajoPendienteScreen(trabajoId: trabajoId, trabajo: trabajoData);
+      return TrabajoPendiente(trabajoId: trabajoId, trabajo: trabajoData);
     case "porConfirmar":
-      return AdminTrabajoPorConfirmarScreen(trabajoId: trabajoId, trabajo: trabajoData);
+      return TrabajoPorConfirmarScreen(trabajoId: trabajoId, trabajo: trabajoData);
     case "porRevisar":
-      return AdminTrabajoPorRevisarScreen(trabajoId: trabajoId, trabajo: trabajoData);
+      return TrabajoPorRevisarScreen(trabajoId: trabajoId, trabajo: trabajoData);
     case "enCurso":
-      return AdminTrabajoEnCursoScreen(trabajoId: trabajoId, trabajo: trabajoData);
+      return TrabajoEnCursoScreen(trabajoId: trabajoId, trabajo: trabajoData);
     case "porPagar":
-      return AdminTrabajoPorPagarScreen(trabajoId: trabajoId, trabajo: trabajoData);
+      return TrabajoPorPagarScreen(trabajoId: trabajoId, trabajo: trabajoData);
     case "finalizado":
-      return AdminTrabajoFinalizadoScreen(trabajoId: trabajoId, trabajo: trabajoData);
+      return TrabajoFinalizado(trabajoId: trabajoId, trabajo: trabajoData);
     case "rechazado":
-      return AdminTrabajoRechazadoScreen(trabajoId: trabajoId, trabajo: trabajoData);
+      return TrabajoRechazadoScreen(trabajoId: trabajoId, trabajo: trabajoData);
     // Agregar más vistas de estado según sea necesario
     
     default:

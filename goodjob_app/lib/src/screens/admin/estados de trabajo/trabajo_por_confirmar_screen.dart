@@ -6,21 +6,21 @@ import 'package:goodjob_app/src/models/trabajo.dart';
 import '../admin_trabajo_router.dart'; 
 
 
-class AdminTrabajoPorConfirmarScreen extends StatefulWidget {
+class TrabajoPorConfirmarScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
 
-  const AdminTrabajoPorConfirmarScreen({
+  const TrabajoPorConfirmarScreen({
     super.key,
     required this.trabajoId,
     required this.trabajo,
   });
 
   @override
-  State<AdminTrabajoPorConfirmarScreen> createState() => _AdminTrabajoPorConfirmarScreenState();
+  State<TrabajoPorConfirmarScreen> createState() => _TrabajoPorConfirmarScreenState();
 }
 
-class _AdminTrabajoPorConfirmarScreenState extends State<AdminTrabajoPorConfirmarScreen> {
+class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _isLoading = false;
