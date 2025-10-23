@@ -1,4 +1,6 @@
-import 'admin_pagos_screen.dart';
+import 'package:goodjob_app/src/screens/trabajos_screen.dart';
+
+import 'pagos_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -289,8 +291,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           index: _currentIndex,
           children: [
             _buildHomeDashboard(), 
-            const AdminTrabajosScreen(),
-            const AdminPagosScreen(),
+              AdminTrabajosScreen(),
+              PagosScreen(),
           ],
         ),
         

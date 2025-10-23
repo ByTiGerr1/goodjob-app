@@ -120,40 +120,7 @@ class _FilterControlsState extends State<_FilterControls> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Contenedor de Conteo Total (Estilo pill-shape limpio)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(25),
-                  color: primaryColor.withOpacity(
-                    0.1,
-                  ), // Color del tema para un look más integrado
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min, // Ajustar al contenido
-                  children: [
-                    Icon(Icons.layers_rounded, size: 18, color: primaryColor),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Total de Trabajos: ${widget.totalCount}',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+
 
             const SizedBox(height: 8),
 
