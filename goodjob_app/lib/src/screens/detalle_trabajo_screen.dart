@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:goodjob_app/src/services/format_utils.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart';
 import '../services/postulacion_service.dart'; // Asumiendo que PostulacionService existe
 
 class DetalleTrabajoScreen extends StatefulWidget {
@@ -58,6 +58,11 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
 
   Timestamp? safeTimestampCast(dynamic value) {
     return value is Timestamp ? value : null;
+  }
+  
+  // FUNCIÓN: Obtener la URL de la imagen principal
+  String? _getImagenPrincipalUrl() {
+    return widget.trabajo['imagenPrincipalUrl'] as String?;
   }
 
   // --- FUNCIONES DE FORMATO REQUERIDAS ---
@@ -191,6 +196,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     }
 
     try {
+      // ASUME QUE ESTE MÉTODO EXISTE EN PostulacionService
       await _postulacionService.crearPostulacion(
         trabajoId: widget.trabajoId,
         trabajoTitulo: widget.trabajo['titulo'] ?? '',
@@ -210,7 +216,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     }
   }
 
-  // NUEVA FUNCIÓN: Lógica para cancelar postulación
+  // FUNCIÓN: Lógica para cancelar postulación
   Future<void> _cancelarPostulacion() async {
     if (_usuarioId == null || _isCanceling) return;
 
@@ -416,6 +422,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     final diaTexto = _formatFecha(fechaInicio);
     final dynamic precio = widget.trabajo['precio'];
     final pagoTexto = (precio != null) 
+    // Usamos FormatUtils (asumido que existe)
     ? FormatUtils.formatCurrency(precio.toDouble()) 
     : 'N/D';
 
@@ -527,7 +534,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
         if (confirmarAntesDe == null) {
           final acceptedEnTs = safeTimestampCast(data['aceptadoEn']);
           if (acceptedEnTs != null) {
-             confirmarAntesDe = acceptedEnTs.toDate().add(const Duration(hours: 24));
+              confirmarAntesDe = acceptedEnTs.toDate().add(const Duration(hours: 24));
           }
         }
         
@@ -727,6 +734,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
     final implementosUniforme = (widget.trabajo['implementosUniforme'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
     final instrucciones = widget.trabajo['instrucciones'] as String? ?? 'No hay requisitos específicos.';
     final descripcion = widget.trabajo['descripcion'] ?? 'Descripción no disponible.';
+    
+    final imagenUrl = _getImagenPrincipalUrl(); // EXTRAEMOS LA URL DE LA IMAGEN
 
     // Lógica para el texto claro del uniforme
     final String uniformeTexto = requiereUniforme 
@@ -737,7 +746,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200.0,
+            expandedHeight: 250.0, // Aumentamos la altura para la imagen
             floating: true,
             pinned: true,
             backgroundColor: primaryColor,
@@ -750,18 +759,37 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
                 children: [
                   Text(
                     widget.trabajo['titulo'] ?? 'Título N/D',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white, shadows: [
+                      Shadow(blurRadius: 5.0, color: Colors.black, offset: Offset(1, 1))
+                    ]),
                   ),
                   Text(
                     widget.trabajo['empresa'] ?? 'Empresa N/D',
-                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.8)),
+                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.8), shadows: const [
+                      Shadow(blurRadius: 3.0, color: Colors.black, offset: Offset(1, 1))
+                    ]),
                   ),
                 ],
               ),
               background: Container(
                 color: primaryColor,
-                alignment: Alignment.center,
-                child: const Icon(Icons.business_center_outlined, size: 80, color: Colors.white54),
+                child: imagenUrl != null && imagenUrl.isNotEmpty
+                    ? Image.network(
+                        imagenUrl,
+                        fit: BoxFit.cover,
+                        // Manejo de errores de carga de red
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: primaryColor,
+                            child: const Center(
+                              child: Icon(Icons.business_center_outlined, size: 80, color: Colors.white54),
+                            ),
+                          );
+                        },
+                      )
+                    : const Center(
+                        child: Icon(Icons.business_center_outlined, size: 80, color: Colors.white54),
+                      ),
               ),
             ),
           ),
@@ -769,9 +797,8 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
           SliverList(
             delegate: SliverChildListDelegate(
               [
-                // --- 1. TARJETA DE RESUMEN CLAVE (Espaciado optimizado) ---
+                // --- 1. TARJETA DE RESUMEN CLAVE ---
                 Padding(
-                  // Aumentamos el padding superior para separarlo del AppBar
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), 
                   child: Card(
                     elevation: 4,
@@ -896,7 +923,7 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.event_busy, color: secondaryColor, size: 24),
+                Icon(Icons.event_busy, color: alertColor, size: 24), // Usamos alertColor para el reloj
                 const SizedBox(width: 8),
                 const Text(
                   'Esta oferta termina en:',

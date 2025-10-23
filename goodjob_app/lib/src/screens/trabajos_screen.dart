@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:goodjob_app/src/services/format_utils.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
 
@@ -488,6 +488,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 ); // Usado para mostrar si es fecha límite
 
                 final distancia = data['distance'] as double?;
+                final imagenUrl = data['imagenPrincipalUrl'] as String?; // <--- Extraemos la URL
 
                 String fechaTxt = _formatFecha(fechaInicio);
 
@@ -531,15 +532,23 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // *** INICIO: Círculo de Avatar con Imagen/Icono ***
                           CircleAvatar(
                             radius: 30,
                             backgroundColor: _primaryAppColor,
-                            child: const Icon(
-                              Icons.work_outline,
-                              size: 28,
-                              color: Colors.white,
-                            ),
+                            // Lógica para mostrar la imagen de red o el icono
+                            backgroundImage: (imagenUrl != null && imagenUrl.isNotEmpty)
+                                ? NetworkImage(imagenUrl)
+                                : null,
+                            child: (imagenUrl == null || imagenUrl.isEmpty)
+                                ? const Icon(
+                                    Icons.work_outline,
+                                    size: 28,
+                                    color: Colors.white,
+                                  )
+                                : null,
                           ),
+                          // *** FIN: Círculo de Avatar con Imagen/Icono ***
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
@@ -565,8 +574,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                 Text(
                                   (data['precio'] != null)
                                       ? FormatUtils.formatCurrency(
-                                          data['precio'].toDouble(),
-                                        )
+                                            data['precio'].toDouble(),
+                                          )
                                       : 'N/D',
                                   style: const TextStyle(
                                     fontSize: 16,
@@ -836,6 +845,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                           final seleccionado =
                               id != null && id == _ultimoTrabajoSeleccionadoId;
                           final distancia = trabajo['distance'] as double?;
+                          final imagenUrl = trabajo['imagenPrincipalUrl'] as String?; // <--- Extraemos la URL para el carrusel
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -864,56 +874,89 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                                     ),
                                   ],
                                 ),
-                                child: Column(
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      trabajo['titulo'] ?? 'Sin título',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                    // *** INICIO: Miniatura en el Carrusel ***
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: _primaryAppColor,
+                                        borderRadius: BorderRadius.circular(8),
+                                        image: (imagenUrl != null && imagenUrl.isNotEmpty)
+                                            ? DecorationImage(
+                                                image: NetworkImage(imagenUrl),
+                                                fit: BoxFit.cover,
+                                              )
+                                            : null,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      trabajo['empresa'] ??
-                                          'Empresa no registrada',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      (trabajo['precio'] != null)
-                                          ? FormatUtils.formatCurrency(
-                                              trabajo['precio'].toDouble(),
+                                      child: (imagenUrl == null || imagenUrl.isEmpty)
+                                          ? const Icon(
+                                              Icons.work_outline,
+                                              size: 30,
+                                              color: Colors.white,
                                             )
-                                          : 'N/D',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
+                                          : null,
+                                    ),
+                                    // *** FIN: Miniatura en el Carrusel ***
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            trabajo['titulo'] ?? 'Sin título',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            trabajo['empresa'] ??
+                                                'Empresa no registrada',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            (trabajo['precio'] != null)
+                                                ? FormatUtils.formatCurrency(
+                                                      trabajo['precio']
+                                                          .toDouble(),
+                                                    )
+                                                : 'N/D',
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green,
+                                            ),
+                                          ),
+                                          if (distancia != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 6.0,
+                                              ),
+                                              child: Text(
+                                                '${distancia.toStringAsFixed(1)} km de distancia',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                    if (distancia != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 6.0,
-                                        ),
-                                        child: Text(
-                                          '${distancia.toStringAsFixed(1)} km de distancia',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),

@@ -58,12 +58,10 @@ class StorageService {
   }
 
   // -----------------------------------------------------------------
-  // LÓGICA DE GESTIÓN DE IMAGEN PRINCIPAL DE TRABAJO (NUEVA RUTA: /trabajos/{trabajoId}/principal/...)
+  // LÓGICA DE GESTIÓN DE IMAGEN PRINCIPAL DE TRABAJO 
   // -----------------------------------------------------------------
 
   /// Sube la imagen principal o de portada para un trabajo.
-  /// Requiere la regla de seguridad: 'match /trabajos/{trabajoId}/principal/{fileName} { allow write: if isAdmin(); }'
-  /// Retorna la URL de descarga o null si hubo un error.
   Future<String?> subirImagenPrincipal({
     required String trabajoId,
     required File imagen,

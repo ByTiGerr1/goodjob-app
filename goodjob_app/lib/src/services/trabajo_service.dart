@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart'; // Necesario para TimeOfDay
-import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:flutter/material.dart'; // Necesario para TimeOfDay (asumiendo que está aquí)
+import 'package:goodjob_app/src/models/trabajo.dart'; // Asumiendo que contiene EstadoTrabajo
 
 class TrabajoService {
   final CollectionReference _trabajos =
@@ -30,12 +30,13 @@ class TrabajoService {
     required DateTime fechaFinTrabajo,
     required double precio,
     required String instrucciones,
-    required bool requiereUniforme, // Nuevo campo
-    required List<String> implementosUniforme, // Nuevo campo
-    required Map<String, String> contacto, // Nuevo campo
+    required bool requiereUniforme,
+    required List<String> implementosUniforme,
+    required Map<String, String> contacto,
     bool sinFechaLimite = false,
     bool destacado = false,
-  }) {
+    String? imagenPrincipalUrl, // AÑADIDO: URL de la imagen principal
+  }) async {
     // Usamos Timestamp.fromDate() con los DateTime no nulos que vienen del Canvas
     final data = {
       'titulo': titulo,
@@ -47,7 +48,6 @@ class TrabajoService {
       'precio': precio,
       'instrucciones': instrucciones,
       
-      // Nuevos campos de contacto y requisitos
       'contacto': contacto,
       'requiereUniforme': requiereUniforme,
       'implementosUniforme': implementosUniforme,
@@ -56,16 +56,16 @@ class TrabajoService {
       'estado': sinFechaLimite ? 'abierto' : EstadoTrabajo.activo.name, // Estado default
       'creadoEn': FieldValue.serverTimestamp(),
       'sinFechaLimite': sinFechaLimite,
+      'imagenPrincipalUrl': imagenPrincipalUrl, // Guardar la URL de la imagen
     };
 
     if (fechaLimite != null && !sinFechaLimite) {
       data['fechaLimite'] = Timestamp.fromDate(fechaLimite);
     }
 
-    return _trabajos.add(data);
+    await _trabajos.add(data);
   }
 
-  // --- NUEVA FUNCIÓN PARA EDICIÓN ---
   /// Updates an existing job document in Firestore.
   Future<void> actualizarTrabajo({
     required String trabajoId,
@@ -82,7 +82,8 @@ class TrabajoService {
     required List<String> implementosUniforme,
     required Map<String, String> contacto,
     bool sinFechaLimite = false,
-  }) {
+    String? imagenPrincipalUrl, // AÑADIDO: URL de la imagen principal
+  }) async {
     // Usamos Timestamp.fromDate() con los DateTime no nulos
     final updateData = {
       'titulo': titulo,
@@ -98,6 +99,7 @@ class TrabajoService {
       'implementosUniforme': implementosUniforme,
       'actualizadoEn': FieldValue.serverTimestamp(),
       'sinFechaLimite': sinFechaLimite,
+      'imagenPrincipalUrl': imagenPrincipalUrl, // Guardar la URL de la imagen
     };
 
     if (fechaLimite != null && !sinFechaLimite) {
@@ -107,14 +109,13 @@ class TrabajoService {
       updateData['fechaLimitePostulacion'] = FieldValue.delete();
     }
 
-    return _trabajos.doc(trabajoId).update(updateData);
+    await _trabajos.doc(trabajoId).update(updateData);
   }
+  
   /// Updates the status of a job.
   Future<void> actualizarEstado(String trabajoId, EstadoTrabajo estado) {
     return _trabajos.doc(trabajoId).update({'estado': estado.name});
   }
-  // ---------------------------------
-
 
   /// Cancels a job by updating its state to 'cancelado'.
   Future<void> cancelarTrabajo(String trabajoId) {

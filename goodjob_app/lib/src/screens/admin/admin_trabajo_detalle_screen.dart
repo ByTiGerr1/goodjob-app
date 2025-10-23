@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:goodjob_app/src/services/format_utils.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'dart:async';
 
 // Simulación de la pantalla de edición, que es la misma que la de creación

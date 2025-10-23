@@ -1,13 +1,19 @@
+import 'dart:async';
+import 'dart:io'; 
+
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/src/screens/admin/seleccionar_ubicacion_screen.dart';
 import 'package:goodjob_app/src/services/plantilla_trabajo_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
+import 'package:goodjob_app/src/utils/location_utils.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
-import 'seleccionar_ubicacion_screen.dart';
+// Importaciones de utilidades y servicios requeridos:
+import 'package:image_picker/image_picker.dart'; 
+import '../../services/storage_service.dart'; // Importado
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:async'; // Necesario para Timestamp
-import 'package:goodjob_app/src/utils/location_utils.dart';
 
+// --- ENUMS Y CLASES AUXILIARES ---
 enum _MenuPlantillaOption { aplicar, crear }
 
 class _PlantillaDialogResult {
@@ -23,8 +29,9 @@ class _PlantillaDialogResult {
       const _PlantillaDialogResult._(null, true);
 }
 
+// --- PANTALLA PRINCIPAL ---
+
 class CrearTrabajoScreen extends StatefulWidget {
-  // Parámetros OPCIONALES para el modo edición
   final String? trabajoIdParaEditar;
   final Map<String, dynamic>? trabajoInicial;
 
@@ -39,13 +46,25 @@ class CrearTrabajoScreen extends StatefulWidget {
 }
 
 class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
+  // Servicios
+  final PlantillaTrabajoService _plantillaService = PlantillaTrabajoService();
+  final TrabajoService _trabajoService = TrabajoService();
+  final StorageService _storageService = StorageService(); // USAMOS EL SERVICIO DE STORAGE
+  final ImagePicker _picker = ImagePicker(); 
+
+  // Estados de Formulario y UI
   final _formKeys = List.generate(3, (_) => GlobalKey<FormState>());
   int _currentStep = 0;
-
-  final PlantillaTrabajoService _plantillaService = PlantillaTrabajoService();
+  bool _isSaving = false; // Estado para el botón de Publicar/Guardar
+  
+  // Estado de Datos
   List<TrabajoPlantilla> _plantillas = [];
   bool _cargandoPlantillas = false;
   
+  // ESTADO DE IMAGEN
+  File? _imagenPrincipal; // Archivo local seleccionado
+  String? _imagenPrincipalUrlExistente; // URL si estamos en modo edición
+
   bool get _esModoEdicion => widget.trabajoIdParaEditar != null;
 
   // Paso 1: Información básica
@@ -104,14 +123,12 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   // --- LÓGICA DE CARGA PARA EDICIÓN ---
   
   DateTime? _getDateTimeFromTimestamp(dynamic value) {
-    // Usamos runtimeType para manejar el Timestamp de forma segura sin dependencia directa
     if (value != null && value.runtimeType.toString() == 'Timestamp') {
       return (value as Timestamp).toDate();
     }
     return null;
   }
   
-  // Función auxiliar para obtener TimeOfDay a partir de un DateTime combinado
   TimeOfDay? _getTimeOfDayFromDateTime(DateTime? dateTime) {
     if (dateTime == null) return null;
     return TimeOfDay.fromDateTime(dateTime);
@@ -122,8 +139,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     _tituloController.text = data['titulo'] ?? '';
     _descripcionController.text = data['descripcion'] ?? '';
     _empresaController.text = data['empresa'] ?? '';
+    
+    // Cargar URL de imagen existente
+    _imagenPrincipalUrlExistente = data['imagenPrincipalUrl'] as String?;
 
-    // Paso 2
+    // Paso 2 (Mismo código de ubicación, fechas y precio)
     final ubicacion = data['ubicacion'] as Map<String, dynamic>?;
     if (ubicacion != null) {
       _ubicacionDireccionCtrl.text = ubicacion['direccion'] ?? '';
@@ -136,8 +156,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       }
     }
 
-
-    // Manejo de fechas y horas combinadas (esquema nuevo)
     final fechaInicioTrabajo = _getDateTimeFromTimestamp(data['fechaInicioTrabajo']);
     final fechaFinTrabajo = _getDateTimeFromTimestamp(data['fechaFinTrabajo']);
 
@@ -158,11 +176,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         _getDateTimeFromTimestamp(data['fechaLimitePostulacion']);
     _sinFechaLimite = data['sinFechaLimite'] == true || fechaLimite == null;
 
-    // Paso 3
-    // CORRECCIÓN APLICADA AQUÍ: Se relaja el tipo esperado a Map<String, dynamic>
+    // Paso 3 (Mismo código de contacto y uniforme)
     final contacto = data['contacto'] as Map<String, dynamic>?;
     if (contacto != null) {
-      // Leemos de forma segura el contenido, asumiendo que son Strings
       _contactoNombreController.text = (contacto['nombre'] as String?) ?? '';
       _contactoNumeroController.text = (contacto['numero'] as String?) ?? '';
     }
@@ -171,11 +187,50 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     _implementosSeleccionados.addAll(((data['implementosUniforme'] as List?) ?? []).map((e) => e.toString()));
     _instruccionesController.text = data['instrucciones'] ?? '';
     
-    // Forzar reconstrucción inicial con los datos
     WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {}));
   }
 
-  // --- LÓGICA DE GEOLOCALIZACIÓN ---
+  // --- LÓGICA DE SUBIDA DE IMAGEN ---
+
+  Future<void> _seleccionarImagenPrincipal() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Galería'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Cámara'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final XFile? image = await _picker.pickImage(
+      source: source,
+      imageQuality: 70, // Optimización de calidad
+    );
+
+    if (image != null && mounted) {
+      setState(() {
+        _imagenPrincipal = File(image.path);
+        // Limpiamos la URL existente ya que tenemos una nueva imagen local
+        _imagenPrincipalUrlExistente = null; 
+      });
+    }
+  }
+
+  // --- OTRAS LÓGICAS (Mantenidas) ---
 
   Future<LatLng?> _obtenerCoords(
       String direccion, String ciudad, String pais) async {
@@ -195,8 +250,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return null;
   }
 
-  // --- NAVEGACIÓN Y VALIDACIÓN ---
-
   void _showError(String message) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.showSnackBar(SnackBar(content: Text(message)));
@@ -204,7 +257,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   Future<void> _cargarPlantillas({bool silent = false}) async {
     if (!mounted) return;
-    // Solo cargamos plantillas en modo creación, no en edición para evitar confusiones
     if (_esModoEdicion) return; 
 
     setState(() => _cargandoPlantillas = true);
@@ -263,8 +315,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       _tituloController.text = (data['titulo'] as String?)?.trim() ?? '';
       _descripcionController.text = (data['descripcion'] as String?)?.trim() ?? '';
       _empresaController.text = (data['empresa'] as String?)?.trim() ?? '';
+      _imagenPrincipal = null; 
+      _imagenPrincipalUrlExistente = data['imagenPrincipalUrl'] as String?;
 
-      // UBICACIÓN Y COORDS
+      // UBICACIÓN Y COORDS (Mantenido)
       _ubicacionDireccionCtrl.text =
           (data['ubicacionDireccion'] as String?)?.trim() ?? '';
       _ubicacionCiudadCtrl.text =
@@ -286,10 +340,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         _ubicacionLatLng = null;
       }
 
-      // FECHA Y HORA
+      // FECHA Y HORA (Mantenido)
       final dynamic fecha = data['fechaTrabajo']; 
       
-      // Manejo de Timestamp sin referenciar el tipo explícitamente
       if (fecha != null && fecha.runtimeType.toString() == 'Timestamp') {
         _fechaTrabajo = (fecha as Timestamp).toDate();
       } else if (fecha is String) {
@@ -312,8 +365,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
       _sinFechaLimite = data['sinFechaLimite'] == true;
 
-      // CONTACTO
-      final contacto = data['contacto'] as Map<String, dynamic>?; // Corregido el tipo aquí también
+      // CONTACTO (Mantenido)
+      final contacto = data['contacto'] as Map<String, dynamic>?;
       if (contacto != null) {
         _contactoNombreController.text = (contacto['nombre'] as String?) ?? '';
         _contactoNumeroController.text = (contacto['numero'] as String?) ?? '';
@@ -339,7 +392,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     await _cargarPlantillas();
     if (!mounted) return;
 
-    // Solo mostramos el selector si no estamos en modo edición
     if (_esModoEdicion) {
       _showError('No se puede aplicar una plantilla en modo edición.');
       return;
@@ -412,7 +464,20 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (formState == null) {
       return true;
     }
-    return formState.validate();
+    final validation = formState.validate();
+    
+    // NUEVA VALIDACIÓN: Foto principal en el paso 1
+    final hasImage = _imagenPrincipal != null || _imagenPrincipalUrlExistente != null;
+
+    if (step == 0 && !hasImage) {
+        // Mantenemos la validación básica del formulario, pero avisamos del error de la imagen
+        if (!validation) return false; 
+        
+        _showError('Debe subir una imagen principal para el trabajo.');
+        return false;
+    }
+    
+    return validation;
   }
 
   String? _mensajeValidacionPaso(int step) {
@@ -481,8 +546,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
   bool _validarTodoFormulario() {
     for (var i = 0; i < _formKeys.length; i++) {
-      final formularioValido = _validarFormularioPaso(i);
+      final formularioValido = _validarFormularioPaso(i); 
       final mensaje = _mensajeValidacionPaso(i);
+      
       if (!formularioValido || mensaje != null) {
         if (mensaje != null) {
           _showError(mensaje);
@@ -530,51 +596,71 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     if (!_validarTodoFormulario()) {
       return;
     }
-
-    if (_fechaTrabajo == null || _horaInicio == null || _horaFin == null) {
-      // En escenarios atípicos la validación podría no activarse a tiempo y
-      // provocar un crash al forzar el operador '!'.
-      _showError('Completa la fecha y el horario del trabajo antes de publicarlo.');
-      setState(() => _currentStep = 1);
-      return;
-    }
-
-    final fechaTrabajo = _fechaTrabajo!;
-    final horaInicio = _horaInicio!;
-    final horaFin = _horaFin!;
-
-    final trabajoDateTimeStart = DateTime(
-      fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-      horaInicio.hour, horaInicio.minute,
-    );
-
-    final trabajoDateTimeEnd = DateTime(
-      fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-      horaFin.hour, horaFin.minute,
-    );
-
-    final DateTime? fechaLimiteFinal = _sinFechaLimite
-      ? null
-      : trabajoDateTimeStart.subtract(const Duration(hours: 1));
     
-    LatLng? coords = _ubicacionLatLng;
-    if (coords == null && 
-        (_ubicacionDireccionCtrl.text.isNotEmpty || _ubicacionCiudadCtrl.text.isNotEmpty || _ubicacionPaisCtrl.text.isNotEmpty)) {
-      coords = await _obtenerCoords(
-          _ubicacionDireccionCtrl.text,
-          _ubicacionCiudadCtrl.text,
-          _ubicacionPaisCtrl.text);
-      if (coords == null) {
-        _showError('No se pudo encontrar la ubicación de la dirección proporcionada.');
-        return;
-      }
-    } else if (coords == null) {
-        _showError('Debe proporcionar o seleccionar la ubicación del trabajo.');
-        return;
-    }
+    setState(() => _isSaving = true);
+    String? finalImageUrl; // URL final que se guardará en Firestore
 
-    final servicio = TrabajoService();
     try {
+      // 1. Manejo de la IMAGEN PRINCIPAL (Sube o mantiene la existente)
+      // Solo subimos si hay un archivo local nuevo.
+      if (_imagenPrincipal != null) {
+        // Usamos un ID temporal si estamos creando (TrabajoService generará el ID final).
+        final id = widget.trabajoIdParaEditar ?? 'temp-id-${DateTime.now().millisecondsSinceEpoch}';
+        
+        finalImageUrl = await _storageService.subirImagenPrincipal(
+          trabajoId: id,
+          imagen: _imagenPrincipal!,
+        );
+
+        if (finalImageUrl == null) {
+          throw Exception('No se pudo subir la imagen principal a Storage. Intenta nuevamente.');
+        }
+      } else if (_esModoEdicion) {
+        // En edición, si no se seleccionó una nueva imagen, conservamos la URL anterior.
+        finalImageUrl = _imagenPrincipalUrlExistente; 
+      } else {
+         // En modo creación, si llega aquí sin imagen, es un error de validación grave.
+         throw Exception('La imagen principal es obligatoria.');
+      }
+      
+      // 2. Preparar los datos restantes (Fechas, Horarios, Coordenadas)
+      if (_fechaTrabajo == null || _horaInicio == null || _horaFin == null) {
+        throw Exception('Falta la información de fecha/horario.');
+      }
+      
+      final fechaTrabajo = _fechaTrabajo!;
+      final horaInicio = _horaInicio!;
+      final horaFin = _horaFin!;
+
+      final trabajoDateTimeStart = DateTime(
+        fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
+        horaInicio.hour, horaInicio.minute,
+      );
+
+      final trabajoDateTimeEnd = DateTime(
+        fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
+        horaFin.hour, horaFin.minute,
+      );
+
+      final DateTime? fechaLimiteFinal = _sinFechaLimite
+        ? null
+        : trabajoDateTimeStart.subtract(const Duration(hours: 1));
+      
+      // Obtener coordenadas finales
+      LatLng? coords = _ubicacionLatLng;
+      if (coords == null && 
+          (_ubicacionDireccionCtrl.text.isNotEmpty || _ubicacionCiudadCtrl.text.isNotEmpty || _ubicacionPaisCtrl.text.isNotEmpty)) {
+        coords = await _obtenerCoords(
+            _ubicacionDireccionCtrl.text,
+            _ubicacionCiudadCtrl.text,
+            _ubicacionPaisCtrl.text);
+        if (coords == null) {
+          throw Exception('No se pudo encontrar la ubicación de la dirección proporcionada.');
+        }
+      } else if (coords == null) {
+          throw Exception('Debe proporcionar o seleccionar la ubicación del trabajo.');
+      }
+
       final ubicacionData = buildUbicacionPayload(
         direccion: _ubicacionDireccionCtrl.text,
         ciudad: _ubicacionCiudadCtrl.text,
@@ -587,9 +673,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         'numero': _contactoNumeroController.text,
       };
 
+      // 3. Llamar al servicio de trabajo con la URL
       if (_esModoEdicion && widget.trabajoIdParaEditar != null) {
-        // MODO EDICIÓN
-        await servicio.actualizarTrabajo(
+        await _trabajoService.actualizarTrabajo(
           trabajoId: widget.trabajoIdParaEditar!,
           titulo: _tituloController.text,
           descripcion: _descripcionController.text,
@@ -604,15 +690,15 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           implementosUniforme: _implementosSeleccionados.toList(),
           contacto: contactoData,
           sinFechaLimite: _sinFechaLimite,
+          imagenPrincipalUrl: finalImageUrl, // ENVIAR URL
         );
          if (mounted) {
             ScaffoldMessenger.of(context)
                 .showSnackBar(const SnackBar(content: Text('Trabajo actualizado con éxito.')));
-            Navigator.pop(context, true); // Retorna true para indicar actualización
-         }
+            Navigator.pop(context, true); 
+          }
       } else {
-        // MODO CREACIÓN
-        await servicio.crearTrabajo(
+        await _trabajoService.crearTrabajo(
           titulo: _tituloController.text,
           descripcion: _descripcionController.text,
           empresa: _empresaController.text,
@@ -626,6 +712,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           implementosUniforme: _implementosSeleccionados.toList(),
           contacto: contactoData,
           sinFechaLimite: _sinFechaLimite,
+          imagenPrincipalUrl: finalImageUrl, // ENVIAR URL
         );
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -635,7 +722,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _showError('Error al guardar el trabajo: $e');
+        _showError('Error al guardar el trabajo: ${e.toString().replaceAll('Exception: ', '')}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
       }
     }
   }
@@ -655,7 +746,10 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // APLICANDO MÁS ESPACIADO
+        // NUEVO: Campo de Selección de Imagen
+        _buildImagePickerField(),
+        const SizedBox(height: 20),
+        
         Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: TextFormField(
@@ -695,6 +789,85 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildImagePickerField() {
+    final hasLocalImage = _imagenPrincipal != null;
+    final hasExistingUrl = _imagenPrincipalUrlExistente != null && _imagenPrincipalUrlExistente!.isNotEmpty;
+    final showNetwork = !hasLocalImage && hasExistingUrl;
+    
+    Widget imageWidget;
+    
+    if (hasLocalImage) {
+      // Muestra la imagen recién seleccionada
+      imageWidget = Image.file(_imagenPrincipal!, fit: BoxFit.cover);
+    } else if (showNetwork) {
+      // Muestra la imagen existente si está en modo edición
+      imageWidget = Image.network(_imagenPrincipalUrlExistente!, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) {
+        return const Center(
+            child: Icon(Icons.image_not_supported, color: Colors.grey, size: 50));
+      });
+    } else {
+      // Muestra el placeholder
+      imageWidget = const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_a_photo, size: 40, color: Colors.white70),
+            SizedBox(height: 8),
+            Text('Añadir Imagen Principal', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: _isSaving ? null : _seleccionarImagenPrincipal,
+      child: Container(
+        height: 180,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: _primaryColor.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasLocalImage || hasExistingUrl ? Colors.transparent : _errorColor,
+            width: 1.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            imageWidget,
+            // Overlay de carga
+            if (_isSaving)
+              Container(
+                color: Colors.black54,
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 8),
+                      Text('Guardando imagen...', style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            
+            // Botón de cámara flotante
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: FloatingActionButton.small(
+                onPressed: _isSaving ? null : _seleccionarImagenPrincipal,
+                child: const Icon(Icons.edit, color: Colors.black),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -770,7 +943,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               ),
             ),
             TextButton(
-              onPressed: () async {
+              onPressed: _isSaving ? null : () async {
                 final coords = await _obtenerCoords(
                     _ubicacionDireccionCtrl.text,
                     _ubicacionCiudadCtrl.text,
@@ -785,7 +958,8 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               child: const Text('Buscar Coords'),
             ),
             TextButton(
-              onPressed: () async {
+              onPressed: _isSaving ? null : () async {
+                // Simulación de pantalla de mapa
                 final result = await Navigator.push<LatLng>(
                   context,
                   MaterialPageRoute(
@@ -859,7 +1033,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               color: _sinFechaLimite ? _primaryColor : Colors.grey.shade700,
             ),
             value: _sinFechaLimite,
-            onChanged: (value) {
+            onChanged: _isSaving ? null : (value) {
               FocusScope.of(context).unfocus();
               setState(() {
                 _sinFechaLimite = value;
@@ -920,6 +1094,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           child: TextFormField(
             key: const ValueKey('precio'),
             controller: _precioCtrl,
+            enabled: !_isSaving,
             decoration: const InputDecoration(
               labelText: 'Pago a trabajador (CLP)',
               prefixText: 'CLP \$',
@@ -952,6 +1127,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           child: TextFormField(
             key: const ValueKey('contacto_nombre'),
             controller: _contactoNombreController,
+            enabled: !_isSaving,
             decoration: const InputDecoration(labelText: 'Nombre de contacto'),
             validator: (value) {
               return value == null || value.isEmpty ? 'Requerido' : null;
@@ -964,6 +1140,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           child: TextFormField(
             key: const ValueKey('contacto_numero'),
             controller: _contactoNumeroController,
+            enabled: !_isSaving,
             decoration: const InputDecoration(labelText: 'Número de contacto (Ej: +569...)'),
             keyboardType: TextInputType.phone,
             validator: (value) {
@@ -989,7 +1166,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
                 const Text('¿Se requiere uniforme?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                 Switch(
                   value: _requiereUniforme,
-                  onChanged: (v) => setState(() {
+                  onChanged: _isSaving ? null : (v) => setState(() {
                     _requiereUniforme = v;
                     if (!v) _implementosSeleccionados.clear();
                   }),
@@ -1009,7 +1186,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             children: implementos.map((e) => FilterChip(
               label: Text(e),
               selected: _implementosSeleccionados.contains(e),
-              onSelected: (v) => setState(() {
+              onSelected: _isSaving ? null : (v) => setState(() {
                 if (v) {
                   _implementosSeleccionados.add(e);
                 } else {
@@ -1040,6 +1217,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           child: TextFormField(
             key: const ValueKey('instrucciones'),
             controller: _instruccionesController,
+            enabled: !_isSaving,
             decoration: const InputDecoration(labelText: 'Instrucciones/Notas especiales (Máx 1000 caracteres)'),
             maxLines: 4,
             maxLength: 1000,
@@ -1066,7 +1244,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: InkWell(
-        onTap: () async {
+        onTap: _isSaving ? null : () async {
           final picked = await showDatePicker(
             context: context,
             initialDate: DateTime.now(),
@@ -1101,7 +1279,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: InkWell(
-        onTap: () async {
+        onTap: _isSaving ? null : () async {
           final picked = await showTimePicker(
             context: context,
             initialTime: TimeOfDay.now(),
@@ -1153,20 +1331,17 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     return Stepper(
       type: StepperType.vertical,
       currentStep: _currentStep,
-      // INYECTAMOS CLAMPING SCROLL PHYSICS
       physics: const ClampingScrollPhysics(), 
       onStepTapped: (step) {
         _irAlPaso(step);
       },
       steps: _getSteps(),
-      // Se usa un Stepper controlsBuilder vacío
       controlsBuilder: (context, details) => const SizedBox.shrink(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Inicializar colores del tema en el build
     _primaryColor = Theme.of(context).colorScheme.primary;
     _secondaryColor = Theme.of(context).colorScheme.secondary;
     _errorColor = Theme.of(context).colorScheme.error;
@@ -1177,7 +1352,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       appBar: AppBar(
         title: Text(_esModoEdicion ? 'Editar Oferta de Trabajo' : 'Crear Nueva Oferta de Trabajo'),
         actions: [
-          if (!_esModoEdicion)
+          if (!_esModoEdicion && !_isSaving)
             PopupMenuButton<_MenuPlantillaOption>(
               tooltip: 'Acciones de plantillas',
               icon: const Icon(Icons.layers_outlined),
@@ -1206,8 +1381,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
             ),
         ],
       ),
-      // ELIMINAMOS EL SINGLECHILDSCROLLVIEW EXTERNO (el Stepper se encarga del scroll)
-      // Y LO REEMPLAZAMOS CON EL STEPPER DIRECTO, pero mantenemos el padding para el Stepper
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
@@ -1235,7 +1408,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           children: [
             // Botón Atrás/Cancelar
             TextButton(
-              onPressed: _onStepCancel,
+              onPressed: _isSaving ? null : _onStepCancel,
               child: Text(
                 _currentStep == 0 ? 'CANCELAR' : 'ATRÁS',
                 style: TextStyle(
@@ -1247,15 +1420,22 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
 
             // Botón Siguiente/Publicar
             ElevatedButton.icon(
-              onPressed: () async {
+              onPressed: _isSaving ? null : () async {
                 await _onStepContinue();
               },
-              icon: Icon(
-                isLast ? Icons.save : Icons.arrow_forward,
-                color: Colors.white,
-              ),
+              icon: _isSaving 
+                  ? const SizedBox(
+                    width: 20, 
+                    height: 20, 
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Icon(
+                      isLast ? Icons.save : Icons.arrow_forward,
+                      color: Colors.white,
+                    ),
               label: Text(
-                isLast ? (_esModoEdicion ? 'GUARDAR CAMBIOS' : 'PUBLICAR TRABAJO') : 'SIGUIENTE',
+                isLast 
+                  ? (_esModoEdicion ? 'GUARDAR CAMBIOS' : 'PUBLICAR TRABAJO') 
+                  : 'SIGUIENTE',
                 style: const TextStyle(fontSize: 16, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(

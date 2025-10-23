@@ -1,8 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:goodjob_app/src/services/format_utils.dart';
-// Necesario para Timer
+import 'package:goodjob_app/src/utils/format_utils.dart';
 
 import 'instrucciones_trabajo_screen.dart';
 import 'mapa_checkin_screen.dart'; // Importamos la nueva pantalla
@@ -444,9 +443,9 @@ class _PostulacionContent extends StatelessWidget {
                   shape: BoxShape.circle,
                   color:
                       estado == _PasoEstado.completado ||
-                          estado == _PasoEstado.actual
-                      ? color
-                      : Colors.white,
+                              estado == _PasoEstado.actual
+                          ? color
+                          : Colors.white,
                   border: Border.all(
                     color: color,
                     width: estado == _PasoEstado.pendiente ? 1 : 2,
@@ -460,8 +459,8 @@ class _PostulacionContent extends StatelessWidget {
                         style: TextStyle(
                           color: estado == _PasoEstado.actual
                               ? (color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white)
+                                  ? Colors.black
+                                  : Colors.white)
                               : _PRIMARY_COLOR,
                           fontWeight: FontWeight.bold,
                         ),
@@ -532,7 +531,7 @@ class _PostulacionContent extends StatelessWidget {
 
   void _navegarAInstrucciones(BuildContext context) {
     Navigator.of(context)
-        .push(MaterialPageRoute(builder: (ctx) => InstruccionesTrabajoScreen()))
+        .push(MaterialPageRoute(builder: (ctx) => InstruccionesTrabajoScreen())) // Añadido const
         .then((_) {
           // Marcar como vistas al regresar de la pantalla de instrucciones
           if (ModalRoute.of(context)?.isCurrent == true) {
@@ -859,12 +858,15 @@ class _TrabajoHeaderImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final portada = trabajo['imagenPortada'] ?? trabajo['imagen'];
+    // Busca la nueva URL de la imagen principal, luego los fallbacks
+    final imagenUrl = trabajo['imagenPrincipalUrl'] as String? ??
+        trabajo['imagenPortada'] as String? ??
+        trabajo['imagen'] as String?;
     const height = 200.0;
 
-    if (portada is String && portada.isNotEmpty) {
+    if (imagenUrl != null && imagenUrl.isNotEmpty) {
       return Image.network(
-        portada,
+        imagenUrl,
         height: height,
         width: double.infinity,
         fit: BoxFit.cover,
@@ -877,7 +879,7 @@ class _TrabajoHeaderImage extends StatelessWidget {
               child: CircularProgressIndicator(
                 value: progress.expectedTotalBytes != null
                     ? progress.cumulativeBytesLoaded /
-                          progress.expectedTotalBytes!
+                        progress.expectedTotalBytes!
                     : null,
               ),
             ),

@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/services/encryption_service.dart';
-import 'package:goodjob_app/src/services/format_utils.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';

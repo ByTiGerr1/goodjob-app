@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:goodjob_app/src/services/format_utils.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart';
 import '../services/firebase_service.dart';
 import '../services/postulacion_service.dart';
 import '../services/user_eligibility_service.dart';
