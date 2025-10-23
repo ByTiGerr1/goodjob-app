@@ -7,9 +7,7 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-const functions = require("firebase-functions/v1");
 const {setGlobalOptions} = require("firebase-functions");
-
 
 // For cost control, you can set the maximum number of containers that can be
 // running at the same time. This helps mitigate the impact of unexpected
@@ -31,11 +29,15 @@ setGlobalOptions({maxInstances: 10});
 //   response.send("Hello from Firebase!");
 // });
 
-const admin = require('./firebaseAdmin');
+require("./firebaseAdmin");
 const {encryptData, decryptData} = require("./encryption");
 const {notifyTrabajoCancelado} = require("./notifications");
-const { liberarPostulacionesExpiradas } = require("./liberarPostulaciones");
-const { programarTareasDeTrabajo, reprogramarTareasSiCambia } = require("./cambiosEstadoTrabajo");
+const {liberarPostulacionesExpiradas} = require("./liberarPostulaciones");
+const {
+  programarTareasDeTrabajo,
+  reprogramarTareasSiCambia,
+  cambioEstadoTrabajo,
+} = require("./cambiosEstadoTrabajo");
 
 // Exportamos las funciones para Firebase
 exports.encryptData = encryptData;
@@ -45,4 +47,5 @@ exports.notifyTrabajoCancelado = notifyTrabajoCancelado;
 // En este caso, la función se ejecutará cada 15 minutos.
 exports.liberarPostulacionesExpiradas = liberarPostulacionesExpiradas;
 exports.programarTareasDeTrabajo = programarTareasDeTrabajo;
-exports.reprogramarTareasSiCambia = reprogramarTareasSiCambia; 
+exports.reprogramarTareasSiCambia = reprogramarTareasSiCambia;
+exports.cambioEstadoTrabajo = cambioEstadoTrabajo;

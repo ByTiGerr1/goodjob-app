@@ -6,34 +6,46 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      let usuario = getUsuario(request.auth.uid);
-      return isSignedIn() && usuario.data != null && usuario.data.rol == 'admin';
-    }
-
-    function isTrabajadorAsignado(trabajoId) {
-      let trabajo = getTrabajo(trabajoId);
-      return isSignedIn() &&
-        trabajo.data != null &&
-        trabajo.data.trabajadorAsignadoId == request.auth.uid;
-    }
-
     function getUsuario(uid) {
-      return get(/databases/(default)/documents/usuarios/$(uid));
+      return firestore.get(/databases/(default)/documents/usuarios/$(uid));
+    }
+
+    function getPostulacion(trabajoId, uid) {
+      return firestore.get(
+        /databases/(default)/documents/trabajos/$(trabajoId)/postulaciones/$(uid)
+      );
     }
 
     function getTrabajo(trabajoId) {
-      return get(/databases/(default)/documents/trabajos/$(trabajoId));
+      return firestore.get(/databases/(default)/documents/trabajos/$(trabajoId));
+    }
+
+    function isAdmin() {
+      if (!isSignedIn()) {
+        return false;
+      }
+      let usuario = getUsuario(request.auth.uid);
+      return usuario.data != null && usuario.data.rol == 'admin';
+    }
+
+    function isTrabajadorAsignado(trabajoId) {
+      if (!isSignedIn()) {
+        return false;
+      }
+      let postulacion = getPostulacion(trabajoId, request.auth.uid);
+      let trabajo = getTrabajo(trabajoId);
+      return (postulacion.data != null && postulacion.data.estado == 'confirmado') ||
+        (trabajo.data != null && trabajo.data.trabajadorAsignadoId == request.auth.uid);
     }
 
     match /profile_pictures/{userId}/{fileName} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
     match /trabajos/{trabajoId} {
       match /principal/{fileName} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow write: if isAdmin();
       }
 
