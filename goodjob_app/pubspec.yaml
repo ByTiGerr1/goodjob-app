@@ -41,3 +41,9 @@ flutter:
     - assets/images/visual1.png # 👈 CRÍTICO
     - assets/images/visual2.png # 👈 CRÍTICO
     - assets/images/visual3.png # 👈 CRÍTICO
+
+flutter_launcher_icons:
+      android: "launcher_icon" 
+      ios: true
+      image_path: "assets/logo.png" 
+      min_sdk_android: 21
