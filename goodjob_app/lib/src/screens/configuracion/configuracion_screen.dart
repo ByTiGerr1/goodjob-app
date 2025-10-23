@@ -1,17 +1,17 @@
 import 'dart:async';
-import 'dart:io'; // Para manejar el archivo de imagen
+import 'dart:io'; 
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // Para Firebase Storage
-import 'package:image_picker/image_picker.dart'; // Para seleccionar la imagen
+import 'package:image_picker/image_picker.dart'; 
 import 'package:goodjob_app/src/screens/configuracion/editar_datos_bancarios_screen.dart';
 import 'package:goodjob_app/src/screens/configuracion/editar_perfil.dart';
 import 'package:goodjob_app/src/screens/auth/login_screen.dart';
 
-// Asegúrate de que tu Auth service esté disponible.
-import '../../services/firebase_service.dart';
+// Importar el servicio de Storage (Ajustar la ruta según tu proyecto)
+import '../../services/storage_service.dart';
+import '../../services/firebase_service.dart'; // Asumiendo que Auth está aquí
 
 // Constantes de color para mantener la estética
 const Color _PRIMARY_COLOR = Color(0xFF7B0997);
@@ -29,10 +29,14 @@ class ConfiguracionScreen extends StatefulWidget {
 
 class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   final auth = Auth();
+  // 1. INSTANCIAR STORAGE SERVICE
+  final StorageService _storageService = StorageService();
+
   User? _user;
   Map<String, dynamic> _perfilData = {};
   final _firestore = FirebaseFirestore.instance;
-  final _storage = FirebaseStorage.instance;
+  // Eliminamos la instancia directa de FirebaseStorage ya que usamos el servicio
+  // final _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
 
   bool _isEmailVerified = false;
@@ -174,13 +178,13 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     }
   }
 
-  // --- LÓGICA CORREGIDA: SUBIR FOTO DE PERFIL CON MÁXIMA FIABILIDAD ---
+  // --- LÓGICA DE SUBIDA DE FOTO USANDO StorageService ---
   Future<void> _changeProfilePicture() async {
     if (_user == null || _isUploadingPicture) return;
 
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 50, // Calidad reducida para mejorar la velocidad de subida
+      imageQuality: 50, // Calidad reducida para mejor rendimiento
     );
 
     if (image == null) return;
@@ -191,10 +195,9 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
 
     final File file = File(image.path);
     final String userId = _user!.uid;
-    final String fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
 
     try {
-      // 1. RECARGA DE SEGURIDAD Y REFRESH DEL TOKEN (CRÍTICO para permisos de Storage)
+      // Paso 1: RECARGA DE SEGURIDAD Y REFRESH DEL TOKEN (Buena práctica)
       await _user!.reload();
       await _user!.getIdToken(true); // Fuerza el refresh del token
       _user = FirebaseAuth.instance.currentUser;
@@ -202,31 +205,24 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
       if (_user == null) {
         throw Exception("User not authenticated after reload.");
       }
+      
+      // Paso 2 y 3: LLAMAR AL SERVICIO PARA SUBIR LA IMAGEN
+      // El StorageService maneja la referencia, el putFile y el getDownloadURL.
+      final String? downloadUrl = await _storageService.subirFotoPerfil(
+        userId: userId,
+        imagen: file,
+      );
 
-      // 2. CONSTRUCCIÓN DE LA REFERENCIA
-      final storageRef = _storage
-          .ref()
-          .child('profile_pictures')
-          .child(userId) 
-          .child(fileName);
-
-      final uploadTask = storageRef.putFile(file);
-
-      // 3. APLICAR TIMEOUT (Aumentado a 60s)
-      final snapshot = await uploadTask
-          .whenComplete(() {})
-          .timeout(
-            const Duration(seconds: 60), // Límite de 60 segundos
-          ); 
-
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      if (downloadUrl == null) {
+        throw Exception("El servicio de almacenamiento no pudo obtener la URL de descarga.");
+      }
 
       // 4. Actualizar el campo 'fotoUrl' en Firestore
       await _firestore.collection('usuarios').doc(_user!.uid).set({
         'fotoUrl': downloadUrl,
       }, SetOptions(merge: true));
 
-      // 5. Actualizar la UI localmente
+      // 5. Actualizar la UI localmente (Firebase Auth y perfil local)
       await _user!.updatePhotoURL(downloadUrl);
       await _obtenerDatosPerfil();
 
@@ -239,11 +235,16 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
         );
       }
     } catch (e) {
-      // Capturamos el error (incluyendo el timeout) y liberamos la UI.
       debugPrint('Error al subir la foto o timeout: $e');
-      final message = (e is TimeoutException)
-          ? 'Error: La subida tardó demasiado (Timeout de 60s). Intenta con una conexión más rápida o una imagen más pequeña.'
-          : 'Error al subir la foto: $e';
+      String message;
+
+      if (e.toString().contains("No pudo obtener la URL de descarga")) {
+        // Mensaje específico cuando StorageService devuelve null (posiblemente por red, permisos o tamaño).
+        message = 'La subida falló. Intenta de nuevo, o asegúrate de tener buena conexión y que el archivo no sea demasiado grande.';
+      } else {
+        // Mensaje genérico para otros errores inesperados.
+        message = 'Ocurrió un error inesperado al actualizar la foto. Por favor, inténtalo más tarde.';
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -258,13 +259,14 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
       }
     }
   }
-  // --- FIN LÓGICA CORREGIDA ---
+  // --- FIN LÓGICA DE SUBIDA DE FOTO ---
 
 
   // --- WIDGETS DE COMPONENTES DE VISTA ---
 
   Widget _buildUserProfileSection() {
     final nombreCompleto = _perfilData['nombre'] ?? 'Usuario';
+    // Prioriza 'fotoUrl' de Firestore, si no existe, usa photoURL de Auth
     final fotoUrl = _perfilData['fotoUrl'] as String? ?? _user?.photoURL;
     final inicial = nombreCompleto.isNotEmpty
         ? nombreCompleto[0].toUpperCase()
@@ -273,10 +275,10 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     return Padding(
       padding: const EdgeInsets.only(
         top: 40.0,
-      ), // ✅ CAMBIO: Más padding superior
+      ), 
       child: Column(
         mainAxisAlignment: MainAxisAlignment
-            .center, // Centra verticalmente en el FlexibleSpaceBar
+            .center, 
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Stack(
@@ -304,8 +306,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                 bottom: 0,
                 right: 0,
                 child: FloatingActionButton.small(
-                  onPressed:
-                      _changeProfilePicture, // Llamada a la nueva función
+                  onPressed: _isUploadingPicture ? null : _changeProfilePicture, 
                   backgroundColor: _ACCENT_COLOR,
                   child: _isUploadingPicture
                       ? const SizedBox(
@@ -318,8 +319,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                         )
                       : const Icon(
                           Icons.camera_alt,
-                          color:
-                              Colors.black, // Color para contraste con amarillo
+                          color: Colors.black, 
                           size: 20,
                         ),
                 ),
@@ -605,15 +605,6 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
             backgroundColor: _PRIMARY_COLOR,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              // Título fijo "Configuración" para evitar repetición de nombre
-              title: const Text(
-                'Configuración',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
