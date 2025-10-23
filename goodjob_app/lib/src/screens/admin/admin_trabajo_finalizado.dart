@@ -2,26 +2,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
-import 'package:goodjob_app/src/services/trabajo_service.dart';
-import 'package:goodjob_app/src/models/trabajo.dart';
+// import 'package:goodjob_app/src/services/trabajo_service.dart'; // No se necesita para trabajos ya finalizados
+// import 'package:goodjob_app/src/models/trabajo.dart'; // No se necesita el enum de estado
 
-class AdminTrabajoPorRevisarScreen extends StatefulWidget {
+class AdminTrabajoFinalizadoScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
-  
-  const AdminTrabajoPorRevisarScreen({
+
+  const AdminTrabajoFinalizadoScreen({
     super.key,
     required this.trabajoId,
     required this.trabajo,
   });
 
   @override
-  State<AdminTrabajoPorRevisarScreen> createState() => _AdminTrabajoPorRevisarScreenState();
+  State<AdminTrabajoFinalizadoScreen> createState() => _AdminTrabajoFinalizadoScreenState();
 }
 
-class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScreen> {
+class _AdminTrabajoFinalizadoScreenState extends State<AdminTrabajoFinalizadoScreen> {
   final StorageService _storageService = StorageService();
-  final TrabajoService _trabajoService = TrabajoService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _isLoading = false;
@@ -32,6 +31,7 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
   static const Color secondaryColor = Color(0xFFE91E63);
   static const Color successColor = Color(0xFF4CAF50);
   static const Color alertColor = Color(0xFFD32F2F);
+  static const Color paidColor = Color(0xFF00C853); // Color para indicar "Pagado"
 
   @override
   void initState() {
@@ -42,6 +42,7 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
   // --- LÓGICA DE CARGA DE DATOS ---
 
   Future<void> _cargarUsuarioConfirmado() async {
+    setState(() => _isLoading = true);
     try {
       // Buscar la postulación con estado "confirmado"
       final postulacionesSnapshot = await _firestore
@@ -72,6 +73,18 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
       }
     } catch (e) {
       debugPrint('Error al cargar usuario confirmado: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar datos del trabajador: $e'),
+            backgroundColor: alertColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -87,13 +100,13 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
   DateTime? _getTrabajoStartDateTime() {
     final newStartTs = widget.trabajo['fechaInicioTrabajo'] as Timestamp?;
     if (newStartTs != null) return newStartTs.toDate();
-    return DateTime.now();
+    return null;
   }
 
   DateTime? _getTrabajoEndDateTime() {
     final newEndTs = widget.trabajo['fechaFinTrabajo'] as Timestamp?;
     if (newEndTs != null) return newEndTs.toDate();
-    return DateTime.now();
+    return null;
   }
 
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
@@ -118,127 +131,9 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
     return FormatUtils.formatDate(fecha);
   }
 
-  // --- ACCIONES ---
-
-  Future<void> _aceptarTrabajo() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Aceptar Evidencias'),
-        content: const Text(
-          '¿Está seguro de que desea aceptar las evidencias de este trabajo?\n'
-          'Se procederá a mostrar los datos de pago si lo hace.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: successColor),
-            child: const Text('Aceptar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      setState(() => _isLoading = true);
-
-      try {
-        await _trabajoService.actualizarEstado(
-          widget.trabajoId,
-          EstadoTrabajo.porPagar,
-        );
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('El trabajo ha sido aceptado, se puede proceder al pago.'),
-              backgroundColor: successColor,
-            ),
-          );
-          Navigator.pop(context, true);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al aceptar trabajo: $e'),
-              backgroundColor: alertColor,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
-    }
-  }
-
-  Future<void> _rechazarTrabajo() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rechazar Evidencias'),
-        content: const Text(
-          '¿Está seguro de que desea rechazar las evidencias de este trabajo?\n'
-          'Esta acción rechazará el trabajo completo, esto no se puede deshacer.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: alertColor),
-            child: const Text('Rechazar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      setState(() => _isLoading = true);
-
-      try {
-        await _trabajoService.actualizarEstado(
-          widget.trabajoId,
-          EstadoTrabajo.rechazado,
-        );
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ha rechazado este trabajo.'),
-              backgroundColor: alertColor,
-            ),
-          );
-          Navigator.pop(context, true);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al rechazar trabajo: $e'),
-              backgroundColor: alertColor,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
-    }
-  }
-
   // --- WIDGETS DE VISTA ---
 
-  Widget _buildDetalleItem(IconData icon, String title, String value) {
+  Widget _buildDetalleItem(IconData icon, String title, String value, {Color valueColor = Colors.black87}) {
     return ListTile(
       leading: Icon(icon, color: primaryColor, size: 28),
       title: Text(
@@ -251,10 +146,10 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
       ),
       subtitle: Text(
         value,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          color: valueColor,
         ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
@@ -267,12 +162,8 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
     final fechaFin = _getTrabajoEndDateTime();
     final ubicacion = _safeMapCast(widget.trabajo['ubicacion']);
     final precio = (widget.trabajo['precio'] as num?)?.toDouble() ?? 0.0;
-    final requiereUniforme = widget.trabajo['requiereUniforme'] as bool? ?? false;
-    final implementosUniforme = (widget.trabajo['implementosUniforme'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        [];
-    final instrucciones = widget.trabajo['instrucciones'] as String? ?? 'N/A';
+    // final requiereUniforme = widget.trabajo['requiereUniforme'] as bool? ?? false;
+    // La información de uniforme e instrucciones se omite para simplificar el resumen final.
 
     return Card(
       elevation: 2,
@@ -330,10 +221,9 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
             ),
             _buildDetalleItem(
               Icons.attach_money,
-              'Precio',
+              'Precio Original',
               FormatUtils.formatCurrency(precio),
             ),
-
           ],
         ),
       ),
@@ -341,6 +231,7 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
   }
 
   Widget _buildSeccionUsuario() {
+    // La lógica de carga es la misma, solo se usa para visualización
     if (_usuarioData == null) {
       return Card(
         elevation: 2,
@@ -356,7 +247,7 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
                   const Icon(Icons.person, color: primaryColor, size: 28),
                   const SizedBox(width: 8),
                   const Text(
-                    'Datos del Usuario',
+                    'Datos del Trabajador',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -457,6 +348,7 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
   }
 
   Widget _buildSeccionEvidencias() {
+    // Se mantiene la lógica de evidencias para mostrar lo que se aceptó
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -471,7 +363,7 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
                 const Icon(Icons.photo_library, color: primaryColor, size: 28),
                 const SizedBox(width: 8),
                 const Text(
-                  'Evidencias Fotográficas',
+                  'Evidencias Fotográficas Aceptadas',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -512,7 +404,7 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
                     child: Padding(
                       padding: EdgeInsets.all(20.0),
                       child: Text(
-                        'No se encontraron evidencias fotográficas',
+                        'No se encontraron evidencias fotográficas.',
                         style: TextStyle(
                           fontSize: 16,
                           fontStyle: FontStyle.italic,
@@ -611,64 +503,65 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
     );
   }
 
-  Widget _buildBotonesAccion() {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
+  Widget _buildSeccionPago() {
+    final estadoPago = widget.trabajo['estadoPago'] as String? ?? 'N/A';
+    final montoPagado = (widget.trabajo['montoPagado'] as num?)?.toDouble() ?? 0.0;
+    final fechaPagoTs = widget.trabajo['fechaPago'] as Timestamp?;
+    final metodoPago = widget.trabajo['metodoPago'] as String? ?? 'N/A';
+    final transactionId = widget.trabajo['idTransaccion'] as String? ?? 'N/A';
+
+    final fechaPago = fechaPagoTs != null ? _formatFecha(fechaPagoTs.toDate()) : 'N/A';
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _rechazarTrabajo,
-                icon: const Icon(Icons.close),
-                label: const Text(
-                  'RECHAZAR',
+            Row(
+              children: [
+                const Icon(Icons.payment, color: paidColor, size: 28),
+                const SizedBox(width: 8),
+                const Text(
+                  'Detalles de Pago',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    color: paidColor,
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: alertColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _aceptarTrabajo,
-                icon: const Icon(Icons.check),
-                label: const Text(
-                  'ACEPTAR',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: successColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+            const Divider(height: 20),
+            _buildDetalleItem(
+              Icons.monetization_on,
+              'Estado de Pago',
+              estadoPago.toUpperCase(),
+              valueColor: estadoPago.toLowerCase() == 'pagado' ? paidColor : alertColor,
+            ),
+            _buildDetalleItem(
+              Icons.account_balance_wallet,
+              'Monto Pagado',
+              FormatUtils.formatCurrency(montoPagado),
+              valueColor: paidColor,
+            ),
+            _buildDetalleItem(
+              Icons.date_range,
+              'Fecha de Pago',
+              fechaPago,
+            ),
+            _buildDetalleItem(
+              Icons.credit_card,
+              'Método de Pago',
+              metodoPago,
+            ),
+            _buildDetalleItem(
+              Icons.receipt,
+              'ID de Transacción',
+              transactionId,
             ),
           ],
         ),
@@ -681,70 +574,39 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Trabajo Finalizado', style: TextStyle(color: Colors.white)),
+        backgroundColor: primaryColor,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
       body: Stack(
         children: [
           CustomScrollView(
             slivers: [
-              SliverAppBar(
-                expandedHeight: 200,
-                pinned: true,
-                backgroundColor: primaryColor,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                flexibleSpace: FlexibleSpaceBar(
-                  title: const Text(
-                    'Trabajo por Revisar',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          primaryColor,
-                          secondaryColor,
-                        ],
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.rate_review,
-                        size: 80,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Banner informativo
+                      // Banner informativo finalizado
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.blue[50],
+                          color: paidColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.blue[200]!),
+                          border: Border.all(color: paidColor.withOpacity(0.5)),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.blue[700]),
+                            Icon(Icons.verified_user, color: paidColor),
                             const SizedBox(width: 12),
                             const Expanded(
                               child: Text(
-                                'Revise cuidadosamente las evidencias y datos del usuario antes de tomar una decisión.',
+                                '¡Trabajo finalizado y pagado con éxito! Este es el resumen final.',
                                 style: TextStyle(
                                   fontSize: 14,
+                                  fontWeight: FontWeight.bold,
                                   color: Colors.black87,
                                 ),
                               ),
@@ -753,29 +615,21 @@ class _AdminTrabajoPorRevisarScreenState extends State<AdminTrabajoPorRevisarScr
                         ),
                       ),
                       const SizedBox(height: 20),
-                      
+
                       // Secciones
                       _buildSeccionTrabajo(),
                       _buildSeccionUsuario(),
+                      _buildSeccionPago(), // Nueva sección de pago
                       _buildSeccionEvidencias(),
-                      
-                      // Espacio para los botones fijos
-                      const SizedBox(height: 80),
+
+                      const SizedBox(height: 20), // Espacio final
                     ],
                   ),
                 ),
               ),
             ],
           ),
-          
-          // Botones de acción fijos en la parte inferior
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildBotonesAccion(),
-          ),
-          
+
           // Loading overlay
           if (_isLoading)
             Container(

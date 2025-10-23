@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:goodjob_app/src/screens/admin/crear_plantilla_screen.dart';
 import 'package:goodjob_app/src/screens/onboard/benefit_slides_screen.dart';
 import 'package:goodjob_app/src/screens/onboard/splash_screen.dart';
 import 'package:goodjob_app/src/screens/onboard/welcome_screen.dart';
@@ -9,10 +8,12 @@ import 'src/screens/auth/login_screen.dart';
 import 'src/screens/auth/register_screen.dart';
 import 'src/screens/admin/admin_home_screen.dart';
 import 'src/screens/admin/crear_trabajo_screen.dart';
+import 'src/screens/admin/crear_plantilla_screen.dart';
 import 'src/screens/auth/account_verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'src/services/firebase_service.dart';
 import 'firebase_options.dart';
+// import 'theme/app_colors.dart'; // No es necesario si se definen en ThemeData
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,45 +27,56 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Colores base para mejor legibilidad
+    const Color primaryPurple = Color(0xFF601272);
+    const Color accentYellow = Color(0xFFFFD900);
+    const Color backgroundGray = Color(0xFFF5F5F5);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         fontFamily: 'Ubuntu',
-        primaryColor: const Color(0xFF601272),
+        
+        // 1. ColorScheme: Define la paleta central (fuente de verdad)
         colorScheme: const ColorScheme(
-          primary: Color(0xFF601272), // Púrpura
+          primary: primaryPurple,
           onPrimary: Colors.white,
-          secondary: Color(0xFFFFD900), // Amarillo
+          secondary: accentYellow,
           onSecondary: Colors.black,
-          surface: Color(0xFFF5F5F5),
-          onSurface: Color(0xFF1E1E1E),
+          surface: backgroundGray,
+          onSurface: Color(0xFF1E1E1E), // Texto principal sobre fondo
           error: Color(0xFFFF1507),
           onError: Colors.white,
           brightness: Brightness.light,
         ),
-
+        
+        // 2. Base Scaffold Color
+        scaffoldBackgroundColor: backgroundGray,
+        
+        // 3. AppBar Theme
         appBarTheme: const AppBarTheme(
           elevation: 0,
+          backgroundColor: primaryPurple,
+          foregroundColor: Colors.white, // Color de íconos y texto
           titleTextStyle: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: Color.fromARGB(255, 255, 255, 255),
+            color: Colors.white,
             fontFamily: 'Ubuntu',
           ),
-          backgroundColor: Color(0xFF601272),
         ),
-
+        
+        // 4. Button Themes
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFD900),
+            backgroundColor: accentYellow,
             foregroundColor: Colors.black,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
             textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontSize: 16, // Aumento de tamaño para CTA
+              fontWeight: FontWeight.bold,
               fontFamily: 'Ubuntu',
             ),
           ),
@@ -72,94 +84,61 @@ class MainApp extends StatelessWidget {
 
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Color(0xFF601272), width: 2),
-            foregroundColor: const Color(0xFF601272),
+            side: const BorderSide(color: primaryPurple, width: 2),
+            foregroundColor: primaryPurple,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Ubuntu',
             ),
           ),
         ),
 
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
+            foregroundColor: primaryPurple, // Asegura que los textbuttons usen el color primario
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 14.0,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Ubuntu',
             ),
           ),
         ),
 
+        // 5. Input Decoration Theme
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color.fromARGB(255, 255, 255, 255),
-          labelStyle: const TextStyle(
-            color: Color.fromARGB(255, 27, 27, 28),
-            fontFamily: 'Ubuntu',
-          ),
-          hintStyle: const TextStyle(
-            color: Color(0xFF757575),
-            fontFamily: 'Ubuntu',
-          ),
+          fillColor: Colors.white, // Color de fondo del input más limpio
+          labelStyle: const TextStyle(color: Color.fromARGB(255, 27, 27, 28), fontFamily: 'Ubuntu'),
+          hintStyle: const TextStyle(color: Color(0xFF757575), fontFamily: 'Ubuntu'),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(5.0),
+            borderRadius: BorderRadius.circular(10.0),
             borderSide: const BorderSide(color: Color(0xFF757575)),
           ),
         ),
 
+        // 6. Bottom Navigation Bar Theme
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Color(0xFF601272),
-          selectedItemColor: Color(0xFFFFD900),
+          backgroundColor: primaryPurple,
+          selectedItemColor: accentYellow,
           unselectedItemColor: Colors.white,
           type: BottomNavigationBarType.fixed,
           elevation: 8.0,
         ),
 
+        // 7. Text Theme
         textTheme: const TextTheme(
-          displayLarge: TextStyle(
-            fontSize: 32.0,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Ubuntu',
-          ),
-          headlineSmall: TextStyle(
-            fontSize: 24.0,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Ubuntu',
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 14.0,
-            fontWeight: FontWeight.w400,
-            fontFamily: 'Ubuntu',
-          ),
-          bodySmall: TextStyle(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w300,
-            fontFamily: 'Ubuntu',
-          ),
-          labelLarge: TextStyle(
-            fontSize: 16.0,
-            fontWeight: FontWeight.w500,
-            fontFamily: 'Ubuntu',
-          ),
+          displayLarge: TextStyle(fontSize: 32.0, fontWeight: FontWeight.bold, fontFamily: 'Ubuntu'),
+          headlineSmall: TextStyle(fontSize: 24.0, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu'),
+          bodyMedium: TextStyle(fontSize: 14.0, fontWeight: FontWeight.w400, fontFamily: 'Ubuntu'),
+          bodySmall: TextStyle(fontSize: 12.0, fontWeight: FontWeight.w300, fontFamily: 'Ubuntu'),
+          labelLarge: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500, fontFamily: 'Ubuntu'),
         ),
       ),
 
+      // Flujo de navegación principal
       home: const AuthGate(),
       routes: {
         // Rutas de Onboarding
-        'splash': (_) => const SplashScreen(), // Pantalla Splash
-        'benefit_slides': (_) =>
-            const BenefitSlidesScreen(), // Diapositivas de valor (NUEVA)
-        'welcome': (_) =>
-            const WelcomeScreen(), // Pantalla de decisión Login/Register
+        'splash': (_) => const SplashScreen(),
+        'benefit_slides': (_) => const BenefitSlidesScreen(),
+        'welcome': (_) => const WelcomeScreen(),
         // Rutas de Autenticación
         'login': (_) => const LoginScreen(),
         'register': (_) => const RegisterScreen(),
@@ -173,6 +152,7 @@ class MainApp extends StatelessWidget {
     );
   }
 }
+
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -182,15 +162,15 @@ class AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          // Usamos la SplashScreen mientras esperamos el estado de auth
+          return const SplashScreen(); 
         }
         final user = snapshot.data;
         if (user == null) {
-          // Si no hay usuario, mostramos la Splash Screen
-          return const SplashScreen();
+          // Si no hay usuario, mostramos el Onboarding principal
+          return const BenefitSlidesScreen(); 
         }
+        // Si hay usuario, verificamos su rol
         return FutureBuilder<String?>(
           future: Auth().getUserRole(user.uid),
           builder: (context, roleSnap) {

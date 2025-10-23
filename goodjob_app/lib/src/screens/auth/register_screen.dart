@@ -194,6 +194,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+            
           ),
           const SizedBox(height: 24),
           TextFormField(
@@ -282,6 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               }
               return null;
             },
+            
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -342,6 +344,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               return null;
             },
           ),
+          
           const SizedBox(height: 12),
           CheckboxListTile(
             value: _hasDisability,
@@ -365,6 +368,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onPressed: _nextStep,
               child: const Text('Siguiente'),
             ),
+          ),
+          // Botón para volver
+          TextButton(
+            onPressed: () => Navigator.pushNamed(context, 'login'),
+            child: const Text('Iniciar Sesión'),
           ),
         ],
       ),

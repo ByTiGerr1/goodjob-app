@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/src/screens/admin/admin_trabajo_finalizado.dart';
+import 'package:goodjob_app/src/screens/admin/admin_trabajo_rechazado_screen.dart';
 import 'admin_trabajo_detalle_screen.dart';
 import 'admin_trabajo_por_revisar_screen.dart';
 import 'admin_trabajo_por_pagar_screen.dart';
@@ -15,6 +17,10 @@ Widget getAdminTrabajoView({
       return AdminTrabajoPorRevisarScreen(trabajoId: trabajoId, trabajo: trabajoData);
     case "porPagar":
       return AdminTrabajoPorPagarScreen(trabajoId: trabajoId, trabajo: trabajoData);
+    case "finalizado":
+      return AdminTrabajoFinalizadoScreen(trabajoId: trabajoId, trabajo: trabajoData);
+    case "rechazado":
+      return AdminTrabajoRechazadoScreen(trabajoId: trabajoId, trabajo: trabajoData);
     // Agregar más vistas de estado según sea necesario
     
     default:
