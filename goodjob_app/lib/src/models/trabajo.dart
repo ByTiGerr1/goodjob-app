@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart'; // Importar para usar Color
 
 enum EstadoTrabajo { 
   activo,
@@ -11,6 +12,7 @@ enum EstadoTrabajo {
   cancelado,
   rechazado,
 }
+
 extension EstadoTrabajoExtension on EstadoTrabajo {
   String get texto {
     switch (this) {
@@ -32,6 +34,46 @@ extension EstadoTrabajoExtension on EstadoTrabajo {
         return "Cancelado";
       case EstadoTrabajo.rechazado:
         return "Rechazado";
+    }
+  }
+
+  // UX: Color de fondo claro para el chip
+  Color get colorChip {
+    switch (this) {
+      case EstadoTrabajo.activo:
+        return Colors.green.shade50; 
+      case EstadoTrabajo.enCurso:
+      case EstadoTrabajo.porPagar:
+        return Colors.blue.shade50;
+      case EstadoTrabajo.porConfirmar:
+      case EstadoTrabajo.pendiente:
+      case EstadoTrabajo.porRevisar:
+        return Colors.orange.shade50;
+      case EstadoTrabajo.finalizado:
+        return Colors.grey.shade300;
+      case EstadoTrabajo.cancelado:
+      case EstadoTrabajo.rechazado:
+        return Colors.red.shade50;
+    }
+  }
+
+  // UX: Color de texto oscuro para el chip
+  Color get colorTextoChip {
+    switch (this) {
+      case EstadoTrabajo.activo:
+        return Colors.green.shade700; 
+      case EstadoTrabajo.enCurso:
+      case EstadoTrabajo.porPagar:
+        return Colors.blue.shade700;
+      case EstadoTrabajo.porConfirmar:
+      case EstadoTrabajo.pendiente:
+      case EstadoTrabajo.porRevisar:
+        return Colors.orange.shade700;
+      case EstadoTrabajo.finalizado:
+        return Colors.grey.shade700;
+      case EstadoTrabajo.cancelado:
+      case EstadoTrabajo.rechazado:
+        return Colors.red.shade700;
     }
   }
 }
