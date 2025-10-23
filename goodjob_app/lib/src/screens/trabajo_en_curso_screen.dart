@@ -326,11 +326,11 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     final now = _now;
     switch (stage) {
       case EvidenceStage.inicio:
-        return true;
+        return !now.isBefore(widget.startTime);
       case EvidenceStage.medio:
         return _hasReachedHalfTime(now);
       case EvidenceStage.finalizacion:
-        return _hasReachedEndTime(now);
+        return _hasReachedFinalStageWindow(now);
     }
   }
 
@@ -349,18 +349,32 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     return true;
   }
 
-  bool _hasReachedEndTime(DateTime now) {
+  bool _hasReachedFinalStageWindow(DateTime now) {
+    final availabilityStart = _finalStageAvailabilityStart();
+    return !now.isBefore(availabilityStart);
+  }
+
+  DateTime _finalStageTargetEnd() {
     if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
-      final target = widget.startTime.add(_expectedDuration!);
-      return !now.isBefore(target);
+      return widget.startTime.add(_expectedDuration!);
     }
 
-    if (_scheduledEndTime != null) {
-      return !now.isBefore(_scheduledEndTime!);
+    if (_scheduledEndTime != null &&
+        !_scheduledEndTime!.isBefore(widget.startTime)) {
+      return _scheduledEndTime!;
     }
 
     // Si no hay referencia tomamos 1 hora como estimación mínima
-    return now.difference(widget.startTime) >= const Duration(hours: 1);
+    return widget.startTime.add(const Duration(hours: 1));
+  }
+
+  DateTime _finalStageAvailabilityStart() {
+    final target = _finalStageTargetEnd();
+    final candidate = target.subtract(_EVIDENCE_WINDOW);
+    if (candidate.isBefore(widget.startTime)) {
+      return widget.startTime;
+    }
+    return candidate;
   }
 
   DateTime? _stageBaseTime(EvidenceStage stage) {
@@ -383,13 +397,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
         }
         return widget.startTime;
       case EvidenceStage.finalizacion:
-        if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
-          return widget.startTime.add(_expectedDuration!);
-        }
-        if (_scheduledEndTime != null) {
-          return _scheduledEndTime!;
-        }
-        return widget.startTime.add(const Duration(hours: 1));
+        return _finalStageAvailabilityStart();
     }
   }
 
@@ -401,12 +409,30 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     if (_now.isBefore(baseTime)) {
       return null;
     }
-    final deadline = baseTime.add(_EVIDENCE_WINDOW);
+    final deadline = _stageDeadline(stage, baseTime);
+    if (deadline == null) {
+      return null;
+    }
     final remaining = deadline.difference(_now);
     if (remaining.isNegative) {
       return Duration.zero;
     }
     return remaining;
+  }
+
+  DateTime? _stageDeadline(EvidenceStage stage, DateTime baseTime) {
+    switch (stage) {
+      case EvidenceStage.inicio:
+      case EvidenceStage.medio:
+        return baseTime.add(_EVIDENCE_WINDOW);
+      case EvidenceStage.finalizacion:
+        final targetEnd = _finalStageTargetEnd();
+        if (targetEnd.isBefore(baseTime)) {
+          return baseTime.add(_EVIDENCE_WINDOW);
+        }
+        final deadline = baseTime.add(_EVIDENCE_WINDOW);
+        return deadline.isBefore(targetEnd) ? deadline : targetEnd;
+    }
   }
 
   bool _isWindowActive(EvidenceStage stage) {
@@ -467,7 +493,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
       case EvidenceStage.medio:
         return 'Aún no alcanzas el 50% del tiempo estimado del trabajo.';
       case EvidenceStage.finalizacion:
-        return 'Aún no finaliza el tiempo estimado del trabajo.';
+        return 'La evidencia final se habilita en los últimos 5 minutos del trabajo.';
     }
   }
 

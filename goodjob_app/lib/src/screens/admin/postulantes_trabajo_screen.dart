@@ -99,7 +99,7 @@ class _PostulanteCard extends StatelessWidget {
                     radius: 28,
                     backgroundColor: primaryColor.withOpacity(0.15),
                     // Usar NetworkImage si la URL existe, sino dejar null
-                    backgroundImage: hasPhoto ? NetworkImage(fotoUrl!) : null,
+                    backgroundImage: hasPhoto ? NetworkImage(fotoUrl) : null,
                     child: hasPhoto
                         ? null // Si hay foto, el child es null
                         : Text( // Si no hay foto, mostrar la inicial

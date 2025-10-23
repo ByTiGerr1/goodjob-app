@@ -1,6 +1,6 @@
-import { onCall } from "firebase-functions/v2/https";
-import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
-import crypto from "crypto";
+const {onCall} = require("firebase-functions/v2/https");
+const {SecretManagerServiceClient} = require("@google-cloud/secret-manager");
+const crypto = require("crypto");
 
 // Cliente de Secret Manager
 const client = new SecretManagerServiceClient();
@@ -33,7 +33,7 @@ async function getEncryptionKey() {
  * @param {Object} request - Request object from Firebase Functions v2
  * @return {Promise<{encrypted: string}>} Texto cifrado en base64.
  */
-export const encryptData = onCall(functionOptions, async (request) => {
+const encryptData = onCall(functionOptions, async (request) => {
   const text = request.data?.text;
   console.log("Texto recibido:", text);
 
@@ -53,9 +53,9 @@ export const encryptData = onCall(functionOptions, async (request) => {
   const payload = Buffer
       .concat([iv, Buffer.from(encrypted, "base64")])
       .toString("base64");
-  
+
   console.log("Encriptación exitosa");
-  return { encrypted: payload };
+  return {encrypted: payload};
 });
 
 /**
@@ -63,9 +63,9 @@ export const encryptData = onCall(functionOptions, async (request) => {
  * @param {Object} request - Request object from Firebase Functions v2
  * @return {Promise<{decrypted: string}>} Texto desencriptado.
  */
-export const decryptData = onCall(functionOptions, async (request) => {
+const decryptData = onCall(functionOptions, async (request) => {
   const encrypted = request.data?.encrypted;
-  
+
   if (typeof encrypted !== "string" || encrypted.length === 0) {
     throw new Error("invalid-argument: No encrypted data provided");
   }
@@ -80,5 +80,10 @@ export const decryptData = onCall(functionOptions, async (request) => {
   let decrypted = decipher.update(encryptedText, undefined, "utf8");
   decrypted += decipher.final("utf8");
 
-  return { decrypted };
+  return {decrypted};
 });
+
+module.exports = {
+  encryptData,
+  decryptData,
+};

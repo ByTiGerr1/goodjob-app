@@ -619,7 +619,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         }
 
         finalImageUrl = await _storageService.subirImagenPrincipal(
-          trabajoId: trabajoId!,
+          trabajoId: trabajoId,
           imagen: _imagenPrincipal!,
         );
 

@@ -1,0 +1,113 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUsuario(uid) {
+      return firestore.get(/databases/(default)/documents/usuarios/$(uid));
+    }
+
+    function getPostulacion(trabajoId, uid) {
+      return firestore.get(
+        /databases/(default)/documents/trabajos/$(trabajoId)/postulaciones/$(uid)
+      );
+    }
+
+    function getTrabajo(trabajoId) {
+      return firestore.get(/databases/(default)/documents/trabajos/$(trabajoId));
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        getUsuario(request.auth.uid).data.rol == 'admin';
+    }
+
+    function hasAnyEstado(value, allowed) {
+      return allowed.hasAny([value]);
+    }
+
+    function isTrabajadorAsignado(trabajoId) {
+      return isSignedIn() && (
+        getTrabajo(trabajoId).data.trabajadorAsignadoId == request.auth.uid ||
+        (
+          getTrabajo(trabajoId).data.trabajadorAsignado != null &&
+          getTrabajo(trabajoId).data.trabajadorAsignado.id == request.auth.uid
+        ) ||
+        (
+          getPostulacion(trabajoId, request.auth.uid).data != null &&
+          getPostulacion(trabajoId, request.auth.uid).data.usuarioId == request.auth.uid &&
+          (
+            hasAnyEstado(
+              getPostulacion(trabajoId, request.auth.uid).data.estado,
+              ['confirmado', 'Confirmado', 'pendiente_revision', 'Pendiente_revision']
+            ) ||
+            hasAnyEstado(
+              getPostulacion(trabajoId, request.auth.uid).data.estadoAsignacion,
+              ['confirmado', 'Confirmado', 'pendiente_confirmacion', 'Pendiente_confirmacion']
+            ) ||
+            hasAnyEstado(
+              getPostulacion(trabajoId, request.auth.uid).data.estadoTrabajo,
+              [
+                'pendiente_revision',
+                'Pendiente_revision',
+                'pendiente',
+                'Pendiente',
+                'en_curso',
+                'En_curso',
+                'en curso',
+                'En curso'
+              ]
+            ) ||
+            getPostulacion(trabajoId, request.auth.uid).data.trabajoCompletado == true ||
+            getPostulacion(trabajoId, request.auth.uid).data.confirmadoEn != null
+          )
+        )
+      );
+    }
+
+    match /profile_pictures/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /trabajos/{trabajoId} {
+      match /principal/{fileName} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+
+      match /evidencias/{usuarioId}/{fileName} {
+        allow read: if isAdmin() || isTrabajadorAsignado(trabajoId);
+        allow write: if request.auth != null && (
+          isAdmin() ||
+          (request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId))
+        );
+        allow delete: if isAdmin() || (request.auth != null &&
+          request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId));
+      }
+
+      match /evidenciasPagos/{fileName} {
+        allow read: if isAdmin() || isTrabajadorAsignado(trabajoId);
+        allow write: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /Evidencias/{trabajoId}/{usuarioId}/{fileName} {
+      allow read: if isAdmin() || isTrabajadorAsignado(trabajoId);
+      allow write: if request.auth != null && (
+        isAdmin() ||
+        (request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId))
+      );
+      allow delete: if isAdmin() || (request.auth != null &&
+        request.auth.uid == usuarioId && isTrabajadorAsignado(trabajoId));
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

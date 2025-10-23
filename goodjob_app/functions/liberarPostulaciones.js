@@ -1,6 +1,6 @@
-import { onSchedule } from "firebase-functions/v2/scheduler";
-import admin from './firebaseAdmin.js';
-import { getFirestore } from "firebase-admin/firestore";
+const {onSchedule} = require("firebase-functions/v2/scheduler");
+const admin = require("./firebaseAdmin");
+const {getFirestore} = require("firebase-admin/firestore");
 
 // Inicializar Firebase Admin
 const db = getFirestore();
@@ -9,27 +9,28 @@ const db = getFirestore();
  * Libera postulaciones "aceptadas" que han expirado.
  * Esto significa que el postulante asignado no confirmó a tiempo.
  */
-export const liberarPostulacionesExpiradas = onSchedule({
+const liberarPostulacionesExpiradas = onSchedule({
   schedule: "every 5 minutes", // Ejecutar cada 5 minutos
-  timeZone: "America/Santiago", 
+  timeZone: "America/Santiago",
   retryCount: 2, // Reintentar en caso de error
 }, async (event) => {
-  console.log('Iniciando el proceso de liberación de postulaciones expiradas.');
+  console.log("Iniciando el proceso de liberación de postulaciones expiradas.");
   const ahora = admin.firestore.Timestamp.now();
 
   try {
     const postulacionesExpiradasQuery = await db
-      .collectionGroup('postulaciones')
-      .where('estado', '==', 'aceptado')
-      .where('confirmarAntesDe', '<', ahora)
-      .get();
+        .collectionGroup("postulaciones")
+        .where("estado", "==", "aceptado")
+        .where("confirmarAntesDe", "<", ahora)
+        .get();
 
     if (postulacionesExpiradasQuery.empty) {
-      console.log('No hay postulaciones expiradas para liberar.');
+      console.log("No hay postulaciones expiradas para liberar.");
       return;
     }
 
-    console.log(`Encontradas ${postulacionesExpiradasQuery.size} postulaciones expiradas.`);
+    const totalEncontradas = postulacionesExpiradasQuery.size;
+    console.log(`Encontradas ${totalEncontradas} postulaciones expiradas.`);
 
     // Usar batches para evitar límites de escritura
     const batches = [];
@@ -47,71 +48,80 @@ export const liberarPostulacionesExpiradas = onSchedule({
         continue;
       }
 
-      console.log(`Procesando postulación expirada: ${doc.id} para trabajo ${trabajoId}`);
+      console.log(
+          `Procesando postulación expirada: ${doc.id} ` +
+          `para trabajo ${trabajoId}`,
+      );
 
       // 1. Actualiza el estado de la postulación en la colección de trabajos
       currentBatch.update(doc.ref, {
-        estado: 'expirado',
+        estado: "expirado",
         liberadoPorExpiracionEn: ahora,
       });
       operationCount++;
 
       // 2. Actualiza el estado de la postulación en la colección de usuarios
       const postulacionUsuarioRef = db
-        .collection('usuarios')
-        .doc(postulanteId)
-        .collection('postulaciones')
-        .doc(trabajoId);
+          .collection("usuarios")
+          .doc(postulanteId)
+          .collection("postulaciones")
+          .doc(trabajoId);
 
       currentBatch.update(postulacionUsuarioRef, {
-        estado: 'expirado',
+        estado: "expirado",
         liberadoPorExpiracionEn: ahora,
       });
       operationCount++;
 
-      // 3. Verificar si hay otras postulaciones con estado "aceptado" o "confirmado" para este trabajo
+      // 3. Verificar si existen otras postulaciones aceptadas o confirmadas.
       const otrasPostulacionesQuery = await db
-        .collection('trabajos')
-        .doc(trabajoId)
-        .collection('postulaciones')
-        .where('estado', 'in', ['aceptado', 'confirmado'])
-        .where('usuarioId', '!=', postulanteId) // Excluir la postulación actual
-        .limit(1) // Solo necesitamos saber si existe al menos una
-        .get();
+          .collection("trabajos")
+          .doc(trabajoId)
+          .collection("postulaciones")
+          .where("estado", "in", ["aceptado", "confirmado"])
+          .where("usuarioId", "!=", postulanteId) // Excluir la actual
+          .limit(1) // Solo necesitamos saber si existe al menos una
+          .get();
 
-      // 3. Libera el trabajo para que otros puedan postularse
-      const trabajoRef = db.collection('trabajos').doc(trabajoId);
+      // 3. Liberar el trabajo para que otros puedan postularse.
+      const trabajoRef = db.collection("trabajos").doc(trabajoId);
       const trabajoDoc = await trabajoRef.get();
       if (!trabajoDoc.exists) {
-        console.warn(`Trabajo ${trabajoId} no encontrado al liberar postulación expirada.`);
+        console.warn(
+            `Trabajo ${trabajoId} no encontrado al liberar ` +
+            "postulación expirada.",
+        );
         continue;
       }
       const trabajoData = trabajoDoc.data();
       const sinFechaLimiteTrabajo = trabajoData?.sinFechaLimite === true;
-      const nuevoEstadoAbierto = sinFechaLimiteTrabajo ? 'abierto' : 'activo';
+      const nuevoEstadoAbierto = sinFechaLimiteTrabajo ? "abierto" : "activo";
 
       if (otrasPostulacionesQuery.empty) {
-        // Si no hay otras postulaciones aceptadas o confirmadas, cambiar el estado a "activo"
+        // Sin aceptados/confirmados: restablecer estado del trabajo.
         currentBatch.update(trabajoRef, {
           trabajadorAsignadoId: null,
-          estadoAsignacion: 'disponible',
+          estadoAsignacion: "disponible",
           estado: nuevoEstadoAbierto, // Cambiar estado a activo/abierto
           confirmacionExpiradaEn: ahora,
         });
-        console.log(`Trabajo ${trabajoId} cambiado a estado "${nuevoEstadoAbierto}"`);
+        console.log(
+            `Trabajo ${trabajoId} cambiado a estado "${nuevoEstadoAbierto}"`,
+        );
       } else {
-        // Mantener el estado actual, solo actualizar los campos relacionados con la asignación
+        // Mantener estado y limpiar la asignación.
         currentBatch.update(trabajoRef, {
           trabajadorAsignadoId: null,
-          estadoAsignacion: 'disponible',
+          estadoAsignacion: "disponible",
           confirmacionExpiradaEn: ahora,
         });
         console.log(`Trabajo ${trabajoId} mantiene su estado actual`);
       }
       operationCount++;
 
-      // Si nos acercamos al límite del batch, guardar y crear uno nuevo
-      if (operationCount >= BATCH_LIMIT - 3) { // Dejar margen
+      // Si nos acercamos al límite del batch, guardar y crear uno nuevo.
+      // Dejar margen para no exceder el límite permitido.
+      if (operationCount >= BATCH_LIMIT - 3) {
         batches.push(currentBatch);
         currentBatch = db.batch();
         operationCount = 0;
@@ -129,10 +139,14 @@ export const liberarPostulacionesExpiradas = onSchedule({
       console.log(`Batch ${i + 1}/${batches.length} commit exitoso`);
     }
 
-    console.log(`Se liberaron ${postulacionesExpiradasQuery.docs.length} postulaciones expiradas.`);
-    
+    const totalLiberadas = postulacionesExpiradasQuery.docs.length;
+    console.log(`Se liberaron ${totalLiberadas} postulaciones expiradas.`);
   } catch (error) {
-    console.error('Error al liberar postulaciones expiradas:', error);
+    console.error("Error al liberar postulaciones expiradas:", error);
     throw error; // Relanzar el error para que Firebase lo registre
   }
 });
+
+module.exports = {
+  liberarPostulacionesExpiradas,
+};
