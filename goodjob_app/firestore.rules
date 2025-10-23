@@ -43,7 +43,12 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).changedKeys()
             .hasOnly(['estado', 'fechaAceptacion', 'trabajoTitulo'])
         );
-        allow delete: if isAdmin();
+        allow delete: if isAdmin() || (
+          isSignedIn() &&
+          request.auth.uid == usuarioId &&
+          resource.data.usuarioId == request.auth.uid &&
+          resource.data.trabajoId == postulacionId
+        );
       }
     }
 
@@ -65,7 +70,12 @@ service cloud.firestore {
           request.resource.data.trabajoId == trabajoId;
         allow read: if isAdmin() ||
           (isSignedIn() && resource.data.usuarioId == request.auth.uid);
-        allow update, delete: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin() || (
+          isSignedIn() &&
+          resource.data.usuarioId == request.auth.uid &&
+          postulacionId == request.auth.uid
+        );
       }
     }
 
