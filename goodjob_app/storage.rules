@@ -21,21 +21,51 @@ service firebase.storage {
     }
 
     function isAdmin() {
-      if (!isSignedIn()) {
-        return false;
-      }
-      let usuario = getUsuario(request.auth.uid);
-      return usuario.data != null && usuario.data.rol == 'admin';
+      return isSignedIn() &&
+        getUsuario(request.auth.uid).data.rol == 'admin';
+    }
+
+    function hasAnyEstado(value, allowed) {
+      return allowed.hasAny([value]);
     }
 
     function isTrabajadorAsignado(trabajoId) {
-      if (!isSignedIn()) {
-        return false;
-      }
-      let postulacion = getPostulacion(trabajoId, request.auth.uid);
-      let trabajo = getTrabajo(trabajoId);
-      return (postulacion.data != null && postulacion.data.estado == 'confirmado') ||
-        (trabajo.data != null && trabajo.data.trabajadorAsignadoId == request.auth.uid);
+      return isSignedIn() && (
+        getTrabajo(trabajoId).data.trabajadorAsignadoId == request.auth.uid ||
+        (
+          getTrabajo(trabajoId).data.trabajadorAsignado != null &&
+          getTrabajo(trabajoId).data.trabajadorAsignado.id == request.auth.uid
+        ) ||
+        (
+          getPostulacion(trabajoId, request.auth.uid).data != null &&
+          getPostulacion(trabajoId, request.auth.uid).data.usuarioId == request.auth.uid &&
+          (
+            hasAnyEstado(
+              getPostulacion(trabajoId, request.auth.uid).data.estado,
+              ['confirmado', 'Confirmado', 'pendiente_revision', 'Pendiente_revision']
+            ) ||
+            hasAnyEstado(
+              getPostulacion(trabajoId, request.auth.uid).data.estadoAsignacion,
+              ['confirmado', 'Confirmado', 'pendiente_confirmacion', 'Pendiente_confirmacion']
+            ) ||
+            hasAnyEstado(
+              getPostulacion(trabajoId, request.auth.uid).data.estadoTrabajo,
+              [
+                'pendiente_revision',
+                'Pendiente_revision',
+                'pendiente',
+                'Pendiente',
+                'en_curso',
+                'En_curso',
+                'en curso',
+                'En curso'
+              ]
+            ) ||
+            getPostulacion(trabajoId, request.auth.uid).data.trabajoCompletado == true ||
+            getPostulacion(trabajoId, request.auth.uid).data.confirmadoEn != null
+          )
+        )
+      );
     }
 
     match /profile_pictures/{userId}/{fileName} {
