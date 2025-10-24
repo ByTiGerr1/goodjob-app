@@ -34,17 +34,18 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
-    - assets/images/visual1.png # 👈 CRÍTICO
-    - assets/images/visual2.png # 👈 CRÍTICO
-    - assets/images/visual3.png # 👈 CRÍTICO
+    - assets/
+
 
 flutter_launcher_icons:
       android: "launcher_icon" 
       ios: true
-      image_path: "assets/logo.png" 
+      image_path: "assets/images/GoodJob_con_margen_en_logo_sin_nombre.png" 
       min_sdk_android: 21
