@@ -570,11 +570,19 @@ class _PostulacionContent extends StatelessWidget {
 
   void _navegarAInstrucciones(BuildContext context) {
     Navigator.of(context)
-        .push(MaterialPageRoute(builder: (ctx) => InstruccionesTrabajoScreen())) // Añadido const
-        .then((_) {
+        .push<bool>(
+          MaterialPageRoute(
+            builder: (ctx) => InstruccionesTrabajoScreen(),
+          ),
+        )
+        .then((iniciarTrabajo) {
           // Marcar como vistas al regresar de la pantalla de instrucciones
           if (ModalRoute.of(context)?.isCurrent == true) {
             onInstruccionesVistas();
+
+            if (iniciarTrabajo == true) {
+              onIniciarTarea(context, trabajo, postulacion);
+            }
           }
         });
   }
