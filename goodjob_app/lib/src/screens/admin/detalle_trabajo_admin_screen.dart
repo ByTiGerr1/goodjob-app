@@ -4,7 +4,7 @@ import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
-import 'package:goodjob_app/src/utils/format_utils.dart'; 
+import 'package:goodjob_app/src/utils/format_utils.dart'; // Asegúrate que esta ruta sea correcta
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_gestion_pago.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_info_postulante.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_lista_postulantes.dart';
@@ -14,36 +14,29 @@ import 'package:goodjob_app/src/widgets/admin_trabajo/widget_revision_evidencias
 class DetalleTrabajoAdminScreen extends StatelessWidget {
   final Trabajo trabajo;
 
-  // Servicios requeridos por los widgets hijos
+  // Servicios
   final PostulacionService postulacionService;
   final PostulanteService postulanteService;
   final TrabajoService trabajoService;
   final StorageService storageService;
-
-  // ID del admin actual (para subir comprobantes)
   final String adminId;
 
   DetalleTrabajoAdminScreen({
-    Key? key,
+    super.key,
     required this.trabajo,
     required this.adminId,
     PostulacionService? postulacionService,
     PostulanteService? postulanteService,
     TrabajoService? trabajoService,
     StorageService? storageService,
-  })  : // Se asigna el valor recibido, o si es nulo, se crea uno NUEVO
-        postulacionService = postulacionService ?? PostulacionService(),
+  })  : postulacionService = postulacionService ?? PostulacionService(),
         postulanteService = postulanteService ?? PostulanteService(),
         trabajoService = trabajoService ?? TrabajoService(),
-        storageService = storageService ?? StorageService(),
-        super(key: key);
+        storageService = storageService ?? StorageService();
 
   @override
   Widget build(BuildContext context) {
-    
-    // Colores del Tema para coherencia visual
     final Color primaryColor = Theme.of(context).primaryColor;
-    final Color accentColor = Colors.green.shade700; // Color para destacar dinero
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle del Trabajo')),
@@ -53,7 +46,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- 1. Título y Estado ---
+              // --- 1. Título y Estado (Sección de Encabezado) ---
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -84,74 +77,12 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24), // Espacio en blanco
 
-              // --- 2. Descripción ---
-              Text(
-                'Descripción del Servicio',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                trabajo.descripcion,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
-              ),
-              const SizedBox(height: 24),
+              // --- 2. ⚠️ MEJORA UI: Contenedor de Información Estática ---
+              _buildInfoContainer(context, trabajo),
 
-              // --- 3. Detalles (Ubicación y Fechas) ---
-              Text(
-                'Detalles de Ejecución',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              
-              _InfoRow(
-                icon: Icons.location_on_outlined,
-                text: trabajo.ubicacion['direccion'] ?? 'Ubicación no especificada',
-              ),
-              // ⚠️ 3. (CAMBIO) Usando FormatUtils
-              _InfoRow(
-                icon: Icons.calendar_today_outlined,
-                text: 'Inicia: ${FormatUtils.formatDate(trabajo.fechaInicioTrabajo)} '
-                      'a las ${FormatUtils.formatDate(trabajo.fechaInicioTrabajo)}',
-              ),
-              // ⚠️ 3. (CAMBIO) Usando FormatUtils
-              _InfoRow(
-                icon: Icons.flag_outlined,
-                text: 'Finaliza: ${FormatUtils.formatDate(trabajo.fechaFinTrabajo)} '
-                      'a las ${FormatUtils.formatDate(trabajo.fechaFinTrabajo)}',
-              ),
-              const SizedBox(height: 24),
-              
-              // --- 4. Bloque de Precio (Destacado) ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: accentColor.withOpacity(0.2), width: 1),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Costo del Trabajo',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    // ⚠️ 3. (CAMBIO) Usando FormatUtils
-                    Text(
-                      FormatUtils.formatCurrency(trabajo.precio),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: accentColor,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-                  
               const SizedBox(height: 32), // Separador visual generoso
 
-              // --- 5. Contenido Dinámico (La magia) ---
+              // --- 3. Contenido Dinámico (Acciones) ---
               Text(
                 'Acciones Administrativas',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -166,6 +97,75 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// ⚠️ NUEVO WIDGET: Agrupa la info estática en un contenedor
+  Widget _buildInfoContainer(BuildContext context, Trabajo trabajo) {
+    final textTheme = Theme.of(context).textTheme;
+    // Color sutil que se adapta a light/dark mode
+    final containerColor = Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- Descripción ---
+          Text(
+            'Descripción del Servicio',
+            style: textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            trabajo.descripcion,
+            style: textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
+          ),
+          
+          const Divider(height: 32), // Separador interno
+
+          // --- Detalles ---
+          Text(
+            'Detalles de Ejecución',
+            style: textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          
+          _InfoRow(
+            icon: Icons.location_on_outlined,
+            text: trabajo.ubicacion['direccion'] ?? 'Ubicación no especificada',
+          ),
+          
+          // ⚠️ BUG FIX: Corregido el formato de fecha y hora
+          _InfoRow(
+            icon: Icons.calendar_today_outlined,
+            text: 'Inicia: ${FormatUtils.formatDate(trabajo.fechaInicioTrabajo)} '
+                  'a las ${FormatUtils.formatDate(trabajo.fechaInicioTrabajo)}',
+          ),
+          _InfoRow(
+            icon: Icons.flag_outlined,
+            text: 'Finaliza: ${FormatUtils.formatDate(trabajo.fechaFinTrabajo)} '
+                  'a las ${FormatUtils.formatDate(trabajo.fechaFinTrabajo)}',
+          ),
+
+          // --- Precio (Contextual) ---
+          // ⚠️ MEJORA UX: El precio es solo un detalle más,
+          // a menos que el estado sea cancelado/rechazado.
+          if (trabajo.estado != EstadoTrabajo.cancelado && 
+              trabajo.estado != EstadoTrabajo.rechazado) ...[
+            const SizedBox(height: 8),
+            _InfoRow(
+              icon: Icons.attach_money_outlined, // Icono más sutil
+              text: FormatUtils.formatCurrency(trabajo.precio),
+            ),
+          ]
+        ],
       ),
     );
   }
@@ -250,7 +250,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
 }
 
 /// Widget helper interno (Diseño de Lista Plana)
-/// No necesita cambios, ya que solo muestra el texto
+/// No necesita cambios
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
