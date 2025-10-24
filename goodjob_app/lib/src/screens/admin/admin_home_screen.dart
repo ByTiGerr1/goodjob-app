@@ -4,17 +4,21 @@ import 'pagos_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:goodjob_app/src/services/firebase_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/providers/trabajo_provider.dart';
+import 'package:goodjob_app/src/widgets/logout_confirmation_dialog.dart';
 import 'admin_trabajos_screen.dart';
 
 // Definición de una función de logout para ser pasada al widget
 void handleLogout(BuildContext context) async {
-  // Aquí iría tu lógica real de cierre de sesión
-  await Future.delayed(const Duration(milliseconds: 100));
-  if (context.mounted) {
-    Navigator.pushReplacementNamed(context, 'login');
-  }
+  final shouldLogout = await showLogoutConfirmationDialog(context);
+  if (!shouldLogout) return;
+
+  await Auth().logout();
+  if (!context.mounted) return;
+
+  Navigator.pushReplacementNamed(context, 'login');
 }
 
 class AdminHomeScreen extends StatefulWidget {

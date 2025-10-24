@@ -13,6 +13,7 @@ import 'package:goodjob_app/src/screens/auth/login_screen.dart';
 // Importar el servicio de Storage (Ajustar la ruta según tu proyecto)
 import '../../services/storage_service.dart';
 import '../../services/firebase_service.dart'; // Asumiendo que Auth está aquí
+import '../../widgets/logout_confirmation_dialog.dart';
 
 // Constantes de color para mantener la estética
 const Color _PRIMARY_COLOR = AppColors.primary;
@@ -562,12 +563,15 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
       title: 'Cerrar Sesión',
       subtitle: 'Cierra tu sesión actual de forma segura.',
       onTap: () async {
+        final shouldLogout = await showLogoutConfirmationDialog(context);
+        if (!shouldLogout) return;
+
         await auth.logout();
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-          );
-        }
+        if (!mounted) return;
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
       },
       trailing: const Icon(Icons.chevron_right, color: Colors.black54),
     );
