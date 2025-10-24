@@ -355,7 +355,7 @@ class _AdminTrabajoDetalleScreenState extends State<AdminTrabajoDetalleScreen> {
   // --- WIDGET DE ADMINISTRACIÓN (Panel de Alerta) ---
   Widget _buildAdministracionSection() {
     final bool isFinished = _countdownText == 'Ya acabo';
-    final Color countdownColor = isFinished ? alertColor : secondaryColor;
+    final Color countdownColor = isFinished ? alertColor : primaryColor;
 
     // Nuevo Título
     const String panelTitle = 'Tiempo Límite para Postulación';

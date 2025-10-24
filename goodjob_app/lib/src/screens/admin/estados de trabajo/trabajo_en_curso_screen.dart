@@ -7,7 +7,6 @@ import 'package:goodjob_app/src/models/trabajo.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
 // Asumiendo que esta es la pantalla de redireccionamiento para edición o gestión
 
-
 class TrabajoEnCursoScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
@@ -32,7 +31,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   // --- COLORES Y CONSTANTES UI/UX ---
   static const Color primaryColor = AppColors.primary;
   static const Color alertColor = AppColors.alertColor;
-  
+
   // Obtenemos los colores semánticos del modelo
   late Color _estadoBackgroundColor;
   late Color _estadoTextColor;
@@ -41,7 +40,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   void initState() {
     super.initState();
     // CAMBIO: Ahora manejamos el estado 'enCurso'
-    _estadoTrabajo = EstadoTrabajo.enCurso; 
+    _estadoTrabajo = EstadoTrabajo.enCurso;
     _estadoBackgroundColor = _estadoTrabajo.colorChip;
     _estadoTextColor = _estadoTrabajo.colorTextoChip;
     _cargarUsuarioConfirmado();
@@ -57,7 +56,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
           .collection('trabajos')
           .doc(widget.trabajoId)
           .collection('postulaciones')
-          .where('estado', isEqualTo: 'confirmado') 
+          .where('estado', isEqualTo: 'confirmado')
           .limit(1)
           .get();
 
@@ -89,9 +88,11 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   // --- UTILIDADES DE FORMATO ---
 
-  String _formatDate(DateTime? fecha) => fecha != null ? FormatUtils.formatDate(fecha) : 'N/A';
-  String _formatCurrency(double? precio) => precio != null ? FormatUtils.formatCurrency(precio) : 'N/A';
-  
+  String _formatDate(DateTime? fecha) =>
+      fecha != null ? FormatUtils.formatDate(fecha) : 'N/A';
+  String _formatCurrency(double? precio) =>
+      precio != null ? FormatUtils.formatCurrency(precio) : 'N/A';
+
   // FUNCIÓN LOCAL PARA FORMATO DE HORA (reutilizando la lógica de la pantalla anterior)
   String _formatTimeOfDay(DateTime? dateTime) {
     if (dateTime == null) return 'N/A';
@@ -136,8 +137,10 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   }
 
   Widget _buildSeccionTrabajo() {
-    final fechaInicio = (widget.trabajo['fechaInicioTrabajo'] as Timestamp?)?.toDate();
-    final fechaFin = (widget.trabajo['fechaFinTrabajo'] as Timestamp?)?.toDate();
+    final fechaInicio = (widget.trabajo['fechaInicioTrabajo'] as Timestamp?)
+        ?.toDate();
+    final fechaFin = (widget.trabajo['fechaFinTrabajo'] as Timestamp?)
+        ?.toDate();
     final ubicacion = widget.trabajo['ubicacion'] as Map<String, dynamic>?;
     final precio = (widget.trabajo['precio'] as num?)?.toDouble() ?? 0.0;
 
@@ -168,16 +171,16 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
             _buildDetalleItem(
               Icons.calendar_today,
               'Fecha de Inicio',
-              fechaInicio != null 
-                ? '${_formatDate(fechaInicio)} a las ${_formatTimeOfDay(fechaInicio)}'
-                : 'N/A',
+              fechaInicio != null
+                  ? '${_formatDate(fechaInicio)} a las ${_formatTimeOfDay(fechaInicio)}'
+                  : 'N/A',
             ),
             _buildDetalleItem(
               Icons.event,
               'Fecha de Fin',
-              fechaFin != null 
-                ? '${_formatDate(fechaFin)} a las ${_formatTimeOfDay(fechaFin)}'
-                : 'N/A',
+              fechaFin != null
+                  ? '${_formatDate(fechaFin)} a las ${_formatTimeOfDay(fechaFin)}'
+                  : 'N/A',
             ),
             _buildDetalleItem(
               Icons.location_on,
@@ -191,7 +194,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
             ),
           ],
         ),
-      )
+      ),
     );
   }
 
@@ -249,7 +252,9 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     final region = _usuarioData!['region'] as String? ?? 'N/A';
     final calle = _usuarioData!['calle'] as String? ?? '';
     final numero = _usuarioData!['numero'] as String? ?? '';
-    final direccion = '$calle $numero'.trim().isEmpty ? 'N/A' : '$calle $numero';
+    final direccion = '$calle $numero'.trim().isEmpty
+        ? 'N/A'
+        : '$calle $numero';
 
     return Card(
       elevation: 2,
@@ -280,31 +285,11 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
               'Nombre',
               nombreCompleto.isEmpty ? 'N/A' : nombreCompleto,
             ),
-            _buildDetalleItem(
-              Icons.fingerprint,
-              'RUT',
-              rut,
-            ),
-            _buildDetalleItem(
-              Icons.email,
-              'Email',
-              email,
-            ),
-            _buildDetalleItem(
-              Icons.phone,
-              'Teléfono',
-              telefono,
-            ),
-            _buildDetalleItem(
-              Icons.location_city,
-              'Región',
-              region,
-            ),
-            _buildDetalleItem(
-              Icons.home,
-              'Dirección',
-              direccion,
-            ),
+            _buildDetalleItem(Icons.fingerprint, 'RUT', rut),
+            _buildDetalleItem(Icons.email, 'Email', email),
+            _buildDetalleItem(Icons.phone, 'Teléfono', telefono),
+            _buildDetalleItem(Icons.location_city, 'Región', region),
+            _buildDetalleItem(Icons.home, 'Dirección', direccion),
           ],
         ),
       ),
@@ -315,7 +300,8 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   @override
   Widget build(BuildContext context) {
     // Título del trabajo para el FlexibleSpaceBar
-    final trabajoTitulo = widget.trabajo['titulo'] as String? ?? 'Trabajo En Curso';
+    final trabajoTitulo =
+        widget.trabajo['titulo'] as String? ?? 'Trabajo En Curso';
 
     return Scaffold(
       body: Stack(
@@ -325,7 +311,8 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
               SliverAppBar(
                 expandedHeight: 200,
                 pinned: true,
-                backgroundColor: primaryColor, // Usamos primaryColor como fondo principal
+                backgroundColor:
+                    primaryColor, // Usamos primaryColor como fondo principal
                 foregroundColor: Colors.white,
                 flexibleSpace: FlexibleSpaceBar(
                   titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
@@ -341,13 +328,16 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                     decoration: BoxDecoration(
                       color: primaryColor,
                       // Borde sutil del color de estado como señal
-                      border: Border(bottom: BorderSide(color: _estadoTextColor, width: 3)), 
+                      border: Border(
+                        bottom: BorderSide(color: _estadoTextColor, width: 3),
+                      ),
                     ),
                     child: Center(
                       child: Icon(
                         Icons.access_time_filled, // Ícono de proceso activo
                         size: 80,
-                        color: _estadoTextColor, // Usamos el color de estado (Azul) para el ícono principal
+                        color:
+                            _estadoTextColor, // Usamos el color de estado (Azul) para el ícono principal
                       ),
                     ),
                   ),
@@ -365,12 +355,17 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                         decoration: BoxDecoration(
                           color: _estadoBackgroundColor,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _estadoTextColor.withOpacity(0.5)),
+                          border: Border.all(
+                            color: _estadoTextColor.withOpacity(0.5),
+                          ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.directions_run, color: _estadoTextColor), // Ícono de actividad
+                            Icon(
+                              Icons.directions_run,
+                              color: _estadoTextColor,
+                            ), // Ícono de actividad
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -392,16 +387,30 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                       _buildSeccionUsuario(),
 
                       const SizedBox(height: 24), // Espacio final
-                      
                       // Opción de gestión o reasignación (Botón de acción secundaria)
                       Center(
                         child: TextButton.icon(
                           onPressed: () {
                             // Asumimos que getAdminTrabajoView permite la edición
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: widget.trabajoId, trabajoData: widget.trabajo)));
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => getAdminTrabajoView(
+                                  trabajoId: widget.trabajoId,
+                                  trabajoData: widget.trabajo,
+                                ),
+                              ),
+                            );
                           },
-                          icon: const Icon(Icons.edit_calendar, size: 20, color: primaryColor),
-                          label: const Text('Gestionar/Editar Trabajo', style: TextStyle(fontWeight: FontWeight.bold)),
+                          icon: const Icon(
+                            Icons.edit_calendar,
+                            size: 20,
+                            color: primaryColor,
+                          ),
+                          label: const Text(
+                            'Gestionar/Editar Trabajo',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -411,7 +420,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
               ),
             ],
           ),
-          
+
           // Loading overlay
           if (_isLoading)
             Container(
