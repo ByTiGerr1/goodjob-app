@@ -103,6 +103,8 @@ class Trabajo {
   EstadoTrabajo estado;
   final bool sinFechaLimite;
   final bool pagado;
+  final String? trabajadorAsignadoId;
+  final String? motivoRechazo;
 
   Trabajo({
     required this.id,
@@ -121,6 +123,8 @@ class Trabajo {
     required this.estado,
     this.sinFechaLimite = false,
     this.pagado = false,
+    this.trabajadorAsignadoId,
+    this.motivoRechazo,
   });
 
   factory Trabajo.fromFirestore(DocumentSnapshot doc) {
@@ -171,6 +175,8 @@ class Trabajo {
       estado: estado,
       sinFechaLimite: data['sinFechaLimite'] == true,
       pagado: data['pagado'] == true,
+      trabajadorAsignadoId: data['trabajadorAsignadoId'],
+      motivoRechazo: data['motivoRechazo'],
     );
   }
 

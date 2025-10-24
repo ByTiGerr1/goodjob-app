@@ -137,6 +137,20 @@ class TrabajoService {
     return _trabajos.doc(trabajoId).update({'estado': EstadoTrabajo.cancelado.name});
   }
 
+Future<void> actualizarCamposTrabajo(String trabajoId, Map<String, dynamic> data) async {
+    try {
+      // Si pasamos un enum, lo convertimos a string
+      if (data['estado'] is EstadoTrabajo) {
+        data['estado'] = (data['estado'] as EstadoTrabajo).name;
+      }
+      
+      await _trabajos.doc(trabajoId).update(data);
+    } catch (e) {
+      debugPrint('Error al actualizar campos del trabajo: $e');
+      rethrow; // Lanza el error para que la UI lo maneje
+    }
+  }
+
   /// Counts the number of applications for a specific job.
   Future<int> contarPostulaciones(String trabajoId) async {
     try {

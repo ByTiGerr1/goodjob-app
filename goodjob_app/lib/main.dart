@@ -13,11 +13,13 @@ import 'src/screens/auth/account_verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'src/services/firebase_service.dart';
 import 'firebase_options.dart';
+import 'package:intl/date_symbol_data_local.dart'; 
 // import 'theme/app_colors.dart'; // No es necesario si se definen en ThemeData
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await initializeDateFormatting('es', null);
 
   runApp(const MainApp());
 }

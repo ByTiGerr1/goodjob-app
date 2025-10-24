@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:goodjob_app/src/screens/admin/detalle_trabajo_admin_screen.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
@@ -6,10 +7,7 @@ import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/models/trabajo.dart'; // Asegurar que Trabajo y su extensión están importados
 import 'package:goodjob_app/src/providers/trabajo_provider.dart';
 import 'postulantes_trabajo_screen.dart';
-import 'admin_trabajo_router.dart';
-
-// Se asume que TrabajoProvider tiene propiedades: isLoading, hasError, trabajos, trabajosFiltrados
-// Se asume que EstadoTrabajo tiene propiedades: texto, colorChip, colorTextoChip
+import 'package:firebase_auth/firebase_auth.dart'; // <-- IMPORTANTE: Asegúrate de tener este import
 
 // =========================================================================
 // WIDGET DE FILTROS: _FilterControls
@@ -89,7 +87,6 @@ class _FilterControlsState extends State<_FilterControls> {
       case EstadoTrabajo.rechazado:
         return Icons.close_rounded;
     }
-    return Icons.dashboard; // Fallback
   }
 
   @override
@@ -121,8 +118,6 @@ class _FilterControlsState extends State<_FilterControls> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-
             const SizedBox(height: 8),
 
             // Nivel 1: Barra de Categorías (Tab Bar UX)
@@ -268,7 +263,39 @@ class AdminTrabajosScreen extends StatefulWidget {
 class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
   final PostulacionService postulacionService = PostulacionService();
 
+  // --- ¡NUEVO MÉTODO DE NAVEGACIÓN! ---
+  /// Navega a la pantalla de detalle obteniendo primero el ID del admin.
+  void _navegarADetalle(BuildContext context, Trabajo trabajo) {
+    // 1. Obtener el usuario actual de Firebase Auth
+    final user = FirebaseAuth.instance.currentUser;
+
+    // 2. Verificar que el usuario exista
+    if (user != null) {
+      final String adminId = user.uid; // ¡Aquí está el ID!
+
+      // 3. Navegar pasando el adminId
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DetalleTrabajoAdminScreen(
+            trabajo: trabajo,
+            adminId: adminId, // <-- ¡Argumento requerido añadido!
+          ),
+        ),
+      );
+    } else {
+      // 4. Manejar error si no se encuentra el usuario
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: No se pudo identificar al administrador.'),
+        ),
+      );
+    }
+  }
+
   // --- WIDGETS DE LISTA ---
+
+  // ... (Código anterior de _AdminTrabajosScreenState, incluyendo _navegarADetalle) ...
 
   Widget _buildTrabajoGestionCard(BuildContext context, Trabajo trabajo) {
     final primaryColor = Theme.of(context).colorScheme.primary;
@@ -276,13 +303,13 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
         Colors.grey.shade600; // Color neutro para texto secundario
 
     // Formato de fechas para diferenciación rápida
-    final String fechaInicio = FormatUtils.formatDate(trabajo.fechaInicioTrabajo);
+    final String fechaInicio = FormatUtils.formatDate(
+      trabajo.fechaInicioTrabajo,
+    );
     final String fechaFin = FormatUtils.formatDate(trabajo.fechaFinTrabajo);
     final String fechaTexto = '$fechaInicio - $fechaFin';
 
     return Card(
-      
-      // UI: Mayor elevación y bordes más redondos
       elevation: 6,
       margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -290,15 +317,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
         borderRadius: BorderRadius.circular(16),
         onTap: () {
           // Navegación a la vista de edición/detalle
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => getAdminTrabajoView(
-                trabajoId: trabajo.id,
-                trabajoData: trabajo.toMap(),
-              ),
-            ),
-          );
+          _navegarADetalle(context, trabajo);
         },
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -307,15 +326,14 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start, // Alineación superior
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Título, Empresa y Estado
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 1. Título (Más líneas para evitar corte)
+                        // Título
                         Text(
                           trabajo.titulo,
                           style: const TextStyle(
@@ -323,24 +341,22 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                             fontWeight: FontWeight.w800,
                           ),
                           overflow: TextOverflow.ellipsis,
-                          maxLines: 3, // Aumentado a 3 líneas (UX)
+                          maxLines: 3,
                         ),
                         const SizedBox(height: 4),
-
-                        // 2. Empresa/Cliente (Menos negrita para reducir peso visual)
+                        // Empresa
                         Text(
                           trabajo.empresa,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
                             color: secondaryTextColor,
-                          ), // Menos peso visual
+                          ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
                         const SizedBox(height: 8),
-
-                        // 3. Chip de Estado (Contexto Visual Semántico)
+                        // Chip de Estado
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -362,8 +378,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                       ],
                     ),
                   ),
-
-                  // Cantidad de Postulantes (KPI clave, se mantiene prominente)
+                  // Cantidad de Postulantes
                   FutureBuilder<int>(
                     future: postulacionService.contarPostulaciones(trabajo.id),
                     builder: (context, snapshot) {
@@ -383,7 +398,6 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                                 ),
                               )
                             else
-                              // UI: Número grande, clave para el admin
                               Text(
                                 '$postulantes',
                                 style: TextStyle(
@@ -413,7 +427,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
               // Fila de Contexto Rápido (Precio y Fechas)
               Row(
                 children: [
-                  // UX: Iconos en color neutro (secondaryTextColor) para reducir el ruido
+                  // Fecha
                   Icon(
                     Icons.calendar_month_rounded,
                     size: 18,
@@ -428,17 +442,14 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                       color: secondaryTextColor,
                     ),
                   ),
-
                   const SizedBox(width: 20),
-
-                  // UX: Iconos en color neutro
+                  // Precio
                   Icon(
                     Icons.payments_rounded,
                     size: 18,
                     color: secondaryTextColor,
                   ),
                   const SizedBox(width: 6),
-                  // Formato de precio, mantenido en negrita para énfasis financiero
                   Text(
                     '${(trabajo.precio != null) ? FormatUtils.formatCurrency(trabajo.precio.toDouble()) : 'N/D'} brutos',
                     style: const TextStyle(
@@ -467,15 +478,9 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                         color: Colors.grey.shade600,
                       ),
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => getAdminTrabajoView(
-                              trabajoId: trabajo.id,
-                              trabajoData: trabajo.toMap(),
-                            ),
-                          ),
-                        );
+                        // --- CAMBIO ---
+                        // Usamos la nueva función de navegación
+                        _navegarADetalle(context, trabajo);
                       },
                     ),
                   ),
@@ -503,13 +508,13 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
-                      ), // UX: Mensaje más claro y orientado a la acción
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
-                        ), // Mayor área de toque (Touch Target)
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -524,7 +529,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
         ),
       ),
     );
-  }
+  } // Fin de _buildTrabajoGestionCard
 
   // Renombrado para que se ajuste mejor a ser el cuerpo (body) del Scaffold
   Widget _buildTrabajosListBody(BuildContext context) {
@@ -550,7 +555,10 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                   Text(
                     'Error al cargar trabajos: ${trabajoProvider.errorMessage}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.alertColor, fontSize: 16),
+                    style: const TextStyle(
+                      color: AppColors.alertColor,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -629,7 +637,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
         );
       },
     );
-  }
+  } // Fin de _buildTrabajosListBody
 
   @override
   Widget build(BuildContext context) {
@@ -645,13 +653,26 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
             icon: const Icon(Icons.search_rounded),
             onPressed: () {
               // TODO: Implementar funcionalidad de búsqueda
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Funcionalidad de búsqueda no implementada'),
+                ),
+              );
             },
           ),
         ],
       ),
-
-
       body: _buildTrabajosListBody(context),
+      // Puedes agregar un FloatingActionButton aquí si necesitas crear trabajos
+      /*
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: () {
+        // TODO: Navegar a la pantalla de crear trabajo
+      },
+      label: const Text('Crear Trabajo'),
+      icon: const Icon(Icons.add),
+    ),
+    */
     );
-  }
-}
+  } // Fin del build principal
+} // Fin de _AdminTrabajosScreenState
