@@ -121,13 +121,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // --- Contenido Dinámico ---
-              Text(
-                'Acciones Administrativas',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
+
               const SizedBox(height: 16),
               ..._buildDynamicContent(context, trabajo),
               const SizedBox(height: 20), // Espacio final
