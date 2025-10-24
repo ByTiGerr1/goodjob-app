@@ -90,17 +90,17 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al finalizar el pago: $e'), backgroundColor: Colors.red));
+      // Only stop loading if there was an error
       if (mounted) setState(() => _isLoading = false);
     }
+     // Don't set isLoading to false on success, let the screen rebuild trigger
   }
 
   @override
   Widget build(BuildContext context) {
-    // ⚠️ CORRECCIÓN: Usar el nombre de campo correcto del modelo Trabajo
     final String? trabajadorAsignadoId = widget.trabajo.trabajadorAsignadoId;
 
     if (trabajadorAsignadoId == null) {
-      // --- (El bloque de error crítico se mantiene) ---
       return Card(
         color: Colors.red.shade50,
         child: const Padding(
@@ -120,9 +120,7 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
         ),
       );
     }
-    // --- End Null Check ---
 
-    // Si llegamos aquí, trabajadorAsignadoId NO es null
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -137,16 +135,13 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
         ),
         const SizedBox(height: 16),
 
-        // --- FutureBuilder para cargar datos bancarios ---
         FutureBuilder<Map<String, dynamic>?>(
-          // ⚠️ CORRECCIÓN: Usar la variable correcta 'trabajadorAsignadoId'
           future: widget.postulanteService.obtenerDatosUsuario(trabajadorAsignadoId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
             }
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-              // --- (El bloque de warning se mantiene) ---
               return Card(
                 color: Colors.orange.shade50,
                 child: const Padding(
@@ -167,12 +162,13 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
               );
             }
 
-            // Data fetched successfully
             final postulanteData = snapshot.data!;
             final Map<String, dynamic> datosBancarios = postulanteData['datosBancarios'] ?? {};
             final String nombre = postulanteData['nombre'] ?? 'Sin nombre';
             final String apellido = postulanteData['apellido'] ?? '';
             final String nombreCompleto = '$nombre $apellido'.trim();
+            // Extraer RUT del nivel superior si existe, si no, del mapa bancario
+            final String rut = postulanteData['rut'] ?? datosBancarios['rut'] ?? 'No especificado';
 
             return Card(
               elevation: 2,
@@ -190,8 +186,30 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
                       ),
                     ),
                     const Divider(height: 20),
+
+                    // Botón "Copiar Todo"
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.content_copy_rounded, size: 18),
+                        label: const Text('Copiar Todos los Datos'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        onPressed: () => _copiarTodosLosDatos(
+                          context: context,
+                          nombre: nombreCompleto,
+                          rut: rut,
+                          datosBancarios: datosBancarios,
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 20), // Separador adicional
+
+                    // Datos individuales (copiables)
                     _buildDatoBancarioCopiable(context, 'Beneficiario', nombreCompleto.isNotEmpty ? nombreCompleto : 'No especificado'),
-                    _buildDatoBancarioCopiable(context, 'RUT', postulanteData['rut'] ?? 'No especificado'),
+                    _buildDatoBancarioCopiable(context, 'RUT', rut),
                     _buildDatoBancarioCopiable(context, 'Banco', datosBancarios['banco'] ?? 'No especificado'),
                     _buildDatoBancarioCopiable(context, 'Tipo Cuenta', datosBancarios['tipoCuenta'] ?? 'No especificado'),
                     _buildDatoBancarioCopiable(context, 'N° Cuenta', datosBancarios['numeroCuenta'] ?? 'No especificado'),
@@ -201,15 +219,12 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
             );
           },
         ),
-        // --- End FutureBuilder ---
 
         const SizedBox(height: 24),
 
-        // --- Loading indicator or Buttons ---
         if (_isLoading)
           const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()))
         else
-          // --- StreamBuilder for Payment Proof Buttons ---
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: widget.storageService.mostrarEvidenciasPagos(widget.trabajo.id),
             builder: (context, snapshot) {
@@ -219,7 +234,6 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
 
               if (snapshot.connectionState == ConnectionState.active && snapshot.hasData && snapshot.data!.isNotEmpty) {
                 comprobanteSubido = true;
-                // Asumiendo que tu servicio devuelve una lista y el URL está en el primer elemento
                 comprobanteUrl = snapshot.data![0]['url'];
                 if (comprobanteUrl != null) {
                   comprobantePreview = Column(
@@ -305,7 +319,6 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
               );
             },
           ),
-          // --- End StreamBuilder ---
       ],
     );
   }
@@ -381,11 +394,10 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: IconButton(
-                  // ⚠️ CORRECCIÓN: Ícono de cerrar correcto
                   icon: const Icon(Icons.cloud_circle_rounded, color: Colors.white, size: 30),
                   onPressed: () => Navigator.of(ctx).pop(),
                   tooltip: 'Cerrar',
-                  style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.3)), // Fondo para visibilidad
+                  style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.3)),
                 ),
               ),
             ],
@@ -420,6 +432,37 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Nueva función para copiar todos los datos
+  void _copiarTodosLosDatos({
+    required BuildContext context,
+    required String nombre,
+    required String rut,
+    required Map<String, dynamic> datosBancarios,
+  }) {
+    final beneficiario = nombre.isNotEmpty ? nombre : 'N/A';
+    final rutValor = rut.isNotEmpty && rut != 'No especificado' ? rut : 'N/A';
+    final banco = datosBancarios['banco'] as String? ?? 'N/A';
+    final tipoCuenta = datosBancarios['tipoCuenta'] as String? ?? 'N/A';
+    final numeroCuenta = datosBancarios['numeroCuenta'] as String? ?? 'N/A';
+
+    final String datosCompletos = '''
+Beneficiario: $beneficiario
+RUT: $rutValor
+Banco: $banco
+Tipo Cuenta: $tipoCuenta
+N° Cuenta: $numeroCuenta
+''';
+
+    Clipboard.setData(ClipboardData(text: datosCompletos.trim()));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('¡Todos los datos bancarios copiados!'),
+        backgroundColor: Colors.blue.shade700,
       ),
     );
   }
