@@ -46,12 +46,25 @@ class FormatUtils {
   // ----------------------------------------------------
   static String formatDate(DateTime date) {
     try {
-      final formatter = DateFormat('dd/MM/yyyy', 'es_CL'); 
+      final formatter = DateFormat('dd/MM/yyyy', 'es_CL');
       return formatter.format(date);
     } catch (e) {
       // Fallback sin localización específica
       final formatter = DateFormat('dd/MM/yyyy');
       return formatter.format(date);
+    }
+  }
+
+  // ----------------------------------------------------
+  // FORMATO DE HORAS (12 horas con sufijo am/pm)
+  // ----------------------------------------------------
+  static String formatTime(DateTime date) {
+    try {
+      final formatter = DateFormat('hh:mm a', 'en_US');
+      return formatter.format(date).toLowerCase();
+    } catch (e) {
+      final formatter = DateFormat('hh:mm a');
+      return formatter.format(date).toLowerCase();
     }
   }
 }

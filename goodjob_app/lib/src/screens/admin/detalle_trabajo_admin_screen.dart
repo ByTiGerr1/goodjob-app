@@ -146,12 +146,12 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
           _InfoRow(
             icon: Icons.calendar_today_outlined,
             text: 'Inicia: ${FormatUtils.formatDate(trabajo.fechaInicioTrabajo)} '
-                  'a las ${FormatUtils.formatDate(trabajo.fechaInicioTrabajo)}',
+                'a las ${FormatUtils.formatTime(trabajo.fechaInicioTrabajo)}',
           ),
           _InfoRow(
             icon: Icons.flag_outlined,
             text: 'Finaliza: ${FormatUtils.formatDate(trabajo.fechaFinTrabajo)} '
-                  'a las ${FormatUtils.formatDate(trabajo.fechaFinTrabajo)}',
+                'a las ${FormatUtils.formatTime(trabajo.fechaFinTrabajo)}',
           ),
 
           // --- Precio (Contextual) ---
@@ -186,6 +186,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
           trabajo: trabajo,
           trabajoService: trabajoService,
           storageService: storageService,
+          postulanteService: postulanteService,
         );
 
       case EstadoTrabajo.porPagar:

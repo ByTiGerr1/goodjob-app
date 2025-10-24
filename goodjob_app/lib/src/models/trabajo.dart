@@ -139,16 +139,19 @@ class Trabajo {
         if (estadoLower == 'abierto') {
           estado = EstadoTrabajo.activo;
         } else {
-          // Intentar primero por name (ej: "activo", "porConfirmar")
+          final estadoNormalizado =
+              estadoLower.replaceAll(RegExp(r'[\s_-]+'), '');
+
           estado = EstadoTrabajo.values.firstWhere(
-            (e) => e.name.toLowerCase() == estadoLower,
-            orElse: () {
-              // Si no funciona, intentar por texto (ej: "Activo", "Por confirmar")
-              return EstadoTrabajo.values.firstWhere(
-                (e) => e.texto.toLowerCase() == estadoLower,
-                orElse: () => EstadoTrabajo.activo,
-              );
+            (e) {
+              final nombreNormalizado =
+                  e.name.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+              final textoNormalizado =
+                  e.texto.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+              return estadoNormalizado == nombreNormalizado ||
+                  estadoNormalizado == textoNormalizado;
             },
+            orElse: () => EstadoTrabajo.activo,
           );
         }
       } else {

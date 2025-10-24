@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 
@@ -7,13 +8,16 @@ class WidgetRevisionEvidencias extends StatefulWidget {
   final Trabajo trabajo;
   final TrabajoService trabajoService;
   final StorageService storageService;
+  final PostulanteService postulanteService;
 
-  const WidgetRevisionEvidencias({
+  WidgetRevisionEvidencias({
     Key? key,
     required this.trabajo,
     required this.trabajoService,
     required this.storageService,
-  }) : super(key: key);
+    PostulanteService? postulanteService,
+  }) : postulanteService = postulanteService ?? PostulanteService(),
+       super(key: key);
 
   @override
   State<WidgetRevisionEvidencias> createState() => _WidgetRevisionEvidenciasState();
@@ -21,6 +25,17 @@ class WidgetRevisionEvidencias extends StatefulWidget {
 
 class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
   bool _isLoading = false;
+  Future<Map<String, dynamic>?>? _postulanteFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final assignedWorkerId = widget.trabajo.trabajadorAsignadoId;
+    if (assignedWorkerId != null && assignedWorkerId.isNotEmpty) {
+      _postulanteFuture =
+          widget.postulanteService.obtenerDatosUsuario(assignedWorkerId);
+    }
+  }
 
   void _aprobar() async {
     final confirmar = await showDialog(
@@ -94,7 +109,53 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
         const SizedBox(height: 8),
         const Text('El postulante ha marcado el trabajo como finalizado y subió las siguientes evidencias:'),
         const SizedBox(height: 16),
-        
+
+        if (_postulanteFuture != null) ...[
+          Text(
+            'Trabajador asignado',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _postulanteFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return const Text(
+                    'No se pudieron cargar los datos del trabajador asignado.');
+              }
+
+              final postulanteData = snapshot.data;
+              if (postulanteData == null) {
+                return const Text(
+                    'No encontramos información del trabajador asignado.');
+              }
+
+              final nombre = postulanteData['nombre'] as String? ?? 'Sin nombre';
+              final telefono =
+                  postulanteData['telefono'] as String? ?? 'No disponible';
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Text(
+                      nombre.isNotEmpty ? nombre[0].toUpperCase() : 'U',
+                    ),
+                  ),
+                  title: Text(nombre),
+                  subtitle: Text('Contacto: $telefono'),
+                ),
+              );
+            },
+          ),
+        ],
         // --- AQUÍ ESTÁ EL CAMBIO ---
         // Usamos un StreamBuilder para mostrar las evidencias en tiempo real
         StreamBuilder<List<Map<String, dynamic>>>(
