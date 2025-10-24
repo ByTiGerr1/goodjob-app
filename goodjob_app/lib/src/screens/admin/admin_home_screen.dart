@@ -26,7 +26,20 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
-  final TrabajoService servicio = TrabajoService(); 
+  final TrabajoService servicio = TrabajoService();
+  late final TrabajoProvider _trabajoProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    _trabajoProvider = TrabajoProvider(servicio);
+  }
+
+  @override
+  void dispose() {
+    _trabajoProvider.dispose();
+    super.dispose();
+  }
   
 
   static const Color _ACTIVE_COLOR = AppColors.activo; // Verde Azulado para Activo/Abierto
@@ -282,23 +295,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final primaryColor = theme.colorScheme.primary;
     final secondaryColor = theme.colorScheme.secondary;
     
-    return ChangeNotifierProvider(
-      create: (_) => TrabajoProvider(servicio),
+    return ChangeNotifierProvider<TrabajoProvider>.value(
+      value: _trabajoProvider,
       child: Scaffold(
-        
-        body: IndexedStack( 
+        body: IndexedStack(
           index: _currentIndex,
           children: [
-            _buildHomeDashboard(), 
-              AdminTrabajosScreen(),
-              PagosScreen(),
+            _buildHomeDashboard(),
+            const AdminTrabajosScreen(),
+            const PagosScreen(),
           ],
         ),
-        
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
           selectedItemColor: secondaryColor,
-          unselectedItemColor: Colors.white70, 
+          unselectedItemColor: Colors.white70,
           backgroundColor: primaryColor,
           type: BottomNavigationBarType.fixed,
           onTap: (index) => setState(() => _currentIndex = index),
@@ -308,7 +319,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Pagos'),
           ],
         ),
-        
         floatingActionButton: _currentIndex == 1
             ? FloatingActionButton(
                 heroTag: 'createJobFAB',
