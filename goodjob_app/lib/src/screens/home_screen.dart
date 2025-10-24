@@ -5,14 +5,16 @@ import 'mis_pagos.dart';
 import 'configuracion/configuracion_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialIndex;
+
+  const HomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   final List<Widget> _pages = const [
     TrabajosScreen(),
@@ -20,6 +22,16 @@ class _HomeScreenState extends State<HomeScreen> {
     MisPagosScreen(),
     ConfiguracionScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialIndex < 0 || widget.initialIndex >= _pages.length) {
+      _currentIndex = 0;
+    } else {
+      _currentIndex = widget.initialIndex;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
