@@ -48,6 +48,27 @@ class Auth {
     }
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'invalid-email':
+          message = 'El correo electrónico no es válido.';
+          break;
+        case 'user-not-found':
+          message = 'No existe un usuario registrado con ese correo.';
+          break;
+        default:
+          message = e.message ?? e.code;
+      }
+      throw Exception('No se pudo enviar el correo de restablecimiento: $message');
+    } catch (e) {
+      throw Exception('No se pudo enviar el correo de restablecimiento: $e');
+    }
+  }
+
   Future<void> _initializeNotificationService() async {
     final service = _notificationService;
     if (service == null) return;

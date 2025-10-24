@@ -160,6 +160,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       obscureText: _obscurePassword,
                     ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, 'forgot_password'),
+                        child: const Text('¿Olvidaste tu contraseña?'),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     // Botón principal
                     SizedBox(

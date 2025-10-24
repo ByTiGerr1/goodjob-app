@@ -8,6 +8,7 @@ import 'package:goodjob_app/src/screens/onboard/welcome_screen.dart';
 import 'src/screens/home_screen.dart';
 import 'src/screens/auth/login_screen.dart';
 import 'src/screens/auth/register_screen.dart';
+import 'src/screens/auth/forgot_password_screen.dart';
 import 'src/screens/admin/admin_home_screen.dart';
 import 'src/screens/admin/crear_trabajo_screen.dart';
 import 'src/screens/admin/crear_plantilla_screen.dart';
@@ -203,6 +204,7 @@ class MainApp extends StatelessWidget {
         // Rutas de Autenticación
         'login': (_) => const LoginScreen(),
         'register': (_) => const RegisterScreen(),
+        'forgot_password': (_) => const ForgotPasswordScreen(),
         // Rutas de la Aplicación
         'home': (context) {
           final args = ModalRoute.of(context)?.settings.arguments;
