@@ -451,7 +451,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${(trabajo.precio != null) ? FormatUtils.formatCurrency(trabajo.precio.toDouble()) : 'N/D'} brutos',
+                    '${(trabajo.precio != null) ? FormatUtils.formatCurrency(trabajo.precio.toDouble()) : 'N/D'} CLP',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -460,70 +460,70 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                 ],
               ),
 
-              const Divider(
-                height: 24,
-                thickness: 1,
-              ), // Separador visual para las acciones
-              // Fila de Acciones
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // Botón para ver detalles del trabajo (Ícono para editar/ver)
-                  Tooltip(
-                    message: 'Ver/Editar Detalles del Trabajo',
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.edit_note_rounded,
-                        size: 28,
-                        color: Colors.grey.shade600,
-                      ),
-                      onPressed: () {
-                        // --- CAMBIO ---
-                        // Usamos la nueva función de navegación
-                        _navegarADetalle(context, trabajo);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Botón principal: Gestionar Postulantes
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                PostulantesTrabajoScreen(trabajoId: trabajo.id),
-                          ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.person_search_rounded,
-                        size: 20,
-                        color: Colors.white,
-                      ),
-                      label: const Text(
-                        'Gestionar Postulantes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 3,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              // // const Divider(
+              // //   height: 24,
+              // //   thickness: 1,
+              // ), // Separador visual para las acciones
+              // // Fila de Acciones
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.end,
+              //   children: [
+              //     // Botón para ver detalles del trabajo (Ícono para editar/ver)
+              //     Tooltip(
+              //       message: 'Ver/Editar Detalles del Trabajo',
+              //       child: IconButton(
+              //         icon: Icon(
+              //           Icons.edit_note_rounded,
+              //           size: 28,
+              //           color: Colors.grey.shade600,
+              //         ),
+              //         onPressed: () {
+              //           // --- CAMBIO ---
+              //           // Usamos la nueva función de navegación
+              //           _navegarADetalle(context, trabajo);
+              //         },
+              //       ),
+              //     ),
+              //     const SizedBox(width: 12),
+              //     // Botón principal: Gestionar Postulantes
+              //     Expanded(
+              //       child: ElevatedButton.icon(
+              //         onPressed: () {
+              //           Navigator.push(
+              //             context,
+              //             MaterialPageRoute(
+              //               builder: (_) =>
+              //                   PostulantesTrabajoScreen(trabajoId: trabajo.id),
+              //             ),
+              //           );
+              //         },
+              //         icon: const Icon(
+              //           Icons.person_search_rounded,
+              //           size: 20,
+              //           color: Colors.white,
+              //         ),
+              //         label: const Text(
+              //           'Gestionar Postulantes',
+              //           style: TextStyle(
+              //             color: Colors.white,
+              //             fontWeight: FontWeight.bold,
+              //           ),
+              //         ),
+              //         style: ElevatedButton.styleFrom(
+              //           backgroundColor: primaryColor,
+              //           padding: const EdgeInsets.symmetric(
+              //             horizontal: 16,
+              //             vertical: 12,
+              //           ),
+              //           shape: RoundedRectangleBorder(
+              //             borderRadius: BorderRadius.circular(10),
+              //           ),
+              //           elevation: 3,
+              //         ),
+              //       ),
+              //     ),
+              //   ],
+              // ),
             ],
           ),
         ),

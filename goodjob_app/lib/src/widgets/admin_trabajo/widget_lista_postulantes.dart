@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+// ⚠️ 1. IMPORTAR LA PANTALLA DE DETALLE (ajusta esta ruta si es distinta)
+import 'package:goodjob_app/src/screens/admin/postulante_detalle_screen.dart'; 
 import '../../services/postulacion_service.dart';
 import '../../services/postulante_service.dart';
 
@@ -21,7 +23,7 @@ class WidgetListaPostulantes extends StatefulWidget {
 }
 
 class _WidgetListaPostulantesState extends State<WidgetListaPostulantes> {
-  // Manejo de estado para la carga
+  // ... (toda la lógica de _isLoading y _elegirPostulante se mantiene igual) ...
   bool _isLoading = false;
 
   void _elegirPostulante(String postulanteId, String postulanteNombre) async {
@@ -67,6 +69,7 @@ class _WidgetListaPostulantesState extends State<WidgetListaPostulantes> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -109,6 +112,8 @@ class _WidgetListaPostulantesState extends State<WidgetListaPostulantes> {
                 // Usamos un widget interno para cargar los datos del usuario
                 return _PostulanteInfoTile(
                   usuarioId: usuarioId,
+                  // ⚠️ 2. PASAR EL ID DEL TRABAJO
+                  trabajoId: widget.trabajo.id, 
                   postulanteService: widget.postulanteService,
                   onElegir: (nombre) => _elegirPostulante(usuarioId, nombre),
                 );
@@ -124,11 +129,13 @@ class _WidgetListaPostulantesState extends State<WidgetListaPostulantes> {
 /// Widget interno que carga los datos de un usuario por su ID
 class _PostulanteInfoTile extends StatelessWidget {
   final String usuarioId;
+  final String trabajoId; // ⚠️ AÑADIDO
   final PostulanteService postulanteService;
   final Function(String nombre) onElegir;
 
   const _PostulanteInfoTile({
     required this.usuarioId,
+    required this.trabajoId, // ⚠️ AÑADIDO
     required this.postulanteService,
     required this.onElegir,
   });
@@ -158,13 +165,22 @@ class _PostulanteInfoTile extends StatelessWidget {
               child: fotoUrl.isEmpty ? Text(nombre.isNotEmpty ? nombre[0] : 'U') : null,
             ),
             title: Text(nombre), // Dato real
-            subtitle: const Text('Ver perfil y calificaciones'),
+            subtitle: const Text('Toca para ver perfil'), // ⚠️ UI MEJORADA
             trailing: ElevatedButton(
               child: const Text('Elegir'),
               onPressed: () => onElegir(nombre), // Acción real
             ),
+            // ⚠️ 3. IMPLEMENTAR NAVEGACIÓN
             onTap: () {
-              // TODO: Navegar al perfil del postulante
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PostulanteDetalleScreen(
+                    usuarioId: usuarioId,
+                    trabajoId: trabajoId,
+                  ),
+                ),
+              );
             },
           ),
         );
