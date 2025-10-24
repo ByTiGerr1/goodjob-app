@@ -22,6 +22,7 @@ class WidgetRevisionEvidencias extends StatefulWidget {
 class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
   bool _isLoading = false;
 
+  // --- (Lógica _aprobar y _rechazar se mantiene idéntica) ---
   void _aprobar() async {
     final confirmar = await showDialog(
       context: context,
@@ -39,12 +40,10 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
 
     setState(() => _isLoading = true);
     try {
-      // CONECTADO A TU MÉTODO
       await widget.trabajoService.actualizarEstado(
         widget.trabajo.id,
-        EstadoTrabajo.porPagar, // Pasa al siguiente estado
+        EstadoTrabajo.porPagar,
       );
-      // La UI se recargará sola si la pantalla principal escucha al stream del trabajo
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al aprobar: $e')));
@@ -54,21 +53,18 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
   }
 
   void _rechazar() async {
-    // 1. Pedir motivo de rechazo
     String? motivo = await showDialog<String>(
       context: context,
-      builder: (ctx) => _DialogoRechazo(), // Usa el widget helper de abajo
+      builder: (ctx) => _DialogoRechazo(),
     );
 
-    if (motivo == null || motivo.isEmpty) return; // Canceló
+    if (motivo == null || motivo.isEmpty) return;
 
     setState(() => _isLoading = true);
     try {
-      // CONECTADO AL MÉTODO ACTUALIZADO
-      // Usamos este porque necesitamos guardar MÁS DE UN CAMPO
       await widget.trabajoService.actualizarCamposTrabajo(widget.trabajo.id, {
-        'estado': EstadoTrabajo.rechazado.name, // El estado
-        'motivoRechazo': motivo,                // Y el motivo
+        'estado': EstadoTrabajo.rechazado.name,
+        'motivoRechazo': motivo,
       });
     } catch (e) {
       if (!mounted) return;
@@ -77,6 +73,7 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+  // --- (Fin de la lógica) ---
 
   @override
   Widget build(BuildContext context) {
@@ -91,53 +88,60 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
           'Revisión de Evidencias',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
+        // ⚠️ MEJORA UI: Más espacio
+        const SizedBox(height: 12),
         const Text('El postulante ha marcado el trabajo como finalizado y subió las siguientes evidencias:'),
-        const SizedBox(height: 16),
+        // ⚠️ MEJORA UI: Más espacio
+        const SizedBox(height: 20),
         
-        // --- AQUÍ ESTÁ EL CAMBIO ---
-        // Usamos un StreamBuilder para mostrar las evidencias en tiempo real
         StreamBuilder<List<Map<String, dynamic>>>(
-          // ¡CONECTADO A TU SERVICIO!
           stream: widget.storageService.mostrarEvidencias(widget.trabajo.id),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+
             if (snapshot.hasError) {
-              return Text('Error al cargar evidencias: ${snapshot.error}');
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Center(child: Text('El postulante no subió evidencias.')),
+              return _buildEstadoVacio(
+                context: context,
+                icono: Icons.error_outline_rounded,
+                titulo: 'Error',
+                mensaje: 'No se pudieron cargar las evidencias.',
+                color: Colors.red.shade700,
               );
             }
 
-            final evidencias = snapshot.data!; // Lista de Mapas
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildEstadoVacio(
+                context: context,
+                icono: Icons.image_not_supported_outlined,
+                titulo: 'Sin Evidencias',
+                mensaje: 'El postulante no ha subido evidencias.',
+                color: Colors.grey.shade600,
+              );
+            }
+
+            final evidencias = snapshot.data!;
 
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+                // ⚠️ MEJORA UI: Más espacio entre imágenes
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
               ),
-              itemCount: evidencias.length, // Dato real
+              itemCount: evidencias.length,
               itemBuilder: (context, index) {
                 final evidencia = evidencias[index];
                 final String url = evidencia['url'] as String;
                 final String etapa = evidencia['etapa'] as String? ?? 'Evidencia';
+                final String etapaCapitalizada = etapa.isNotEmpty ? '${etapa[0].toUpperCase()}${etapa.substring(1)}' : '';
 
                 return InkWell(
                   onTap: () {
-                    // TODO: Navegar a un visor de imagen en pantalla completa
-                    print('Ver imagen: $url');
+                    _mostrarImagenFullScreen(context, url);
                   },
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
@@ -145,14 +149,28 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                       fit: StackFit.expand,
                       children: [
                         Image.network(
-                          url, // Dato real
+                          url,
                           fit: BoxFit.cover,
                           loadingBuilder: (context, child, progress) => progress == null
                               ? child
                               : const Center(child: CircularProgressIndicator()),
                           errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.broken_image, color: Colors.grey),
+                              Container(
+                                color: Colors.grey.shade200,
+                                child: Icon(Icons.broken_image_outlined, color: Colors.grey.shade500, size: 40),
+                              ),
                         ),
+                        
+                        Center(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 36),
+                          ),
+                        ),
+
                         Positioned(
                           bottom: 0,
                           left: 0,
@@ -161,8 +179,7 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                             padding: const EdgeInsets.all(4),
                             color: Colors.black.withOpacity(0.6),
                             child: Text(
-                              // Capitaliza la etapa (ej: "Inicio")
-                              etapa.isNotEmpty ? '${etapa[0].toUpperCase()}${etapa.substring(1)}' : '',
+                              etapaCapitalizada,
                               style: const TextStyle(color: Colors.white, fontSize: 12),
                               textAlign: TextAlign.center,
                             ),
@@ -177,7 +194,9 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
           },
         ),
         
-        const SizedBox(height: 24),
+        // ⚠️ MEJORA UI: Más espacio antes de los botones
+        const SizedBox(height: 32),
+        
         Row(
           children: [
             Expanded(
@@ -187,9 +206,10 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade700,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: _rechazar, // Conectado
+                onPressed: _rechazar,
               ),
             ),
             const SizedBox(width: 16),
@@ -200,9 +220,10 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green.shade700,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: _aprobar, // Conectado
+                onPressed: _aprobar,
               ),
             ),
           ],
@@ -210,9 +231,81 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
       ],
     );
   }
+
+  // --- (Helper _mostrarImagenFullScreen se mantiene igual) ---
+  void _mostrarImagenFullScreen(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(10),
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: IconButton(
+                  style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.3)),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  tooltip: 'Cerrar',
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  // --- (Helper _buildEstadoVacio modificado) ---
+  Widget _buildEstadoVacio({
+    required BuildContext context,
+    required IconData icono,
+    required String titulo,
+    required String mensaje,
+    required Color color,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icono, size: 48, color: color),
+          const SizedBox(height: 16),
+          Text(
+            titulo,
+            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: color),
+            textAlign: TextAlign.center,
+          ),
+          // ⚠️ MEJORA UI: Más espacio
+          const SizedBox(height: 8),
+          Text(
+            mensaje,
+            style: textTheme.bodyMedium?.copyWith(color: color.withOpacity(0.8)),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// Widget helper para el diálogo de rechazo
+// --- (Helper _DialogoRechazo se mantiene igual) ---
 class _DialogoRechazo extends StatefulWidget {
   @override
   _DialogoRechazoState createState() => _DialogoRechazoState();
@@ -249,7 +342,10 @@ class _DialogoRechazoState extends State<_DialogoRechazo> {
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
           onPressed: () {
             if (_formKey.currentState!.validate()) {
               Navigator.of(context).pop(_controller.text);

@@ -1,21 +1,19 @@
 import 'dart:io'; // Needed for File
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Para el portapapeles (Clipboard)
 import 'package:goodjob_app/src/models/trabajo.dart';
-import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart'; // For picking the payment proof image
-
-// --- Adjust these import paths to match your project structure ---
-import '../../services/postulante_service.dart';
-import '../../services/trabajo_service.dart';
-import '../../services/storage_service.dart';
-// ---
+import 'package:goodjob_app/src/services/postulante_service.dart';
+import 'package:goodjob_app/src/services/storage_service.dart';
+import 'package:goodjob_app/src/services/trabajo_service.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart'; // Asegúrate que esta ruta sea correcta
+import 'package:image_picker/image_picker.dart';
 
 class WidgetGestionPago extends StatefulWidget {
   final Trabajo trabajo;
   final PostulanteService postulanteService;
   final TrabajoService trabajoService;
   final StorageService storageService;
-  final String adminId; // ID of the currently logged-in admin
+  final String adminId;
 
   const WidgetGestionPago({
     Key? key,
@@ -33,20 +31,17 @@ class WidgetGestionPago extends StatefulWidget {
 class _WidgetGestionPagoState extends State<WidgetGestionPago> {
   bool _isLoading = false;
 
-  /// Handles picking an image and uploading it as payment proof.
   void _subirComprobante() async {
-    // 1. Pick image using image_picker
     final XFile? imagen = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (imagen == null) return; // User cancelled
+    if (imagen == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // 2. Upload using your StorageService
       final imageUrl = await widget.storageService.subirEvidenciaPago(
         trabajoId: widget.trabajo.id,
         imagen: File(imagen.path),
-        usuarioId: widget.adminId, // Pass the admin's ID
+        usuarioId: widget.adminId,
       );
 
       if (imageUrl == null) {
@@ -67,9 +62,7 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
     }
   }
 
-  /// Marks the job as paid and finalized.
   void _finalizarPago() async {
-    // Show confirmation dialog
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -86,34 +79,28 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
       ),
     );
 
-    if (confirmar != true) return; // User cancelled
+    if (confirmar != true) return;
 
     setState(() => _isLoading = true);
     try {
-      // Call your TrabajoService method
       await widget.trabajoService.finalizarYMarcarComoPagado(
         widget.trabajo.id,
       );
-      // No need to setState here, the parent screen should react to the state change.
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al finalizar el pago: $e'), backgroundColor: Colors.red));
-      // Only stop loading if there was an error, otherwise the screen will rebuild
-       if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
-    // Don't set isLoading to false on success, let the screen rebuild trigger
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.simpleCurrency(locale: 'es_CL', decimalDigits: 0);
+    // ⚠️ CORRECCIÓN: Usar el nombre de campo correcto del modelo Trabajo
+    final String? trabajadorAsignadoId = widget.trabajo.trabajadorAsignadoId;
 
-    // --- Null Check for assignedWorkerId ---
-    final String? assignedWorkerId = widget.trabajo.trabajadorAsignadoId;
-
-    if (assignedWorkerId == null) {
-      // If the ID is null, show an error message. This shouldn't happen in 'porPagar' state.
+    if (trabajadorAsignadoId == null) {
+      // --- (El bloque de error crítico se mantiene) ---
       return Card(
         color: Colors.red.shade50,
         child: const Padding(
@@ -135,7 +122,7 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
     }
     // --- End Null Check ---
 
-    // If we reach here, assignedWorkerId is valid.
+    // Si llegamos aquí, trabajadorAsignadoId NO es null
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -145,34 +132,35 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Realiza el pago por ${currencyFormatter.format(widget.trabajo.precio)} a la siguiente cuenta:',
+          'Realiza el pago por ${FormatUtils.formatCurrency(widget.trabajo.precio)} a la siguiente cuenta:',
           style: const TextStyle(fontSize: 16),
         ),
         const SizedBox(height: 16),
 
-        // --- FutureBuilder to load bank details ---
+        // --- FutureBuilder para cargar datos bancarios ---
         FutureBuilder<Map<String, dynamic>?>(
-          future: widget.postulanteService.obtenerDatosUsuario(assignedWorkerId), // Use the safe ID
+          // ⚠️ CORRECCIÓN: Usar la variable correcta 'trabajadorAsignadoId'
+          future: widget.postulanteService.obtenerDatosUsuario(trabajadorAsignadoId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()));
             }
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-              print('Error al cargar datos bancarios: ${snapshot.error}');
+              // --- (El bloque de warning se mantiene) ---
               return Card(
                 color: Colors.orange.shade50,
                 child: const Padding(
                   padding: EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                       Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                       SizedBox(width: 16),
-                       Expanded(
-                         child: Text(
-                           'No se pudieron cargar los datos bancarios. Verifica que el trabajador los haya ingresado en su perfil.',
-                           style: TextStyle(color: Colors.orange),
-                         ),
-                       ),
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'No se pudieron cargar los datos bancarios. Verifica que el trabajador los haya ingresado en su perfil.',
+                          style: TextStyle(color: Colors.orange),
+                        ),
+                      ),
                     ],
                   )
                 ),
@@ -190,14 +178,23 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDatoBancario('Beneficiario', nombreCompleto.isNotEmpty ? nombreCompleto : 'No especificado'),
-                    _buildDatoBancario('RUT', datosBancarios['rut'] ?? 'No especificado'),
-                    _buildDatoBancario('Banco', datosBancarios['banco'] ?? 'No especificado'),
-                    _buildDatoBancario('Tipo Cuenta', datosBancarios['tipoCuenta'] ?? 'No especificado'),
-                    _buildDatoBancario('N° Cuenta', datosBancarios['numeroCuenta'] ?? 'No especificado'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text(
+                        'Datos para Transferencia',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const Divider(height: 20),
+                    _buildDatoBancarioCopiable(context, 'Beneficiario', nombreCompleto.isNotEmpty ? nombreCompleto : 'No especificado'),
+                    _buildDatoBancarioCopiable(context, 'RUT', postulanteData['rut'] ?? 'No especificado'),
+                    _buildDatoBancarioCopiable(context, 'Banco', datosBancarios['banco'] ?? 'No especificado'),
+                    _buildDatoBancarioCopiable(context, 'Tipo Cuenta', datosBancarios['tipoCuenta'] ?? 'No especificado'),
+                    _buildDatoBancarioCopiable(context, 'N° Cuenta', datosBancarios['numeroCuenta'] ?? 'No especificado'),
                   ],
                 ),
               ),
@@ -218,59 +215,65 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
             builder: (context, snapshot) {
               bool comprobanteSubido = false;
               String? comprobanteUrl;
-              Widget comprobantePreview = const SizedBox.shrink(); // Empty widget initially
+              Widget comprobantePreview = const SizedBox.shrink();
 
-              // Check stream status
               if (snapshot.connectionState == ConnectionState.active && snapshot.hasData && snapshot.data!.isNotEmpty) {
-                 comprobanteSubido = true;
-                 comprobanteUrl = snapshot.data![0]['url']; // Get URL from your service data structure
-                 if (comprobanteUrl != null) {
-                   // Build a preview if URL exists
-                   comprobantePreview = Column(
-                     crossAxisAlignment: CrossAxisAlignment.start,
-                     children: [
-                       const Text('Comprobante Subido:', style: TextStyle(fontWeight: FontWeight.bold)),
-                       const SizedBox(height: 8),
-                       Center(
-                         child: InkWell(
-                           onTap: () {
-                             // TODO: Implement full-screen image viewer
-                             print("View image: $comprobanteUrl");
-                           },
-                           child: ClipRRect(
-                             borderRadius: BorderRadius.circular(8),
-                             child: Image.network(
-                               comprobanteUrl!,
-                               height: 150,
-                               fit: BoxFit.contain, // Use contain to see the whole image
-                               loadingBuilder: (context, child, progress) => progress == null
-                                   ? child
-                                   : const SizedBox(height: 150, child: Center(child: CircularProgressIndicator())),
-                               errorBuilder: (context, error, stackTrace) => Container(
-                                 height: 150,
-                                 color: Colors.grey.shade200,
-                                 child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
-                               ),
-                             ),
-                           ),
-                         ),
-                       ),
-                       const SizedBox(height: 16), // Spacing after preview
-                     ],
-                   );
-                 }
+                comprobanteSubido = true;
+                // Asumiendo que tu servicio devuelve una lista y el URL está en el primer elemento
+                comprobanteUrl = snapshot.data![0]['url'];
+                if (comprobanteUrl != null) {
+                  comprobantePreview = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Comprobante Subido:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: InkWell(
+                          onTap: () => _mostrarImagenFullScreen(context, comprobanteUrl!),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  comprobanteUrl!,
+                                  height: 150,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, progress) => progress == null
+                                      ? child
+                                      : const SizedBox(height: 150, child: Center(child: CircularProgressIndicator())),
+                                  errorBuilder: (context, error, stackTrace) => Container(
+                                    height: 150,
+                                    width: double.infinity,
+                                    color: Colors.grey.shade200,
+                                    child: const Center(child: Icon(Icons.broken_image, color: Colors.grey, size: 40)),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.4),
+                                  shape: BoxShape.circle
+                                ),
+                                child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 40),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                }
               } else if (snapshot.connectionState == ConnectionState.waiting) {
-                // Show loading indicator while checking for proof
                 return const Center(child: CircularProgressIndicator());
               }
 
-              // Build the column with preview (if exists) and buttons
               return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch, // Make buttons fill width
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  comprobantePreview, // Show the preview widget
+                  comprobantePreview,
 
-                  // Upload/Replace Button
                   ElevatedButton.icon(
                     icon: Icon(comprobanteSubido ? Icons.sync_alt_rounded : Icons.upload_file_outlined),
                     label: Text(comprobanteSubido ? 'Reemplazar Comprobante' : 'Subir Comprobante'),
@@ -280,11 +283,10 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: _subirComprobante, // Always enabled
+                    onPressed: _subirComprobante,
                   ),
                   const SizedBox(height: 12),
 
-                  // Finalize Button
                   ElevatedButton.icon(
                     icon: const Icon(Icons.check_circle_outline_rounded),
                     label: const Text('Marcar como Pagado y Finalizar'),
@@ -294,19 +296,11 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    // Enable only if proof has been uploaded
                     onPressed: comprobanteSubido ? _finalizarPago : null,
                   ),
-                  // Helper text if finalize button is disabled
+                  
                   if (!comprobanteSubido)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Debes subir el comprobante para poder finalizar.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ),
+                    _buildHintBox('Debes subir el comprobante para poder finalizar.')
                 ],
               );
             },
@@ -314,27 +308,120 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
           // --- End StreamBuilder ---
       ],
     );
-  } // Fin del build
+  }
 
-  /// Helper widget to display bank details row
-  Widget _buildDatoBancario(String label, String valor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+  Widget _buildDatoBancarioCopiable(BuildContext context, String label, String valor) {
+    if (valor.toLowerCase() == 'no especificado' || valor.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+            Text(valor, style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic, fontSize: 14)),
+          ],
+        ),
+      );
+    }
+    
+    return InkWell(
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: valor));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$valor" copiado al portapapeles'),
+            backgroundColor: Colors.blue.shade700,
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.copy_all_rounded, size: 16, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 8),
+                Text(label, style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                valor,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mostrarImagenFullScreen(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(10),
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: IconButton(
+                  // ⚠️ CORRECCIÓN: Ícono de cerrar correcto
+                  icon: const Icon(Icons.cloud_circle_rounded, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  tooltip: 'Cerrar',
+                  style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.3)), // Fondo para visibilidad
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildHintBox(String text) {
+    final theme = Theme.of(context);
+    final color = theme.brightness == Brightness.light ? Colors.orange.shade50 : Colors.orange.shade900.withOpacity(0.3);
+    final iconColor = theme.brightness == Brightness.light ? Colors.orange.shade800 : Colors.orange.shade200;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
-          const SizedBox(width: 16), // Add space
-          Expanded( // Allow value to wrap if too long
+          Icon(Icons.info_outline_rounded, color: iconColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
             child: Text(
-              valor,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              textAlign: TextAlign.end, // Align value to the right
+              text,
+              style: TextStyle(color: iconColor, fontWeight: FontWeight.w500),
             ),
           ),
         ],
       ),
     );
-  } // Fin de _buildDatoBancario
+  }
 
 } // Fin de _WidgetGestionPagoState
