@@ -341,6 +341,7 @@ class _CompletedJobCard extends StatelessWidget {
     final estadoTrabajo = _normalizeStatus(
       _postulacionData['estadoTrabajo'] ??
           trabajoData?['estadoTrabajo'] ??
+          trabajoData?['estado'] ??
           _postulacionData['estado'],
     );
 
@@ -549,13 +550,61 @@ class _CompletedJobCard extends StatelessWidget {
     Map<String, dynamic>? trabajoData,
   ) {
     final mensaje = _resolveAdminMessage(trabajoData);
+    final estadoTrabajo = _normalizeStatus(
+      trabajoData?['estado'] ??
+          trabajoData?['estadoTrabajo'] ??
+          _postulacionData['estadoTrabajo'] ??
+          _postulacionData['estado'],
+    );
 
-    final icon = mensaje != null && mensaje.isNotEmpty
-        ? Icons.chat_bubble_outline_rounded
-        : Icons.info_outline_rounded;
+    IconData icon;
+    Color? color;
+    String titulo;
+    String description;
 
-    final description = mensaje ??
-        'El administrador revisará tus evidencias y te notificará cualquier observación por este medio.';
+    switch (estadoTrabajo) {
+      case 'porpagar':
+      case 'porpago':
+      case 'porpagoenproceso':
+      case 'porpagartrabajo':
+        icon = Icons.verified_outlined;
+        color = Colors.green.shade700;
+        titulo = 'Evidencias aprobadas';
+        description = mensaje ??
+            'El administrador aprobó tus evidencias y tu pago está en proceso.';
+        break;
+      case 'finalizado':
+      case 'pagado':
+        icon = Icons.payments_outlined;
+        color = Colors.green.shade700;
+        titulo = 'Pago finalizado';
+        description = mensaje ??
+            'Tu trabajo fue finalizado y el pago se registró correctamente.';
+        break;
+      case 'rechazado':
+        icon = Icons.cancel_outlined;
+        color = Colors.red.shade700;
+        titulo = 'Evidencias rechazadas';
+        description = mensaje ??
+            'Tus evidencias fueron rechazadas. Revisa los comentarios del administrador.';
+        break;
+      case 'pendienterevision':
+      case 'porrevisar':
+        icon = Icons.hourglass_bottom_rounded;
+        color = Colors.orange.shade700;
+        titulo = 'Revisión en proceso';
+        description = mensaje ??
+            'El administrador revisará tus evidencias y te notificará cualquier observación por este medio.';
+        break;
+      default:
+        icon = mensaje != null && mensaje.isNotEmpty
+            ? Icons.chat_bubble_outline_rounded
+            : Icons.info_outline_rounded;
+        color = null;
+        titulo = 'Seguimiento del administrador';
+        description = mensaje ??
+            'El administrador revisará tus evidencias y te notificará cualquier observación por este medio.';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,18 +621,36 @@ class _CompletedJobCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+            color: (color ?? Theme.of(context).colorScheme.surfaceVariant)
+                .withOpacity(0.15),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                icon,
+                color: color ?? Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  description,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: color ??
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      description,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ),
             ],
