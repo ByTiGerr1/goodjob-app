@@ -2,11 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/src/utils/trabajo_schedule_utils.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
 
 import 'instrucciones_trabajo_screen.dart';
-import 'mapa_checkin_screen.dart'; // Importamos la nueva pantalla
-import 'trabajo_en_curso_screen.dart';
+import 'trabajo_en_curso/mapa_checkin_screen.dart'; // Importamos la nueva pantalla
+import 'trabajo_en_curso/trabajo_en_curso_screen.dart';
 
 // Definición de estados
 enum _PasoEstado { completado, actual, pendiente }
@@ -81,6 +82,7 @@ class _SeguimientoPostulacionScreenState
     final finTrabajo = _parseDateTime(
       postulacion['finTrabajoReal'] ?? trabajo['finTrabajoReal'],
     );
+    final inicioProgramado =  extractTrabajoStart(trabajo);
 
     if (inicioTrabajo != null && finTrabajo == null) {
       Navigator.of(context).push(
@@ -89,6 +91,7 @@ class _SeguimientoPostulacionScreenState
             trabajoId: widget.trabajoId,
             trabajo: trabajo,
             startTime: inicioTrabajo,
+            scheduledStartTime: inicioProgramado,
           ),
         ),
       );
@@ -220,24 +223,7 @@ class _PostulacionContent extends StatelessWidget {
   }
 
   DateTime? _getTrabajoStartDateTime(Map<String, dynamic> t) {
-    Timestamp? ts = t['fechaInicioTrabajo'] as Timestamp?;
-    ts ??= t['fechaTrabajo'] as Timestamp?;
-    return ts?.toDate();
-  }
-
-  Map<String, dynamic>? _getHoraInicio(Map<String, dynamic> t) {
-    if (t['horaInicio'] is Map<String, dynamic>) {
-      return t['horaInicio'] as Map<String, dynamic>;
-    }
-    // Si la fecha de inicio es del esquema nuevo (DateTime), no hay hora map
-    return null;
-  }
-
-  Map<String, dynamic>? _getHoraFin(Map<String, dynamic> t) {
-    if (t['horaFin'] is Map<String, dynamic>) {
-      return t['horaFin'] as Map<String, dynamic>;
-    }
-    return null;
+    return extractTrabajoStart(t);
   }
 
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
@@ -260,26 +246,11 @@ class _PostulacionContent extends StatelessWidget {
     return '$dia/$mes/$anio';
   }
 
-  String _formatearHora(Map<String, dynamic>? horaMap) {
-    final horaInicioDateTime = _getTrabajoStartDateTime(trabajo);
+  String _formatearHora(DateTime? inicioProgramado) {
+    if (inicioProgramado == null) return 'Horario por confirmar';
 
-    if (horaMap == null && horaInicioDateTime != null) {
-      // Intenta usar la hora del DateTime combinado si no hay mapa de hora
-      final horaTexto = horaInicioDateTime.hour.toString().padLeft(2, '0');
-      final minutoTexto = horaInicioDateTime.minute.toString().padLeft(2, '0');
-      return '$horaTexto:$minutoTexto';
-    }
-
-    if (horaMap == null) return 'Horario por confirmar';
-
-    final hora = horaMap['h'];
-    final minuto = horaMap['m'];
-    final horaTexto = (hora is int ? hora : int.tryParse('$hora') ?? 0)
-        .toString()
-        .padLeft(2, '0');
-    final minutoTexto = (minuto is int ? minuto : int.tryParse('$minuto') ?? 0)
-        .toString()
-        .padLeft(2, '0');
+    final horaTexto = inicioProgramado.hour.toString().padLeft(2, '0');
+    final minutoTexto = inicioProgramado.minute.toString().padLeft(2, '0');
     return '$horaTexto:$minutoTexto';
   }
 
@@ -590,7 +561,6 @@ class _PostulacionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fechaTrabajo = _getTrabajoStartDateTime(trabajo);
-    final horaInicioMap = _getHoraInicio(trabajo);
     final empresa = trabajo['empresa'] ?? '';
     final estadoPrincipal = _estadoPostulacionPrincipal(postulacion);
     final confirmacionRegistrada = _tieneConfirmacionRegistrada(
@@ -804,7 +774,7 @@ class _PostulacionContent extends StatelessWidget {
                         ),
                         _buildInfoChip(
                           Icons.access_time,
-                          _formatearHora(horaInicioMap),
+                          _formatearHora(fechaTrabajo),
                         ),
                         _buildInfoChip(
                           Icons.payments,

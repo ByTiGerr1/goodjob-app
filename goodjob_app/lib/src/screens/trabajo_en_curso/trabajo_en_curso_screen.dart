@@ -11,10 +11,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
+import 'package:goodjob_app/src/utils/trabajo_schedule_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../services/postulacion_service.dart';
-import '../services/storage_service.dart';
+import '../../services/postulacion_service.dart';
+import '../../services/storage_service.dart';
 
 // --- CONSTANTES GLOBALES (MOVIDAS AQUI PARA ACCESO EN EL MODAL) ---
 const Color _PRIMARY_COLOR = AppColors.primary;
@@ -81,12 +82,14 @@ class TrabajoEnCursoScreen extends StatefulWidget {
   final String trabajoId;
   final Map<String, dynamic> trabajo;
   final DateTime startTime;
+  final DateTime? scheduledStartTime;
 
   const TrabajoEnCursoScreen({
     super.key,
     required this.trabajoId,
     required this.trabajo,
     required this.startTime,
+    this.scheduledStartTime,
   });
 
   @override
@@ -116,6 +119,20 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   Duration? _expectedDuration;
   Timer? _nowTimer;
   DateTime _now = DateTime.now();
+
+  DateTime get _effectiveStartTime =>
+      _scheduledStartTime ?? widget.scheduledStartTime ?? widget.startTime;
+
+  Duration get _checkInDelay {
+    final delay = calculateCheckInDelay(
+      actualCheckIn: widget.startTime,
+      scheduledStart: _scheduledStartTime ?? widget.scheduledStartTime,
+    );
+    if (delay == null || delay.isNegative) {
+      return Duration.zero;
+    }
+    return delay;
+  }
 
   // --- CONFIGURACION DE LA ZONA DELIMITADA ---
   static const double _CHECKIN_RADIUS_METERS = 50.0;
@@ -148,11 +165,12 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   }
 
   void _initializeSchedule() {
-    _scheduledStartTime = _extractStartDateTime(widget.trabajo);
-    _scheduledEndTime = _extractEndDateTime(widget.trabajo);
+    _scheduledStartTime =
+        widget.scheduledStartTime ?? extractTrabajoStart(widget.trabajo);
+    _scheduledEndTime = extractTrabajoEnd(widget.trabajo);
 
     if (_scheduledEndTime != null) {
-      final baseStart = _scheduledStartTime ?? widget.startTime;
+      final baseStart = _effectiveStartTime;
       final tentativeDuration = _scheduledEndTime!.difference(baseStart);
       if (!tentativeDuration.isNegative && tentativeDuration.inMinutes > 0) {
         _expectedDuration = tentativeDuration;
@@ -200,73 +218,6 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
       handleTick();
     });
     handleTick();
-  }
-
-  DateTime? _extractStartDateTime(Map<String, dynamic> trabajo) {
-    final fechaInicio = _parseDateTime(trabajo['fechaInicioTrabajo']);
-    if (fechaInicio != null) {
-      return fechaInicio;
-    }
-
-    final fechaTrabajo = _parseDateTime(trabajo['fechaTrabajo']);
-    final horaInicio = _timeOfDayFromData(trabajo['horaInicio']);
-
-    if (fechaTrabajo != null && horaInicio != null) {
-      return DateTime(fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-          horaInicio.hour, horaInicio.minute);
-    }
-
-    return fechaTrabajo;
-  }
-
-  DateTime? _extractEndDateTime(Map<String, dynamic> trabajo) {
-    final fechaFin = _parseDateTime(trabajo['fechaFinTrabajo']);
-    if (fechaFin != null) {
-      return fechaFin;
-    }
-
-    final fechaTrabajo = _parseDateTime(trabajo['fechaTrabajo']);
-    final horaFin = _timeOfDayFromData(trabajo['horaFin']);
-
-    if (fechaTrabajo != null && horaFin != null) {
-      return DateTime(fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-          horaFin.hour, horaFin.minute);
-    }
-
-    return fechaFin;
-  }
-
-  DateTime? _parseDateTime(dynamic value) {
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
-    if (value is String) return DateTime.tryParse(value);
-    return null;
-  }
-
-  TimeOfDay? _timeOfDayFromData(dynamic value) {
-    if (value is Map) {
-      final hour = value['hour'] ?? value['h'];
-      final minute = value['minute'] ?? value['m'];
-      if (hour is num && minute is num) {
-        return TimeOfDay(hour: hour.toInt(), minute: minute.toInt());
-      }
-    } else if (value is List && value.length >= 2) {
-      final hour = value[0];
-      final minute = value[1];
-      if (hour is num && minute is num) {
-        return TimeOfDay(hour: hour.toInt(), minute: minute.toInt());
-      }
-    } else if (value is String && value.contains(':')) {
-      final parts = value.split(':');
-      if (parts.length >= 2) {
-        final hour = int.tryParse(parts[0]);
-        final minute = int.tryParse(parts[1]);
-        if (hour != null && minute != null) {
-          return TimeOfDay(hour: hour, minute: minute);
-        }
-      }
-    }
-    return null;
   }
 
   EvidenceStage? _stageFromString(String? value) {
@@ -337,7 +288,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     final now = _now;
     switch (stage) {
       case EvidenceStage.inicio:
-        return !now.isBefore(widget.startTime);
+        return !now.isBefore(_effectiveStartTime);
       case EvidenceStage.medio:
         return _hasReachedHalfTime(now);
       case EvidenceStage.finalizacion:
@@ -347,7 +298,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   bool _hasReachedHalfTime(DateTime now) {
     if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
-      final elapsed = now.difference(widget.startTime);
+      final elapsed = now.difference(_effectiveStartTime);
       return elapsed >= _expectedDuration! ~/ 2;
     }
 
@@ -367,23 +318,23 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   DateTime _finalStageTargetEnd() {
     if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
-      return widget.startTime.add(_expectedDuration!);
+      return _effectiveStartTime.add(_expectedDuration!);
     }
 
     if (_scheduledEndTime != null &&
-        !_scheduledEndTime!.isBefore(widget.startTime)) {
+        !_scheduledEndTime!.isBefore(_effectiveStartTime)) {
       return _scheduledEndTime!;
     }
 
     // Si no hay referencia tomamos 1 hora como estimación mínima
-    return widget.startTime.add(const Duration(hours: 1));
+    return _effectiveStartTime.add(const Duration(hours: 1));
   }
 
   DateTime _finalStageAvailabilityStart() {
     final target = _finalStageTargetEnd();
     final candidate = target.subtract(_EVIDENCE_WINDOW);
-    if (candidate.isBefore(widget.startTime)) {
-      return widget.startTime;
+    if (candidate.isBefore(_effectiveStartTime)) {
+      return _effectiveStartTime;
     }
     return candidate;
   }
@@ -391,22 +342,22 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   DateTime? _stageBaseTime(EvidenceStage stage) {
     switch (stage) {
       case EvidenceStage.inicio:
-        return widget.startTime;
+        return _effectiveStartTime;
       case EvidenceStage.medio:
         if (_expectedDuration != null && _expectedDuration! > Duration.zero) {
-          return widget.startTime.add(_expectedDuration! ~/ 2);
+          return _effectiveStartTime.add(_expectedDuration! ~/ 2);
         }
         if (_scheduledStartTime != null && _scheduledEndTime != null) {
           final total = _scheduledEndTime!.difference(_scheduledStartTime!);
           return _scheduledStartTime!.add(total ~/ 2);
         }
         if (_scheduledEndTime != null) {
-          final tentative = _scheduledEndTime!.difference(widget.startTime);
+          final tentative = _scheduledEndTime!.difference(_effectiveStartTime);
           if (!tentative.isNegative) {
-            return widget.startTime.add(tentative ~/ 2);
+            return _effectiveStartTime.add(tentative ~/ 2);
           }
         }
-        return widget.startTime;
+        return _effectiveStartTime;
       case EvidenceStage.finalizacion:
         return _finalStageAvailabilityStart();
     }
@@ -467,6 +418,83 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     final minutes = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  Widget _buildStatusCard() {
+    final scheduledStart = _effectiveStartTime;
+    final checkInTime = widget.startTime;
+    final delay = _checkInDelay;
+    final delayMinutes = delay.inMinutes;
+    final hasDelay = delayMinutes > 0;
+    final arrivedEarly = checkInTime.isBefore(scheduledStart);
+    final earlyMinutes = arrivedEarly
+        ? scheduledStart.difference(checkInTime).inMinutes
+        : 0;
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final timeFormat = DateFormat('HH:mm');
+
+    final baseStyle = const TextStyle(
+      color: Colors.white,
+      fontSize: 13,
+    );
+
+    final delayStyle = baseStyle.copyWith(
+      color: hasDelay
+          ? Colors.redAccent
+          : arrivedEarly
+              ? Colors.lightBlueAccent
+              : Colors.greenAccent,
+      fontWeight: FontWeight.w600,
+    );
+
+    final delayLabel = hasDelay
+        ? 'Retraso: $delayMinutes min'
+        : arrivedEarly && earlyMinutes > 0
+            ? 'Llegaste $earlyMinutes min antes'
+            : 'Check-in a tiempo';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.65),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hasDelay ? Colors.redAccent.withOpacity(0.4) : Colors.greenAccent.withOpacity(0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.work_history, color: Colors.white, size: 18),
+              SizedBox(width: 6),
+              Text(
+                'Trabajo en curso',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Inicio programado: ${dateFormat.format(scheduledStart)} a las ${timeFormat.format(scheduledStart)}',
+            style: baseStyle,
+          ),
+          Text(
+            'Check-in registrado: ${dateFormat.format(checkInTime)} a las ${timeFormat.format(checkInTime)}',
+            style: baseStyle,
+          ),
+          const SizedBox(height: 4),
+          Text(delayLabel, style: delayStyle),
+        ],
+      ),
+    );
   }
 
   bool get _canUploadEvidenceNow {
@@ -1094,7 +1122,6 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final timeFormat = DateFormat('HH:mm');
     final screenSize = MediaQuery.of(context).size;
     final countdownLabel = _currentUploadCountdown;
     final isUploadEnabled = _canUploadEvidenceNow && !_isUploadingEvidence;
@@ -1216,6 +1243,12 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
             ),
           ),
 
+          Positioned(
+            top: 120,
+            left: 16,
+            right: 16,
+            child: _buildStatusCard(),
+          ),
           // 4. BOTONES INFERIORES (Subir Foto / WhatsApp / Centrar)
 
           Positioned(
