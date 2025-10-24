@@ -301,8 +301,17 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     return null;
   }
 
+  int get _requiredEvidenceCount => EvidenceStage.values.length;
+
+  int get _submittedEvidenceCount => _capturedStages.length;
+
+  int get _pendingEvidenceCount {
+    final pending = _requiredEvidenceCount - _submittedEvidenceCount;
+    return pending > 0 ? pending : 0;
+  }
+
   bool get _hasAllEvidences =>
-      _capturedStages.length == EvidenceStage.values.length;
+      _submittedEvidenceCount == _requiredEvidenceCount;
 
   void _skipExpiredStagesInternal() {
     while (true) {
@@ -605,6 +614,9 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     final nextStage = _nextPendingStage();
     final theme = Theme.of(context);
     final subtitleStyle = theme.textTheme.bodySmall;
+    final submittedEvidenceCount = _submittedEvidenceCount;
+    final pendingEvidenceCount = _pendingEvidenceCount;
+    final requiredEvidenceCount = _requiredEvidenceCount;
 
     return Card(
       elevation: 6,
@@ -778,16 +790,16 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
             }),
             const SizedBox(height: 12),
             Text(
-              _hasAllEvidences
+              pendingEvidenceCount == 0
                   ? '¡Listo! Puedes enviar las evidencias para revisión.'
-                  : 'Recuerda subir las tres evidencias solicitadas antes de enviar.',
+                  : 'Has registrado $submittedEvidenceCount de $requiredEvidenceCount evidencias. Puedes enviar el trabajo cuando lo necesites.',
               style: TextStyle(
                 fontSize: 13,
-                color: _hasAllEvidences
+                color: pendingEvidenceCount == 0
                     ? Colors.green.shade700
-                    : Colors.grey.shade700,
+                    : Colors.orange.shade700,
                 fontWeight:
-                    _hasAllEvidences ? FontWeight.w600 : FontWeight.w400,
+                    pendingEvidenceCount == 0 ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
           ],
@@ -842,18 +854,45 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
       return;
     }
 
-    if (!_hasAllEvidences) {
-      _showSnack(
-        'Debes subir las evidencias de inicio, 50% y finalización antes de enviar.',
-      );
-      return;
-    }
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showSnack('Debes iniciar sesión para actualizar el estado del trabajo.');
       return;
     }
+
+    final submittedCount = _submittedEvidenceCount;
+    final requiredCount = _requiredEvidenceCount;
+    final pendingCount = _pendingEvidenceCount;
+
+    if (pendingCount > 0) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Enviar sin todas las evidencias'),
+            content: Text(
+              'Has registrado $submittedCount de $requiredCount evidencias. Faltan $pendingCount por subir. Si envías ahora, quedará registrado cuántas evidencias enviaste y el tiempo trabajado. ¿Deseas continuar?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Enviar'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (proceed != true) {
+        return;
+      }
+    }
+
+    if (!mounted) return;
 
     setState(() {
       _isSendingEvidences = true;
@@ -865,11 +904,17 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
         trabajoId: widget.trabajoId,
         usuarioId: user.uid,
         checkOutLocal: checkOutMoment,
+        evidenciasEnviadas: submittedCount,
+        evidenciasRequeridas: requiredCount,
+        evidenciasPendientes: pendingCount,
       );
 
       await _postulacionService.marcarTrabajoPendienteRevision(
         trabajoId: widget.trabajoId,
         usuarioId: user.uid,
+        evidenciasEnviadas: submittedCount,
+        evidenciasRequeridas: requiredCount,
+        evidenciasPendientes: pendingCount,
       );
 
       if (mounted) {

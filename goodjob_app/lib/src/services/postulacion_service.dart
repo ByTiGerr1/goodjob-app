@@ -540,6 +540,9 @@ class PostulacionService {
   Future<void> marcarTrabajoPendienteRevision({
     required String trabajoId,
     required String usuarioId,
+    int? evidenciasEnviadas,
+    int? evidenciasRequeridas,
+    int? evidenciasPendientes,
   }) async {
     final postulacionTrabajoRef = _firestore
         .collection('trabajos')
@@ -555,19 +558,40 @@ class PostulacionService {
 
     final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
 
-    final data = {
+    final data = <String, dynamic>{
       'estado': 'pendiente_revision',
       'estadoTrabajo': 'pendiente_revision',
       'trabajoCompletado': true,
       'pendienteRevisionEn': FieldValue.serverTimestamp(),
     };
 
+    if (evidenciasEnviadas != null) {
+      data['evidenciasEnviadas'] = evidenciasEnviadas;
+    }
+    if (evidenciasRequeridas != null) {
+      data['evidenciasRequeridas'] = evidenciasRequeridas;
+    }
+    if (evidenciasPendientes != null) {
+      data['evidenciasPendientes'] = evidenciasPendientes;
+    }
+
     final batch = _firestore.batch();
 
     batch.set(postulacionTrabajoRef, data, SetOptions(merge: true));
     batch.set(postulacionUsuarioRef, data, SetOptions(merge: true));
-    batch.set(trabajoRef, {'estadoTrabajo': 'pendiente_revision'},
-        SetOptions(merge: true));
+    final trabajoData = <String, dynamic>{
+      'estadoTrabajo': 'pendiente_revision',
+    };
+    if (evidenciasEnviadas != null) {
+      trabajoData['evidenciasEnviadas'] = evidenciasEnviadas;
+    }
+    if (evidenciasRequeridas != null) {
+      trabajoData['evidenciasRequeridas'] = evidenciasRequeridas;
+    }
+    if (evidenciasPendientes != null) {
+      trabajoData['evidenciasPendientes'] = evidenciasPendientes;
+    }
+    batch.set(trabajoRef, trabajoData, SetOptions(merge: true));
 
     await batch.commit();
   }
@@ -625,6 +649,9 @@ class PostulacionService {
     required String trabajoId,
     required String usuarioId,
     DateTime? checkOutLocal,
+    int? evidenciasEnviadas,
+    int? evidenciasRequeridas,
+    int? evidenciasPendientes,
   }) async {
     final postulacionTrabajoRef = _firestore
         .collection('trabajos')
@@ -667,25 +694,43 @@ class PostulacionService {
 
     final serverTimestamp = FieldValue.serverTimestamp();
 
-    final updates = {
+    final updates = <String, dynamic>{
       'finTrabajoReal': serverTimestamp,
       'trabajoCompletado': true,
       if (checkOutLocal != null) 'finTrabajoLocal': Timestamp.fromDate(checkOutLocal),
       if (duracionMinutos != null) 'duracionTrabajoMinutos': duracionMinutos,
     };
 
+    if (evidenciasEnviadas != null) {
+      updates['evidenciasEnviadas'] = evidenciasEnviadas;
+    }
+    if (evidenciasRequeridas != null) {
+      updates['evidenciasRequeridas'] = evidenciasRequeridas;
+    }
+    if (evidenciasPendientes != null) {
+      updates['evidenciasPendientes'] = evidenciasPendientes;
+    }
+
     final batch = _firestore.batch();
     batch.set(postulacionTrabajoRef, updates, SetOptions(merge: true));
     batch.set(postulacionUsuarioRef, updates, SetOptions(merge: true));
-    batch.set(
-      trabajoRef,
-      {
-        'finTrabajoReal': serverTimestamp,
-        if (duracionMinutos != null) 'duracionTrabajoMinutos': duracionMinutos,
-        'trabajoCompletado': true,
-      },
-      SetOptions(merge: true),
-    );
+    final trabajoUpdates = <String, dynamic>{
+      'finTrabajoReal': serverTimestamp,
+      'trabajoCompletado': true,
+    };
+    if (duracionMinutos != null) {
+      trabajoUpdates['duracionTrabajoMinutos'] = duracionMinutos;
+    }
+    if (evidenciasEnviadas != null) {
+      trabajoUpdates['evidenciasEnviadas'] = evidenciasEnviadas;
+    }
+    if (evidenciasRequeridas != null) {
+      trabajoUpdates['evidenciasRequeridas'] = evidenciasRequeridas;
+    }
+    if (evidenciasPendientes != null) {
+      trabajoUpdates['evidenciasPendientes'] = evidenciasPendientes;
+    }
+    batch.set(trabajoRef, trabajoUpdates, SetOptions(merge: true));
 
     await batch.commit();
   }
