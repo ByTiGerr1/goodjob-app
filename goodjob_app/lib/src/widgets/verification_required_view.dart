@@ -10,7 +10,7 @@ class VerificationRequiredView extends StatelessWidget {
     this.onPrimaryPressed,
     this.secondaryButtonLabel,
     this.onSecondaryPressed,
-    this.illustrationAsset = 'assets/images/monachina.webp',
+    this.illustrationAsset = 'assets/images/onboarding.jpg',
   });
 
   final String title;
