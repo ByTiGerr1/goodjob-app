@@ -862,7 +862,13 @@ class _PostulacionContent extends StatelessWidget {
                 instruccionesVistas) // Solo mostrar si ya vió instrucciones o no es activo
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () {
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      'home',
+                      (route) => false,
+                      arguments: const {'initialIndex': 0},
+                    );
+                  },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: const BorderSide(color: _PRIMARY_COLOR, width: 1.5),
@@ -881,7 +887,13 @@ class _PostulacionContent extends StatelessWidget {
             else if (!esTrabajoActivo)
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () {
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      'home',
+                      (route) => false,
+                      arguments: const {'initialIndex': 0},
+                    );
+                  },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: const BorderSide(color: _PRIMARY_COLOR, width: 1.5),

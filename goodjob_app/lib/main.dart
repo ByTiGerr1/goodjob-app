@@ -143,7 +143,17 @@ class MainApp extends StatelessWidget {
         'login': (_) => const LoginScreen(),
         'register': (_) => const RegisterScreen(),
         // Rutas de la Aplicación
-        'home': (_) => const HomeScreen(),
+        'home': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          int initialIndex = 0;
+          if (args is Map) {
+            final dynamic indexValue = args['initialIndex'];
+            if (indexValue is int) {
+              initialIndex = indexValue;
+            }
+          }
+          return HomeScreen(initialIndex: initialIndex);
+        },
         'admin_home': (_) => const AdminHomeScreen(),
         'crear_trabajo': (_) => const CrearTrabajoScreen(),
         'crear_plantilla': (_) => const CrearPlantillaScreen(),
