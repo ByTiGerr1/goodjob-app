@@ -53,6 +53,41 @@ class Auth {
     await _firebaseAuth.signOut();
   }
 
+  Future<void> deleteAccount() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw Exception('No hay una sesión activa.');
+    }
+
+    try {
+      final userDocRef = _firestore.collection('usuarios').doc(user.uid);
+
+      final batch = _firestore.batch();
+      final userDoc = await userDocRef.get();
+      if (userDoc.exists) {
+        batch.delete(userDocRef);
+
+        final tokensSnapshot = await userDocRef.collection('fcm_tokens').get();
+        for (final doc in tokensSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+      }
+
+      await batch.commit();
+
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        throw Exception(
+          'Por seguridad, vuelve a iniciar sesión e inténtalo nuevamente.',
+        );
+      }
+      throw Exception('No se pudo eliminar la cuenta: ${e.message ?? e.code}');
+    } catch (e) {
+      throw Exception('No se pudo eliminar la cuenta: $e');
+    }
+  }
+
   // Obtener el rol del usuario actual a partir de Firestore
   Future<String?> getUserRole(String uid) async {
     try {

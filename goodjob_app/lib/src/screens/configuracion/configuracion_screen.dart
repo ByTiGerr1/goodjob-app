@@ -13,6 +13,7 @@ import 'package:goodjob_app/src/screens/auth/login_screen.dart';
 // Importar el servicio de Storage (Ajustar la ruta según tu proyecto)
 import '../../services/storage_service.dart';
 import '../../services/firebase_service.dart'; // Asumiendo que Auth está aquí
+import '../../widgets/delete_account_confirmation_dialog.dart';
 import '../../widgets/logout_confirmation_dialog.dart';
 
 // Constantes de color para mantener la estética
@@ -582,12 +583,41 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
       icon: Icons.delete_forever_outlined,
       title: 'Eliminar Cuenta',
       subtitle: 'Elimina tu cuenta y todos tus datos de forma permanente.',
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Navegando a: Eliminar Cuenta (Confirmación)'),
-          ),
+      onTap: () async {
+        final shouldDelete =
+            await showDeleteAccountConfirmationDialog(context);
+        if (!shouldDelete || !mounted) return;
+
+        final navigator = Navigator.of(context, rootNavigator: true);
+
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator()),
         );
+
+        try {
+          await auth.deleteAccount();
+          navigator.pop();
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        } catch (error) {
+          navigator.pop();
+          if (!mounted) return;
+          final message =
+              error.toString().replaceFirst('Exception: ', '').trim();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message.isEmpty
+                  ? 'No se pudo eliminar la cuenta. Intenta nuevamente.'
+                  : message),
+              backgroundColor: _dangerColor,
+            ),
+          );
+        }
       },
       iconColor: _dangerColor,
       titleColor: _dangerColor,
