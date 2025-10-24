@@ -28,7 +28,7 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Colores base para mejor legibilidad
-    const Color primaryPurple = Color(0xFF601272);
+    const Color primaryPurple = Color(0xFF7B0997);
     const Color accentYellow = Color(0xFFFFD900);
     const Color backgroundGray = Color(0xFFF5F5F5);
 
