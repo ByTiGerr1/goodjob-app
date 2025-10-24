@@ -21,14 +21,66 @@ import 'package:intl/date_symbol_data_local.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await FirebaseAppCheck.instance.activate(
-    androidProvider:
-        kReleaseMode ? AndroidProvider.playIntegrity : AndroidProvider.debug,
-    appleProvider: kReleaseMode ? AppleProvider.appAttest : AppleProvider.debug,
-  );
+  await _initializeFirebaseAppCheck();
   await initializeDateFormatting('es', null);
 
   runApp(const MainApp());
+}
+
+Future<void> _initializeFirebaseAppCheck() async {
+  if (kIsWeb) {
+    // Web aún no utiliza App Check en este proyecto, evitamos inicializarlo.
+    return;
+  }
+
+  final supportedPlatforms = <TargetPlatform>{
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+  };
+
+  if (!supportedPlatforms.contains(defaultTargetPlatform)) {
+    // En plataformas no soportadas (ej. Windows, Linux) evitamos registrar App Check.
+    return;
+  }
+
+  final appCheck = FirebaseAppCheck.instance;
+
+  Future<void> activateAppCheck({
+    required AndroidProvider androidProvider,
+    required AppleProvider appleProvider,
+  }) {
+    return appCheck.activate(
+      androidProvider: androidProvider,
+      appleProvider: appleProvider,
+    );
+  }
+
+  final AndroidProvider primaryAndroidProvider =
+      kReleaseMode ? AndroidProvider.playIntegrity : AndroidProvider.debug;
+  final AppleProvider primaryAppleProvider =
+      kReleaseMode ? AppleProvider.appAttest : AppleProvider.debug;
+
+  try {
+    await activateAppCheck(
+      androidProvider: primaryAndroidProvider,
+      appleProvider: primaryAppleProvider,
+    );
+  } on FirebaseException catch (error, stackTrace) {
+    debugPrint(
+      '⚠️  Error al activar Firebase App Check con proveedores seguros. '
+      'Se usará el proveedor de depuración. Detalle: ${error.message}',
+    );
+    debugPrintStack(stackTrace: stackTrace);
+
+    // Evitamos una cascada de errores devolviendo a los proveedores debug.
+    await activateAppCheck(
+      androidProvider: AndroidProvider.debug,
+      appleProvider: AppleProvider.debug,
+    );
+  }
+
+  await appCheck.setTokenAutoRefreshEnabled(true);
 }
 
 class MainApp extends StatelessWidget {

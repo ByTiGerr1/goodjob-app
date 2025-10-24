@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,9 +5,10 @@ import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
+import 'package:goodjob_app/src/utils/trabajo_schedule_utils.dart';
 
 import 'trabajo_en_curso_screen.dart'; // Importamos la nueva pantalla
-import '../services/postulacion_service.dart';
+import 'package:goodjob_app/src/services/postulacion_service.dart';
 
 class MapaCheckinScreen extends StatefulWidget {
  final String trabajoId;
@@ -48,8 +48,8 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
   void initState() {
     super.initState();
     _parseTrabajoCoords();
-    _scheduledStartTime = _extractStartDateTime(widget.trabajo);
-    _scheduledEndTime = _extractEndDateTime(widget.trabajo);
+    _scheduledStartTime = extractTrabajoStart(widget.trabajo);
+    _scheduledEndTime = extractTrabajoEnd(widget.trabajo);
     _getCurrentLocationAndStartListening();
   }
 
@@ -167,73 +167,6 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
     return true;
   }
 
-  DateTime? _extractStartDateTime(Map<String, dynamic> trabajo) {
-    final fechaInicio = _parseDateTime(trabajo['fechaInicioTrabajo']);
-    if (fechaInicio != null) {
-      return fechaInicio;
-    }
-
-    final fechaTrabajo = _parseDateTime(trabajo['fechaTrabajo']);
-    final horaInicio = _timeOfDayFromData(trabajo['horaInicio']);
-
-    if (fechaTrabajo != null && horaInicio != null) {
-      return DateTime(fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-          horaInicio.hour, horaInicio.minute);
-    }
-
-    return fechaTrabajo;
-  }
-
-  DateTime? _extractEndDateTime(Map<String, dynamic> trabajo) {
-    final fechaFin = _parseDateTime(trabajo['fechaFinTrabajo']);
-    if (fechaFin != null) {
-      return fechaFin;
-    }
-
-    final fechaTrabajo = _parseDateTime(trabajo['fechaTrabajo']);
-    final horaFin = _timeOfDayFromData(trabajo['horaFin']);
-
-    if (fechaTrabajo != null && horaFin != null) {
-      return DateTime(fechaTrabajo.year, fechaTrabajo.month, fechaTrabajo.day,
-          horaFin.hour, horaFin.minute);
-    }
-
-    return fechaFin;
-  }
-
-  DateTime? _parseDateTime(dynamic value) {
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
-    if (value is String) return DateTime.tryParse(value);
-    return null;
-  }
-
-  TimeOfDay? _timeOfDayFromData(dynamic value) {
-    if (value is Map) {
-      final hour = value['hour'] ?? value['h'];
-      final minute = value['minute'] ?? value['m'];
-      if (hour is num && minute is num) {
-        return TimeOfDay(hour: hour.toInt(), minute: minute.toInt());
-      }
-    } else if (value is List && value.length >= 2) {
-      final hour = value[0];
-      final minute = value[1];
-      if (hour is num && minute is num) {
-        return TimeOfDay(hour: hour.toInt(), minute: minute.toInt());
-      }
-    } else if (value is String && value.contains(':')) {
-      final parts = value.split(':');
-      if (parts.length >= 2) {
-        final hour = int.tryParse(parts[0]);
-        final minute = int.tryParse(parts[1]);
-        if (hour != null && minute != null) {
-          return TimeOfDay(hour: hour, minute: minute);
-        }
-      }
-    }
-    return null;
-  }
-
   String _scheduleStatusMessage(bool isWithinSchedule) {
     if (_testingMode) {
       return '⚠️ MODO PRUEBA: Check-in habilitado';
@@ -326,7 +259,11 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
       return;
     }
 
-    final DateTime startTime = DateTime.now();
+    final DateTime checkInMoment = DateTime.now();
+    final Duration? delay = calculateCheckInDelay(
+      actualCheckIn: checkInMoment,
+      scheduledStart: _scheduledStartTime,
+    );
 
     setState(() {
       _isRegisteringCheckIn = true;
@@ -336,7 +273,8 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
       await _postulacionService.registrarCheckIn(
         trabajoId: widget.trabajoId,
         usuarioId: user.uid,
-        checkInLocal: startTime,
+        checkInLocal: checkInMoment,
+        retrasoMinutos: delay?.inMinutes,
       );
 
       if (!mounted) return;
@@ -354,7 +292,8 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
           builder: (_) => TrabajoEnCursoScreen(
             trabajoId: widget.trabajoId,
             trabajo: widget.trabajo,
-            startTime: startTime,
+            startTime: checkInMoment,
+            scheduledStartTime: _scheduledStartTime,
           ),
         ),
       );

@@ -600,6 +600,7 @@ class PostulacionService {
     required String trabajoId,
     required String usuarioId,
     DateTime? checkInLocal,
+    int? retrasoMinutos,
   }) async {
     final postulacionTrabajoRef = _firestore
         .collection('trabajos')
@@ -624,6 +625,7 @@ class PostulacionService {
       'duracionTrabajoMinutos': FieldValue.delete(),
       'trabajoCompletado': false,
       if (checkInLocal != null) 'inicioTrabajoLocal': Timestamp.fromDate(checkInLocal),
+      if (retrasoMinutos != null) 'retrasoCheckInMinutos': retrasoMinutos,
     };
 
     final batch = _firestore.batch();
@@ -638,6 +640,7 @@ class PostulacionService {
         'finTrabajoReal': FieldValue.delete(),
         'duracionTrabajoMinutos': FieldValue.delete(),
         'trabajoCompletado': false,
+        if (retrasoMinutos != null) 'retrasoCheckInMinutos': retrasoMinutos,
       },
       SetOptions(merge: true),
     );
