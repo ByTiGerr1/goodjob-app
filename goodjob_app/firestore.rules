@@ -88,7 +88,15 @@ service cloud.firestore {
             'trabajadorAsignadoId',
             'estadoAsignacion',
             'confirmadoEn',
-            'confirmacionExpiradaEn'
+            'confirmacionExpiradaEn',
+            'estadoTrabajo',
+            'inicioTrabajoReal',
+            'finTrabajoReal',
+            'duracionTrabajoMinutos',
+            'trabajoCompletado',
+            'evidenciasEnviadas',
+            'evidenciasRequeridas',
+            'evidenciasPendientes'
           ]) &&
         (
           !request.resource.data.keys().hasAny(['trabajadorAsignadoId']) ||
