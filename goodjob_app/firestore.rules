@@ -36,6 +36,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.auth.uid == usuarioId;
 
       allow read, update: if isSignedIn() && request.auth.uid == usuarioId;
+      allow delete: if (isSignedIn() && request.auth.uid == usuarioId) || isAdmin();
       allow read, update, delete: if isAdmin();
 
       match /fcm_tokens/{tokenId} {

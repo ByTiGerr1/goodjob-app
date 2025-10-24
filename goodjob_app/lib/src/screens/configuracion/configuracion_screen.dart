@@ -15,6 +15,7 @@ import '../../services/storage_service.dart';
 import '../../services/firebase_service.dart'; // Asumiendo que Auth está aquí
 import '../../widgets/delete_account_confirmation_dialog.dart';
 import '../../widgets/logout_confirmation_dialog.dart';
+import '../../widgets/reauthenticate_account_dialog.dart';
 
 // Constantes de color para mantener la estética
 const Color _PRIMARY_COLOR = AppColors.primary;
@@ -47,6 +48,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   bool _isCheckingVerification = false;
   bool _verificationEmailSent = false;
   bool _isUploadingPicture = false; // Estado para subir foto
+  bool _isBlockingLoaderVisible = false;
 
   @override
   void initState() {
@@ -578,47 +580,116 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     );
   }
 
+  Future<void> _onDeleteAccountTap() async {
+    final shouldDelete = await showDeleteAccountConfirmationDialog(context);
+    if (!shouldDelete || !mounted) return;
+
+    await _attemptDeleteAccount();
+  }
+
+  Future<void> _attemptDeleteAccount() async {
+    _showBlockingLoader();
+    try {
+      await auth.deleteAccount();
+      if (!mounted) return;
+      _hideBlockingLoader();
+      _navigateToLoginAfterDeletion();
+    } on RequiresRecentLoginException {
+      _hideBlockingLoader();
+      await _promptReauthenticationAndDelete();
+    } catch (error) {
+      _hideBlockingLoader();
+      _showErrorSnackBarFromError(error);
+    }
+  }
+
+  Future<void> _promptReauthenticationAndDelete() async {
+    if (!mounted) return;
+    final email = auth.currentUser?.email;
+    if (email == null || email.isEmpty) {
+      _showErrorSnackBar(
+        'No se pudo verificar tu correo electrónico. Inicia sesión nuevamente.',
+      );
+      return;
+    }
+
+    final password =
+        await showReauthenticateAccountDialog(context, email: email);
+    if (password == null || !mounted) {
+      return;
+    }
+
+    _showBlockingLoader();
+    try {
+      await auth.reauthenticateWithPassword(password);
+      await auth.deleteAccount();
+      if (!mounted) return;
+      _hideBlockingLoader();
+      _navigateToLoginAfterDeletion();
+    } on RequiresRecentLoginException {
+      _hideBlockingLoader();
+      _showErrorSnackBar(
+        'Por seguridad, vuelve a iniciar sesión e inténtalo nuevamente.',
+      );
+    } catch (error) {
+      _hideBlockingLoader();
+      _showErrorSnackBarFromError(error);
+    }
+  }
+
+  void _navigateToLoginAfterDeletion() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  void _showBlockingLoader() {
+    if (!mounted || _isBlockingLoaderVisible) return;
+    _isBlockingLoaderVisible = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  void _hideBlockingLoader() {
+    if (!_isBlockingLoaderVisible || !mounted) return;
+    _isBlockingLoaderVisible = false;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
+  void _showErrorSnackBarFromError(Object error) {
+    final cleanedMessage =
+        error.toString().replaceFirst('Exception: ', '').trim();
+    final message = cleanedMessage.isEmpty
+        ? 'No se pudo completar la acción. Inténtalo nuevamente.'
+        : cleanedMessage;
+    _showErrorSnackBar(message);
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: _dangerColor,
+      ),
+    );
+  }
+
   ListTile _buildDeleteAccountTile() {
     return _buildHierarchicalListTile(
       icon: Icons.delete_forever_outlined,
       title: 'Eliminar Cuenta',
       subtitle: 'Elimina tu cuenta y todos tus datos de forma permanente.',
-      onTap: () async {
-        final shouldDelete =
-            await showDeleteAccountConfirmationDialog(context);
-        if (!shouldDelete || !mounted) return;
-
-        final navigator = Navigator.of(context, rootNavigator: true);
-
-        showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator()),
-        );
-
-        try {
-          await auth.deleteAccount();
-          navigator.pop();
-          if (!mounted) return;
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (route) => false,
-          );
-        } catch (error) {
-          navigator.pop();
-          if (!mounted) return;
-          final message =
-              error.toString().replaceFirst('Exception: ', '').trim();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(message.isEmpty
-                  ? 'No se pudo eliminar la cuenta. Intenta nuevamente.'
-                  : message),
-              backgroundColor: _dangerColor,
-            ),
-          );
-        }
-      },
+      onTap: _onDeleteAccountTap,
       iconColor: _dangerColor,
       titleColor: _dangerColor,
       subtitleColor: Colors.grey.shade600,

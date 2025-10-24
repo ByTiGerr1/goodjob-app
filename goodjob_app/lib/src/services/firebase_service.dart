@@ -6,6 +6,18 @@ import 'encryption_service.dart';
 import 'notification_service.dart';
 
 // Manejo de la autenticación y registro de usuarios
+class RequiresRecentLoginException implements Exception {
+  const RequiresRecentLoginException([
+    this.message =
+        'Por seguridad, vuelve a iniciar sesión e inténtalo nuevamente.',
+  ]);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class Auth {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -78,9 +90,7 @@ class Auth {
       await user.delete();
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
-        throw Exception(
-          'Por seguridad, vuelve a iniciar sesión e inténtalo nuevamente.',
-        );
+        throw const RequiresRecentLoginException();
       }
       throw Exception('No se pudo eliminar la cuenta: ${e.message ?? e.code}');
     } catch (e) {
@@ -88,6 +98,43 @@ class Auth {
     }
   }
 
+  Future<void> reauthenticateWithPassword(String password) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw Exception('No hay una sesión activa.');
+    }
+
+    final email = user.email;
+    if (email == null || email.isEmpty) {
+      throw Exception(
+        'No se pudo reautenticar porque tu cuenta no tiene un correo asociado.',
+      );
+    }
+
+    final credential =
+        EmailAuthProvider.credential(email: email, password: password);
+
+    try {
+      await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'wrong-password':
+          message = 'La contraseña ingresada no es correcta.';
+          break;
+        case 'too-many-requests':
+          message =
+              'Demasiados intentos fallidos. Intenta nuevamente más tarde.';
+          break;
+        default:
+          message = e.message ?? e.code;
+      }
+      throw Exception('No se pudo reautenticar: $message');
+    } catch (e) {
+      throw Exception('No se pudo reautenticar: $e');
+    }
+  }
+  
   // Obtener el rol del usuario actual a partir de Firestore
   Future<String?> getUserRole(String uid) async {
     try {
