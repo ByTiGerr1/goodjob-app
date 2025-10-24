@@ -580,6 +580,7 @@ class PostulacionService {
     batch.set(postulacionTrabajoRef, data, SetOptions(merge: true));
     batch.set(postulacionUsuarioRef, data, SetOptions(merge: true));
     final trabajoData = <String, dynamic>{
+      'estado': 'porRevisar',
       'estadoTrabajo': 'pendiente_revision',
     };
     if (evidenciasEnviadas != null) {

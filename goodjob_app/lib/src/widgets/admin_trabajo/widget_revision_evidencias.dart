@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 
@@ -7,13 +8,16 @@ class WidgetRevisionEvidencias extends StatefulWidget {
   final Trabajo trabajo;
   final TrabajoService trabajoService;
   final StorageService storageService;
+  final PostulanteService postulanteService;
 
-  const WidgetRevisionEvidencias({
+  WidgetRevisionEvidencias({
     Key? key,
     required this.trabajo,
     required this.trabajoService,
     required this.storageService,
-  }) : super(key: key);
+    PostulanteService? postulanteService,
+  }) : postulanteService = postulanteService ?? PostulanteService(),
+       super(key: key);
 
   @override
   State<WidgetRevisionEvidencias> createState() => _WidgetRevisionEvidenciasState();
@@ -21,6 +25,17 @@ class WidgetRevisionEvidencias extends StatefulWidget {
 
 class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
   bool _isLoading = false;
+  Future<Map<String, dynamic>?>? _postulanteFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final assignedWorkerId = widget.trabajo.trabajadorAsignadoId;
+    if (assignedWorkerId != null && assignedWorkerId.isNotEmpty) {
+      _postulanteFuture =
+          widget.postulanteService.obtenerDatosUsuario(assignedWorkerId);
+    }
+  }
 
   // --- (Lógica _aprobar y _rechazar se mantiene idéntica) ---
   void _aprobar() async {
