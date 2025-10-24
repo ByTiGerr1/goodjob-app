@@ -44,13 +44,32 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     final estadoPago = _normalizeStatus(postulacionData['estadoPago']);
     final trabajoCompletado = postulacionData['trabajoCompletado'] == true;
 
-    return trabajoCompletado ||
-        estadoTrabajo == 'pendienterevision' ||
-        estadoTrabajo == 'porpagar' ||
-        estadoTrabajo == 'finalizado' ||
-        estadoTrabajo == 'pagado' ||
-        estadoPago == 'pagado' ||
-        estadoPago == 'completado';
+    if (trabajoCompletado) return true;
+
+    const estadosTrabajoFinales = {
+      'finalizado',
+      'pagado',
+      'rechazado',
+      'completado',
+      'terminado',
+      'cerrado',
+    };
+
+    const estadosPagoFinales = {
+      'pagado',
+      'completado',
+      'rechazado',
+    };
+
+    if (estadosTrabajoFinales.contains(estadoTrabajo)) {
+      return true;
+    }
+
+    if (estadosPagoFinales.contains(estadoPago)) {
+      return true;
+    }
+
+    return false;
   }
 
   @override
