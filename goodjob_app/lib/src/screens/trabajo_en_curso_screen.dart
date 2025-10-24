@@ -108,6 +108,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   final Set<EvidenceStage> _skippedStages = <EvidenceStage>{};
   bool _isUploadingEvidence = false;
   bool _isSendingEvidences = false;
+  bool _hasCompletedCheckOut = false;
   EvidenceStage? _uploadingStage;
 
   DateTime? _scheduledStartTime;
@@ -836,6 +837,10 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
   Future<void> _enviarEvidencias() async {
     if (_isSendingEvidences) return;
+    if (_hasCompletedCheckOut) {
+      _showSnack('Ya registraste el check-out para este trabajo.');
+      return;
+    }
 
     if (!_hasAllEvidences) {
       _showSnack(
@@ -855,15 +860,28 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     });
 
     try {
+      final checkOutMoment = DateTime.now();
+      await _postulacionService.registrarCheckOut(
+        trabajoId: widget.trabajoId,
+        usuarioId: user.uid,
+        checkOutLocal: checkOutMoment,
+      );
+
       await _postulacionService.marcarTrabajoPendienteRevision(
         trabajoId: widget.trabajoId,
         usuarioId: user.uid,
       );
 
-      _showSnack(
-        'Trabajo enviado para revisión. El administrador revisará tus evidencias.',
-        backgroundColor: Colors.green.shade600,
-      );
+      if (mounted) {
+        setState(() {
+          _hasCompletedCheckOut = true;
+        });
+
+        _showSnack(
+          '¡Check-out registrado! El administrador revisará tus evidencias.',
+          backgroundColor: Colors.green.shade600,
+        );
+      }
     } catch (e) {
       _showSnack('No pudimos actualizar el estado del trabajo. Intenta nuevamente.');
     } finally {
@@ -1037,9 +1055,17 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     final isUploadEnabled = _canUploadEvidenceNow && !_isUploadingEvidence;
     final stageExpired = _hasCurrentStageExpired;
 
-    return Scaffold(
-      // Usamos la pantalla completa sin AppBar
-      body: Stack(
+    return WillPopScope(
+      onWillPop: () async {
+        if (_hasCompletedCheckOut) {
+          return true;
+        }
+        _showSnack('Debes realizar el check-out para salir del trabajo.');
+        return false;
+      },
+      child: Scaffold(
+        // Usamos la pantalla completa sin AppBar
+        body: Stack(
         children: [
           // 1. MAPA DE PANTALLA COMPLETA
           Positioned.fill(
@@ -1120,7 +1146,9 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
               onPressed: _isSendingEvidences ? null : _enviarEvidencias,
               icon: const Icon(Icons.cloud_upload, color: Colors.white),
               label: Text(
-                _isSendingEvidences ? 'Enviando...' : 'Enviar evidencias',
+                _isSendingEvidences
+                    ? 'Enviando...'
+                    : 'Finalizar trabajo',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -1243,7 +1271,8 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 

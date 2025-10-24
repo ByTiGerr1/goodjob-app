@@ -166,14 +166,18 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
             ),
             const Divider(height: 20),
             _buildDetalleItem(
-              Icons.date_range,
+              Icons.calendar_today,
               'Fecha de Inicio',
-              _formatDate(fechaInicio),
+              fechaInicio != null 
+                ? '${_formatDate(fechaInicio)} a las ${_formatTimeOfDay(fechaInicio)}'
+                : 'N/A',
             ),
             _buildDetalleItem(
-              Icons.date_range,
+              Icons.event,
               'Fecha de Fin',
-              _formatDate(fechaFin),
+              fechaFin != null 
+                ? '${_formatDate(fechaFin)} a las ${_formatTimeOfDay(fechaFin)}'
+                : 'N/A',
             ),
             _buildDetalleItem(
               Icons.location_on,

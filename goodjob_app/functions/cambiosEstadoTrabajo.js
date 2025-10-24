@@ -208,6 +208,30 @@ const cambioEstadoTrabajo = onRequest(
         );
 
         if (nuevoEstado === "enCurso") {
+          // CORRECCIÓN: No cambiar si ya está en estados posteriores o finales
+          const estadosPosteriores = [
+            "encurso",
+            "porrevisar", // porRevisar normalizado
+            "porpagar",
+            "finalizado",
+            "cancelado",
+            "rechazado",
+          ];
+
+          if (estadosPosteriores.includes(estadoActualNormalizado)) {
+            console.log(
+                `[${ahoraChile}] Trabajo ${trabajoId} ya está en estado ` +
+              `"${estadoActual}", no se cambia a enCurso`,
+            );
+            res
+                .status(200)
+                .send(
+                    `Trabajo ${trabajoId} está en estado "${estadoActual}", ` +
+                "no se realizó cambio",
+                );
+            return;
+          }
+
           if (estadoActualNormalizado === "pendiente") {
             await trabajoRef.update({
               estado: "enCurso",
@@ -225,10 +249,13 @@ const cambioEstadoTrabajo = onRequest(
             return;
           }
 
+          // Si no está en "pendiente" ni en estados posteriores,
+          // significa que está en activo/abierto/porConfirmar -> finalizar
           const puedeFinalizar =
           estadoActualNormalizado === "activo" ||
           estadoActualNormalizado === "abierto" ||
           estadoActualNormalizado === "porconfirmar";
+          
           if (puedeFinalizar) {
             await trabajoRef.update({
               estado: "finalizado",
@@ -263,16 +290,17 @@ const cambioEstadoTrabajo = onRequest(
         }
 
         if (nuevoEstado === "porRevisar") {
+          // CORRECCIÓN: Solo cambiar a porRevisar si está exactamente en "enCurso"
           if (estadoActualNormalizado !== "encurso") {
             console.log(
-                `[${ahoraChile}] Trabajo ${trabajoId} no está en estado ` +
-              `"enCurso", no se cambia a porRevisar`,
+                `[${ahoraChile}] Trabajo ${trabajoId} está en estado ` +
+              `"${estadoActual}" (debe estar en "enCurso"), no se cambia a porRevisar`,
             );
             res
                 .status(200)
                 .send(
-                    `Trabajo ${trabajoId} no está en estado "enCurso", ` +
-                "no se realizó el cambio",
+                    `Trabajo ${trabajoId} está en estado "${estadoActual}", ` +
+                "solo se puede cambiar a porRevisar desde enCurso",
                 );
             return;
           }
