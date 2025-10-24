@@ -4,8 +4,7 @@ import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
 // Asumiendo que esta es la pantalla de redireccionamiento para edición o gestión
-import '../admin_trabajo_router.dart'; 
-
+import '../admin_trabajo_router.dart';
 
 class TrabajoPendiente extends StatefulWidget {
   final String trabajoId;
@@ -31,7 +30,7 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
   // --- COLORES Y CONSTANTES UI/UX ---
   static const Color primaryColor = AppColors.primary;
   static const Color alertColor = AppColors.alertColor;
-  
+
   // Obtenemos los colores semánticos del modelo
   late Color _estadoBackgroundColor;
   late Color _estadoTextColor;
@@ -39,8 +38,8 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
   @override
   void initState() {
     super.initState();
-    // Asumimos que el estado del trabajo es 'pendiente' por el flujo de la pantalla.
-    _estadoTrabajo = EstadoTrabajo.pendiente; 
+    // Este estado es 'pendiente' (el trabajador ya confirmó, espera la fecha de inicio)
+    _estadoTrabajo = EstadoTrabajo.pendiente;
     _estadoBackgroundColor = _estadoTrabajo.colorChip;
     _estadoTextColor = _estadoTrabajo.colorTextoChip;
     _cargarUsuarioConfirmado();
@@ -51,12 +50,13 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
   Future<void> _cargarUsuarioConfirmado() async {
     setState(() => _isLoading = true);
     try {
-      // Buscar la postulación con estado "confirmado" (la que debe confirmar)
+      // LÓGICA CORRECTA PARA ESTA PANTALLA:
+      // Si el trabajo está 'pendiente', el postulante ya está 'confirmado'.
       final postulacionesSnapshot = await _firestore
           .collection('trabajos')
           .doc(widget.trabajoId)
           .collection('postulaciones')
-          .where('estado', isEqualTo: 'confirmado') // Asumiendo que 'confirmado' es el estado de la postulación aceptada.
+          .where('estado', isEqualTo: 'confirmado') // <-- ESTO ES CORRECTO
           .limit(1)
           .get();
 
@@ -76,6 +76,8 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
             });
           }
         }
+      } else {
+         debugPrint('No se encontró ninguna postulación con estado "confirmado".');
       }
     } catch (e) {
       debugPrint('Error al cargar usuario confirmado: $e');
@@ -88,8 +90,19 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
 
   // --- UTILIDADES DE FORMATO ---
 
-  String _formatDate(DateTime? fecha) => fecha != null ? FormatUtils.formatDate(fecha) : 'N/A';
-  String _formatCurrency(double? precio) => precio != null ? FormatUtils.formatCurrency(precio) : 'N/A';
+  String _formatDate(DateTime? fecha) =>
+      fecha != null ? FormatUtils.formatDate(fecha) : 'N/A';
+  String _formatCurrency(double? precio) =>
+      precio != null ? FormatUtils.formatCurrency(precio) : 'N/A';
+
+  // FUNCIÓN LOCAL DE HORA (Añadida)
+  String _formatTimeOfDay(DateTime? dateTime) {
+    if (dateTime == null) return 'N/A';
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final min = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$min';
+  }
+
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
     if (ubicacion == null) return 'N/A';
     final partes = [
@@ -101,72 +114,44 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
 
   // --- WIDGETS DE DATOS COMPACTOS (REUTILIZADOS) ---
 
-  Widget _buildDataChip({
-    required IconData icon,
-    required String title,
-    required String value,
-    Color iconColor = Colors.black54,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      // Elimina el border y usa sombra sutil para el efecto de "chip flotante"
-      decoration: BoxDecoration( 
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
+  Widget _buildDetalleItem(IconData icon, String title, String value) {
+    return ListTile(
+      leading: Icon(icon, color: primaryColor, size: 28),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: Colors.black54,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: iconColor),
-              const SizedBox(width: 4),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+      subtitle: Text(
+        value,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+      minLeadingWidth: 20,
     );
   }
 
   // --- WIDGETS DE SECCIONES ---
 
   Widget _buildSeccionTrabajo() {
-    final fechaInicio = (widget.trabajo['fechaInicioTrabajo'] as Timestamp?)?.toDate();
-    final fechaFin = (widget.trabajo['fechaFinTrabajo'] as Timestamp?)?.toDate();
+    final fechaInicio = (widget.trabajo['fechaInicioTrabajo'] as Timestamp?)
+        ?.toDate();
+    final fechaFin = (widget.trabajo['fechaFinTrabajo'] as Timestamp?)
+        ?.toDate();
     final ubicacion = widget.trabajo['ubicacion'] as Map<String, dynamic>?;
     final precio = (widget.trabajo['precio'] as num?)?.toDouble() ?? 0.0;
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.only(bottom: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.only(bottom: 20),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -174,45 +159,42 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
           children: [
             Row(
               children: [
-                Icon(Icons.work, color: primaryColor, size: 28), // Usamos primaryColor
+                const Icon(Icons.work, color: primaryColor, size: 28),
                 const SizedBox(width: 8),
                 const Text(
-                  'Datos del Trabajo',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor), // Usamos primaryColor
+                  'Detalles del Trabajo',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
                 ),
               ],
             ),
-            const Divider(height: 24, color: primaryColor), // Usamos primaryColor para la línea
-            // UX: Wrap para datos compactos
-            Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
-                _buildDataChip(
-                  icon: Icons.calendar_month,
-                  title: 'Fecha Inicio',
-                  value: _formatDate(fechaInicio),
-                ),
-                _buildDataChip(
-                  icon: Icons.schedule,
-                  title: 'Horario',
-                  value: fechaInicio != null && fechaFin != null 
-                         ? '${FormatUtils.formatDate(fechaInicio)} - ${FormatUtils.formatDate(fechaFin)} hrs' 
-                         : 'N/A',
-                ),
-                _buildDataChip(
-                  icon: Icons.attach_money,
-                  title: 'Monto Total',
-                  value: _formatCurrency(precio),
-                  // El ícono del monto puede usar el color de estado para énfasis semántico (pendiente)
-                  iconColor: _estadoTextColor, 
-                ),
-                _buildDataChip(
-                  icon: Icons.location_on,
-                  title: 'Ubicación',
-                  value: _formatearUbicacion(ubicacion),
-                ),
-              ],
+            const Divider(height: 20),
+            _buildDetalleItem(
+              Icons.calendar_today,
+              'Fecha de Inicio',
+              fechaInicio != null
+                  ? '${_formatDate(fechaInicio)} a las ${_formatTimeOfDay(fechaInicio)}'
+                  : 'N/A',
+            ),
+            _buildDetalleItem(
+              Icons.event,
+              'Fecha de Fin',
+              fechaFin != null
+                  ? '${_formatDate(fechaFin)} a las ${_formatTimeOfDay(fechaFin)}'
+                  : 'N/A',
+            ),
+            _buildDetalleItem(
+              Icons.location_on,
+              'Ubicación',
+              _formatearUbicacion(ubicacion),
+            ),
+            _buildDetalleItem(
+              Icons.attach_money,
+              'Precio',
+              _formatCurrency(precio),
             ),
           ],
         ),
@@ -220,12 +202,14 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
     );
   }
 
+  // --- WIDGET SECCIÓN USUARIO (REFACTORIZADO AL NUEVO ESTILO) ---
   Widget _buildSeccionUsuario() {
+    // --- 1. Caso de Carga/No Asignado ---
     if (_usuarioData == null) {
       return Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.only(bottom: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.only(bottom: 20),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -233,22 +217,31 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.person_search, color: primaryColor, size: 28), // Usamos primaryColor
+                  const Icon(Icons.person_search, color: primaryColor, size: 28),
                   const SizedBox(width: 8),
                   const Text(
-                    'Trabajador Asignado',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor), // Usamos primaryColor
+                    'Trabajador Confirmado',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor),
                   ),
                 ],
               ),
-              const Divider(height: 24, color: primaryColor), // Usamos primaryColor
-              const Center(
+              const Divider(height: 20),
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text(
-                    'Aún no se ha cargado el trabajador asignado.',
-                    style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.black54),
-                  ),
+                  padding: const EdgeInsets.all(20.0),
+                  child: _isLoading
+                      ? CircularProgressIndicator(color: primaryColor)
+                      : const Text(
+                          'Cargando datos del trabajador confirmado...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.black54),
+                        ),
                 ),
               ),
             ],
@@ -257,15 +250,18 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
       );
     }
 
-    final nombreCompleto = '${_usuarioData!['nombre'] ?? ''} ${_usuarioData!['apellido'] ?? ''}'.trim();
+    // --- 2. Caso de Trabajador Cargado (_usuarioData != null) ---
+    final nombreCompleto =
+        '${_usuarioData!['nombre'] ?? ''} ${_usuarioData!['apellido'] ?? ''}'
+            .trim();
     final email = _usuarioData!['email'] as String? ?? 'N/A';
     final telefono = _usuarioData!['telefono'] as String? ?? 'N/A';
     final rut = _usuarioData!['rut'] as String? ?? 'N/A';
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.only(bottom: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.only(bottom: 20),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -273,42 +269,54 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
           children: [
             Row(
               children: [
-                const Icon(Icons.person, color: primaryColor, size: 28), // Usamos primaryColor
+                const Icon(Icons.person_pin_circle, color: primaryColor, size: 28),
                 const SizedBox(width: 8),
                 const Text(
-                  'Datos de Contacto',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor), // Usamos primaryColor
+                  'Trabajador Confirmado',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor),
                 ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _estadoBackgroundColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _estadoTrabajo.texto, // Usamos .texto
+                    style: TextStyle(
+                      color: _estadoTextColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                )
               ],
             ),
-            const Divider(height: 24, color: primaryColor), // Usamos primaryColor
-            // UX: Los datos de contacto ahora usan Wrap para compactación
-            Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
-                _buildDataChip(
-                  icon: Icons.badge,
-                  title: 'Nombre Completo',
-                  value: nombreCompleto.isEmpty ? 'N/A' : nombreCompleto,
-                  iconColor: primaryColor,
-                ),
-                _buildDataChip(
-                  icon: Icons.fingerprint,
-                  title: 'RUT',
-                  value: rut,
-                ),
-                _buildDataChip(
-                  icon: Icons.phone,
-                  title: 'Teléfono',
-                  value: telefono,
-                ),
-                _buildDataChip(
-                  icon: Icons.email,
-                  title: 'Email',
-                  value: email,
-                ),
-              ],
+            const Divider(height: 20),
+            _buildDetalleItem(
+              Icons.badge,
+              'Nombre Completo',
+              nombreCompleto.isEmpty ? 'N/A' : nombreCompleto,
+            ),
+            _buildDetalleItem(
+              Icons.fingerprint,
+              'RUT',
+              rut,
+            ),
+            _buildDetalleItem(
+              Icons.phone,
+              'Teléfono',
+              telefono,
+            ),
+            _buildDetalleItem(
+              Icons.email,
+              'Email',
+              email,
             ),
           ],
         ),
@@ -320,8 +328,8 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
 
   @override
   Widget build(BuildContext context) {
-    // Título del trabajo para el FlexibleSpaceBar
-    final trabajoTitulo = widget.trabajo['titulo'] as String? ?? 'Trabajo Pendiente';
+    final trabajoTitulo =
+        widget.trabajo['titulo'] as String? ?? 'Trabajo Pendiente';
 
     return Scaffold(
       body: Stack(
@@ -331,15 +339,14 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
               SliverAppBar(
                 expandedHeight: 200,
                 pinned: true,
-                backgroundColor: primaryColor, // Usamos primaryColor como fondo principal
+                backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
                 flexibleSpace: FlexibleSpaceBar(
-                  // centerTitle: true REMOVIDO para que el título se alinee a la izquierda cuando está pinned
                   titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                   title: Text(
                     trabajoTitulo,
                     style: const TextStyle(
-                      color: Colors.white, // Texto blanco sobre primaryColor
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
@@ -347,14 +354,14 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
                   background: Container(
                     decoration: BoxDecoration(
                       color: primaryColor,
-                      // Borde sutil del color de estado como señal
-                      border: Border(bottom: BorderSide(color: _estadoTextColor, width: 3)), 
+                      border: Border(
+                          bottom: BorderSide(color: _estadoTextColor, width: 3)),
                     ),
                     child: Center(
                       child: Icon(
-                        Icons.schedule, // Ícono de reloj para estado de espera
+                        Icons.schedule, // Ícono de reloj para 'Pendiente'
                         size: 80,
-                        color: _estadoTextColor, // Usamos el color de estado para el ícono principal
+                        color: _estadoTextColor,
                       ),
                     ),
                   ),
@@ -366,22 +373,23 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Banner informativo de PENDIENTE (Único lugar donde domina el color de estado)
+                      // Banner informativo (TEXTO CORREGIDO)
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: _estadoBackgroundColor,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _estadoTextColor.withOpacity(0.5)),
+                          border: Border.all(
+                              color: _estadoTextColor.withOpacity(0.5)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline, color: _estadoTextColor),
+                            Icon(Icons.check_circle_outline, color: _estadoTextColor),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Confirmación pendiente. El trabajador debe confirmar su asistencia a este trabajo.',
+                                '¡Trabajador confirmado! Este trabajo está programado y listo para comenzar en la fecha indicada.',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -396,24 +404,25 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
 
                       // Secciones
                       _buildSeccionTrabajo(),
-                      _buildSeccionUsuario(),
+                      _buildSeccionUsuario(), // Widget unificado
 
-                      const SizedBox(height: 24), // Espacio final
-                      
-                      // Opción de gestión o reasignación (Botón de acción secundaria)
+                      const SizedBox(height: 24),
+
+                      // Botón de gestión
                       Center(
                         child: TextButton.icon(
                           onPressed: () {
-                            // Asumimos que getAdminTrabajoView permite la edición
-                            // FIX: La navegación debe ser un widget Route
-                            // Asumo que getAdminTrabajoView retorna un Widget.
-                            // Aquí se corrige la asunción de importación no definida.
-                            // Si 'admin_trabajo_router.dart' no se importa/existe, se usaría un placeholder.
-                            // Manteniendo la asunción de tu código original:
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => getAdminTrabajoView(trabajoId: widget.trabajoId, trabajoData: widget.trabajo)));
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => getAdminTrabajoView(
+                                        trabajoId: widget.trabajoId,
+                                        trabajoData: widget.trabajo)));
                           },
-                          icon: const Icon(Icons.edit_calendar, size: 20, color: primaryColor),
-                          label: const Text('Gestionar/Editar Trabajo', style: TextStyle(fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.edit_calendar,
+                              size: 20, color: primaryColor),
+                          label: const Text('Gestionar/Editar Trabajo',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -423,11 +432,11 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
               ),
             ],
           ),
-          
+
           // Loading overlay
           if (_isLoading)
             Container(
-              color: Colors.black54,
+              color: Colors.black.withOpacity(0.5),
               child: const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -439,3 +448,4 @@ class _TrabajoPendienteState extends State<TrabajoPendiente> {
     );
   }
 }
+

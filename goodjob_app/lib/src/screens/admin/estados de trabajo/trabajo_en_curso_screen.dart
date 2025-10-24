@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/screens/admin/admin_trabajo_router.dart';
-import 'package:goodjob_app/src/screens/trabajo_en_curso_screen.dart';
+// import 'package:goodjob_app/src/screens/trabajo_en_curso_screen.dart'; // Import circular eliminado
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
@@ -51,7 +51,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   Future<void> _cargarUsuarioConfirmado() async {
     setState(() => _isLoading = true);
     try {
-      // Buscar la postulación con estado "confirmado"
+      // Lógica correcta: El trabajador 'confirmado' es el que está 'enCurso'
       final postulacionesSnapshot = await _firestore
           .collection('trabajos')
           .doc(widget.trabajoId)
@@ -76,6 +76,8 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
             });
           }
         }
+      } else {
+         debugPrint('No se encontró ninguna postulación con estado "confirmado".');
       }
     } catch (e) {
       debugPrint('Error al cargar usuario confirmado: $e');
@@ -93,7 +95,6 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
   String _formatCurrency(double? precio) =>
       precio != null ? FormatUtils.formatCurrency(precio) : 'N/A';
 
-  // FUNCIÓN LOCAL PARA FORMATO DE HORA (reutilizando la lógica de la pantalla anterior)
   String _formatTimeOfDay(DateTime? dateTime) {
     if (dateTime == null) return 'N/A';
     final hour = dateTime.hour.toString().padLeft(2, '0');
@@ -110,7 +111,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     return partes.isEmpty ? 'N/A' : partes;
   }
 
-  // --- WIDGETS DE SECCIONES ---
+  // --- WIDGETS DE SECCIONES (NUEVO ESTILO) ---
 
   Widget _buildDetalleItem(IconData icon, String title, String value) {
     return ListTile(
@@ -198,7 +199,9 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
     );
   }
 
+  // --- WIDGET SECCIÓN USUARIO (REFACTORIZADO AL NUEVO ESTILO) ---
   Widget _buildSeccionUsuario() {
+    // --- 1. Caso de Carga/No Asignado ---
     if (_usuarioData == null) {
       return Card(
         elevation: 2,
@@ -211,30 +214,32 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.person, color: primaryColor, size: 28),
+                  const Icon(Icons.person_search, color: primaryColor, size: 28),
                   const SizedBox(width: 8),
                   const Text(
-                    'Datos del Usuario',
+                    'Trabajador en Curso', // Título actualizado
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
-                    ),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor),
                   ),
                 ],
               ),
               const Divider(height: 20),
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text(
-                    'N/A - Usuario no encontrado',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontStyle: FontStyle.italic,
-                      color: Colors.black54,
-                    ),
-                  ),
+                  padding: const EdgeInsets.all(20.0),
+                  // Lógica de carga añadida
+                  child: _isLoading
+                      ? CircularProgressIndicator(color: primaryColor)
+                      : const Text(
+                          'Cargando datos del trabajador...', // Texto actualizado
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.black54),
+                        ),
                 ),
               ),
             ],
@@ -243,6 +248,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
       );
     }
 
+    // --- 2. Caso de Trabajador Cargado (_usuarioData != null) ---
     final nombre = _usuarioData!['nombre'] as String? ?? 'N/A';
     final apellido = _usuarioData!['apellido'] as String? ?? '';
     final nombreCompleto = '$nombre $apellido'.trim();
@@ -265,18 +271,35 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Fila de Título con Chip de Estado (Añadido)
             Row(
               children: [
-                const Icon(Icons.person, color: primaryColor, size: 28),
+                const Icon(Icons.person_pin_circle, color: primaryColor, size: 28),
                 const SizedBox(width: 8),
                 const Text(
-                  'Datos del Trabajador',
+                  'Trabajador en Curso', // Título actualizado
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: primaryColor,
-                  ),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor),
                 ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _estadoBackgroundColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _estadoTrabajo.texto, // Usamos .texto
+                    style: TextStyle(
+                      color: _estadoTextColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                )
               ],
             ),
             const Divider(height: 20),
@@ -334,7 +357,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                     ),
                     child: Center(
                       child: Icon(
-                        Icons.access_time_filled, // Ícono de proceso activo
+                        Icons.directions_run, // Ícono de proceso activo (mejorado)
                         size: 80,
                         color:
                             _estadoTextColor, // Usamos el color de estado (Azul) para el ícono principal
@@ -349,7 +372,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Banner informativo de EN CURSO (Único lugar donde domina el color de estado)
+                      // Banner informativo de EN CURSO
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -384,7 +407,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
 
                       // Secciones
                       _buildSeccionTrabajo(),
-                      _buildSeccionUsuario(),
+                      _buildSeccionUsuario(), // Widget unificado
 
                       const SizedBox(height: 24), // Espacio final
                       // Opción de gestión o reasignación (Botón de acción secundaria)
@@ -424,7 +447,7 @@ class _TrabajoEnCursoScreenState extends State<TrabajoEnCursoScreen> {
           // Loading overlay
           if (_isLoading)
             Container(
-              color: Colors.black54,
+              color: Colors.black.withOpacity(0.5),
               child: const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),

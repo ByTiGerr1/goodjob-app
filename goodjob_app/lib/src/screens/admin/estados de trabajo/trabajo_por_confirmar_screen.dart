@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:flutter/material.dart';
-import 'package:goodjob_app/src/screens/admin/admin_trabajo_router.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
+// Asumiendo que esta es la pantalla de redireccionamiento para edición o gestión
+import '../admin_trabajo_router.dart';
 
 class TrabajoPorConfirmarScreen extends StatefulWidget {
   final String trabajoId;
@@ -39,27 +39,27 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
   @override
   void initState() {
     super.initState();
-    // CAMBIO: Ahora manejamos el estado 'porConfirmar'
     _estadoTrabajo = EstadoTrabajo.porConfirmar;
     _estadoBackgroundColor = _estadoTrabajo.colorChip;
     _estadoTextColor = _estadoTrabajo.colorTextoChip;
     _cargarUsuarioConfirmado();
   }
 
-  // --- LÓGICA DE CARGA DE DATOS ---
+  // --- LÓGICA DE CARGA DE DATOS (CORREGIDA) ---
 
   Future<void> _cargarUsuarioConfirmado() async {
     setState(() => _isLoading = true);
     try {
-      // Buscar la postulación con estado "confirmado" (la que debe confirmar)
+      // CORRECCIÓN: Buscamos la postulación 'aceptada' (la que está pendiente de confirmar)
+      // en lugar de 'confirmada'.
       final postulacionesSnapshot = await _firestore
           .collection('trabajos')
           .doc(widget.trabajoId)
           .collection('postulaciones')
           .where(
             'estado',
-            isEqualTo: 'confirmado',
-          ) // Asumiendo que 'confirmado' es el estado de la postulación aceptada.
+            isEqualTo: 'aceptado', // <-- ESTA ES LA CORRECCIÓN CLAVE
+          )
           .limit(1)
           .get();
 
@@ -79,9 +79,11 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
             });
           }
         }
+      } else {
+         debugPrint('No se encontró ninguna postulación con estado "aceptado".');
       }
     } catch (e) {
-      debugPrint('Error al cargar usuario confirmado: $e');
+      debugPrint('Error al cargar usuario aceptado: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -96,7 +98,6 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
   String _formatCurrency(double? precio) =>
       precio != null ? FormatUtils.formatCurrency(precio) : 'N/A';
 
-  // FUNCIÓN LOCAL PARA FORMATO DE HORA (evitando la referencia a FormatUtils.formatTime)
   String _formatTimeOfDay(DateTime? dateTime) {
     if (dateTime == null) return 'N/A';
     final hour = dateTime.hour.toString().padLeft(2, '0');
@@ -123,7 +124,6 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      // Elimina el border y usa sombra sutil para el efecto de "chip flotante"
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(10),
@@ -194,7 +194,7 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                   Icons.work,
                   color: primaryColor,
                   size: 28,
-                ), // Usamos primaryColor
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   'Datos del Trabajo',
@@ -202,15 +202,14 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: primaryColor,
-                  ), // Usamos primaryColor
+                  ),
                 ),
               ],
             ),
             const Divider(
               height: 24,
               color: primaryColor,
-            ), // Usamos primaryColor para la línea
-            // UX: Wrap para datos compactos
+            ),
             Wrap(
               spacing: 12,
               runSpacing: 10,
@@ -224,14 +223,13 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                   icon: Icons.schedule,
                   title: 'Horario',
                   value: fechaInicio != null && fechaFin != null
-                      ? '${_formatTimeOfDay(fechaInicio)} - ${_formatTimeOfDay(fechaFin)} hrs' // USO DE LA FUNCIÓN LOCAL
+                      ? '${_formatTimeOfDay(fechaInicio)} - ${_formatTimeOfDay(fechaFin)} hrs'
                       : 'N/A',
                 ),
                 _buildDataChip(
                   icon: Icons.attach_money,
                   title: 'Monto Total',
                   value: _formatCurrency(precio),
-                  // El ícono del monto usa el color de estado para énfasis semántico (pendiente)
                   iconColor: _estadoTextColor,
                 ),
                 _buildDataChip(
@@ -262,7 +260,6 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
             children: [
               Row(
                 children: [
-                  // Ícono y Título para el estado de carga/no asignado
                   Icon(
                     Icons.person_search,
                     color: primaryColor,
@@ -283,14 +280,13 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                 height: 24,
                 color: primaryColor,
               ),
-              // Indicador de carga si está cargando, o mensaje de no asignado
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: _isLoading
                       ? CircularProgressIndicator(color: primaryColor)
                       : const Text(
-                          'Aún no se ha cargado el trabajador asignado o no existe una postulación "confirmada".', // Mensaje más descriptivo
+                          'Buscando trabajador aceptado... Si este mensaje persiste, es posible que no haya un trabajador en estado "aceptado" para este trabajo.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 16,
@@ -326,7 +322,7 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
             Row(
               children: [
                 const Icon(
-                  Icons.person_pin_circle, // Usar un ícono más enfático para "asignado"
+                  Icons.person_pin_circle,
                   color: primaryColor,
                   size: 28,
                 ),
@@ -339,7 +335,6 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                     color: primaryColor,
                   ),
                 ),
-                // Un pequeño chip de estado al lado del título
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -348,7 +343,8 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    _estadoTrabajo.texto, // Muestra el estado actual del trabajo
+                    // CORRECCIÓN: Usamos .texto en lugar de .nombre
+                    _estadoTrabajo.texto, 
                     style: TextStyle(
                       color: _estadoTextColor,
                       fontWeight: FontWeight.bold,
@@ -362,8 +358,6 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
               height: 24,
               color: primaryColor,
             ),
-
-            // UX: Tarjeta de perfil simplificada (Opcional: Avatar)
             Center(
               child: Column(
                 children: [
@@ -391,19 +385,16 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                 ],
               ),
             ),
-
-            // Información de Contacto con Chips
             Wrap(
-              alignment: WrapAlignment.center, // Centrar los chips
+              alignment: WrapAlignment.center,
               spacing: 12,
               runSpacing: 10,
               children: [
-                // Chip de RUT para identificarlo
                 _buildDataChip(
                   icon: Icons.fingerprint,
                   title: 'RUT',
                   value: rut,
-                  iconColor: primaryColor, // Destacar el RUT
+                  iconColor: primaryColor,
                 ),
                 _buildDataChip(
                   icon: Icons.phone,
@@ -428,7 +419,6 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Título del trabajo para el FlexibleSpaceBar
     final trabajoTitulo =
         widget.trabajo['titulo'] as String? ?? 'Trabajo Por Confirmar';
 
@@ -440,16 +430,14 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
               SliverAppBar(
                 expandedHeight: 200,
                 pinned: true,
-                backgroundColor:
-                    primaryColor, // Usamos primaryColor como fondo principal
+                backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
                 flexibleSpace: FlexibleSpaceBar(
-                  // centerTitle: true REMOVIDO para que el título se alinee a la izquierda cuando está pinned
                   titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                   title: Text(
                     trabajoTitulo,
                     style: const TextStyle(
-                      color: Colors.white, // Texto blanco sobre primaryColor
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
@@ -457,18 +445,15 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                   background: Container(
                     decoration: BoxDecoration(
                       color: primaryColor,
-                      // Borde sutil del color de estado como señal
                       border: Border(
                         bottom: BorderSide(color: _estadoTextColor, width: 3),
                       ),
                     ),
                     child: Center(
                       child: Icon(
-                        Icons
-                            .hourglass_empty, // Ícono de reloj de arena para 'Por Confirmar'
+                        Icons.hourglass_empty,
                         size: 80,
-                        color:
-                            _estadoTextColor, // Usamos el color de estado para el ícono principal
+                        color: _estadoTextColor,
                       ),
                     ),
                   ),
@@ -480,7 +465,6 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Banner informativo de PENDIENTE (Único lugar donde domina el color de estado)
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -509,39 +493,9 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-
-                      // Secciones
+                      
                       _buildSeccionTrabajo(),
-                      _buildSeccionUsuario(), // Esta función ahora maneja ambos estados
-
-                      const SizedBox(height: 24), // Espacio final
-                      // Opción de gestión o reasignación (Botón de acción secundaria)
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: () {
-                            // Asumimos que getAdminTrabajoView permite la edición
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => getAdminTrabajoView(
-                                  trabajoId: widget.trabajoId,
-                                  trabajoData: widget.trabajo,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.edit_calendar,
-                            size: 20,
-                            color: primaryColor,
-                          ),
-                          label: const Text(
-                            'Gestionar/Editar Trabajo',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
+                      _buildSeccionUsuario(), // Widget unificado
                     ],
                   ),
                 ),
@@ -549,10 +503,10 @@ class _TrabajoPorConfirmarScreenState extends State<TrabajoPorConfirmarScreen> {
             ],
           ),
 
-          // Loading overlay (solo se muestra si _isLoading es true, controlado por la lógica de carga)
+          // Loading overlay
           if (_isLoading)
             Container(
-              color: Colors.black54.withOpacity(0.5), // Semi-transparente
+              color: Colors.black.withOpacity(0.5),
               child: const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
