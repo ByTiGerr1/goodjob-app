@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:goodjob_app/src/models/trabajo.dart'; // Asegúrate que Trabajo y EstadoTrabajo estén aquí
+import 'package:goodjob_app/src/models/trabajo.dart';
 import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
-import 'package:goodjob_app/src/utils/format_utils.dart'; // Asegúrate que esta ruta sea correcta
+import 'package:goodjob_app/src/utils/format_utils.dart';
 
-// Importa la pantalla de creación/edición
-import 'package:goodjob_app/src/screens/admin/crear_trabajo_screen.dart'; // Ajusta la ruta si es necesario
+// Importa las pantallas necesarias
+import 'package:goodjob_app/src/screens/admin/crear_trabajo_screen.dart';
+// ⚠️ IMPORTACIÓN CORREGIDA: Pantalla de detalle del postulante
+import 'package:goodjob_app/src/screens/admin/postulante_detalle_screen.dart';
 
 // Importa los widgets de admin
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_gestion_pago.dart';
@@ -42,13 +44,12 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color primaryColor = Theme.of(context).primaryColor;
-    final Color alertColor = Theme.of(context).colorScheme.error;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalle del Trabajo'),
         actions: [
-          // **CONDICIÓN AÑADIDA:** Mostrar solo si el estado es 'abierto'
+          // Mostrar botón de edición solo si el estado es 'abierto'
           if (trabajo.estado == EstadoTrabajo.activo)
             IconButton(
               icon: const Icon(Icons.edit_rounded),
@@ -61,7 +62,6 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
                         CrearTrabajoScreen(trabajoParaEditar: trabajo),
                   ),
                 ).then((resultadoEdicion) {
-                  // Opcional: Manejar resultado al volver
                   if (resultadoEdicion == true && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -69,7 +69,6 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
                         backgroundColor: Colors.green,
                       ),
                     );
-                    // Considera recargar datos si esta pantalla fuera StatefulWidget
                   }
                 });
               },
@@ -139,18 +138,37 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
     );
   }
 
-  /// Helper para mostrar info del postulante (si aplica)
+  /// ⚠️ FUNCIÓN CORREGIDA: Usa trabajo.trabajadorAsignadoId directamente
   Widget _buildInfoPostulanteCondicional(
     BuildContext context, {
     String? mensaje,
   }) {
-    if (trabajo.trabajadorAsignadoId == null) {
-      return const SizedBox.shrink();
+    // ⚠️ La variable es trabajadorAsignadoId
+    final String? postulanteId = trabajo.trabajadorAsignadoId;
+
+    if (postulanteId == null) {
+      return const SizedBox.shrink(); // No mostrar nada si no hay ID
     }
-    return WidgetInfoPostulante(
-      trabajo: trabajo,
-      postulanteService: postulanteService,
-      mensaje: mensaje ?? 'Postulante asignado a este trabajo.',
+
+    return InkWell(
+      // ⚠️ REDIRECCIÓN AL PERFIL DEL POSTULANTE
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostulanteDetalleScreen(
+              usuarioId: postulanteId, // Usamos la variable local correcta
+              trabajoId: trabajo.id, // ID del trabajo actual
+            ),
+          ),
+        );
+      },
+      // Usamos el widget existente para mostrar la tarjeta de información
+      child: WidgetInfoPostulante(
+        trabajo: trabajo,
+        postulanteService: postulanteService,
+        mensaje: mensaje ?? 'Postulante asignado a este trabajo.',
+      ),
     );
   }
 
@@ -203,6 +221,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             color: trabajo.estado.colorTextoChip,
           ),
           spacer,
+          _buildInfoPostulanteCondicional(context),
         ];
       case EstadoTrabajo.pendiente:
         return [
@@ -227,7 +246,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
           spacer,
           _buildInfoPostulanteCondicional(
             context,
-            mensaje: 'Postulante en faena.',
+            mensaje: 'Postulante en trabajo.',
           ),
         ];
       case EstadoTrabajo.finalizado:
@@ -377,7 +396,6 @@ class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
   }
 
   Widget _buildExpandedContent(BuildContext context) {
-    // Contenido interno del desplegable
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -492,9 +510,3 @@ class _InfoRow extends StatelessWidget {
   }
 }
 // --- FIN HELPERS ---
-
-// ⚠️ Asegúrate de tener tu Enum EstadoTrabajo y sus extensiones definidas o importadas
-/*
-enum EstadoTrabajo { activo, abierto, porConfirmar, ... }
-extension EstadoTrabajoExtension on EstadoTrabajo { ... }
-*/
