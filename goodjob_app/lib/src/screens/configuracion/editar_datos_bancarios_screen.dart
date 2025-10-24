@@ -27,10 +27,21 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
 
   bool _isLoading = true;
   String? _errorMessage;
+  bool _hasUnsavedChanges = false;
+  bool _isInitializingControllers = false;
+
+  String _initialBanco = '';
+  String _initialTipoCuenta = '';
+  String _initialNumeroCuenta = '';
+  String _initialRut = '';
 
   @override
   void initState() {
     super.initState();
+    _bancoController.addListener(_handleFormChanges);
+    _tipoCuentaController.addListener(_handleFormChanges);
+    _numeroCuentaController.addListener(_handleFormChanges);
+    _rutController.addListener(_handleFormChanges);
     _cargarDatosBancarios();
   }
 
@@ -45,6 +56,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
 
   Future<void> _cargarDatosBancarios() async {
     if (_user == null) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Usuario no autenticado.';
         _isLoading = false;
@@ -56,33 +68,44 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
       final doc = await _firestore.collection('usuarios').doc(_user.uid).get();
       final data = doc.data();
 
+      _isInitializingControllers = true;
+
       if (data != null) {
         // 1. Cargar RUT desde el nivel superior (top-level)
         // El RUT no está cifrado y puede ser cargado.
-        _rutController.text = data['rut'] ?? ''; 
-        
+        _rutController.text = data['rut'] ?? '';
+
         // 2. OMITIR CARGA DE DATOS BANCARIOS CIFRADOS:
         // Si los datos bancarios estan cifrados, no se pueden mostrar
         // al usuario. Los campos del banco se inicializaran vacios.
-        
+
         // La logica anterior que causaba problemas se ha eliminado:
         /*
         final dynamic rawBankDetails = data['datosBancarios'];
-        final Map<String, dynamic>? bankDetails = 
+        final Map<String, dynamic>? bankDetails =
             (rawBankDetails is Map<String, dynamic>) ? rawBankDetails : null;
-        
+
         if (bankDetails != null) {
-          _bancoController.text = bankDetails['banco'] ?? ''; 
+          _bancoController.text = bankDetails['banco'] ?? '';
           _tipoCuentaController.text = bankDetails['tipoCuenta'] ?? '';
           _numeroCuentaController.text = bankDetails['numeroCuenta'] ?? '';
         }
         */
       }
+
+      _setInitialValues();
     } catch (e) {
-      debugPrint('Error al cargar los datos: $e'); 
-      _errorMessage = 'Ocurrio un error al cargar su informacion bancaria.';
+      debugPrint('Error al cargar los datos: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Ocurrio un error al cargar su informacion bancaria.';
+        });
+      }
     } finally {
       // Reconstruir la UI para mostrar los datos cargados o el error
+      _isInitializingControllers = false;
+      if (!mounted) return;
+      _handleFormChanges();
       setState(() {
         _isLoading = false;
       });
@@ -112,6 +135,11 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
       await _firestore.collection('usuarios').doc(_user.uid).set(bankDataToSave, SetOptions(merge: true));
 
       if (mounted) {
+        _setInitialValues();
+        setState(() {
+          _hasUnsavedChanges = false;
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Datos bancarios actualizados con exito!')),
         );
@@ -127,11 +155,22 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Actualizar Datos Bancarios', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      body: _isLoading && _errorMessage == null
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Actualizar Datos Bancarios', style: TextStyle(fontWeight: FontWeight.bold)),
+          leading: BackButton(
+            onPressed: () async {
+              if (await _onWillPop()) {
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              }
+            },
+          ),
+        ),
+        body: _isLoading && _errorMessage == null
           ? const Center(child: CircularProgressIndicator(color: _PRIMARY_COLOR))
           : _errorMessage != null
               ? Center(
@@ -188,9 +227,11 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
                         ),
                       ],
                     ),
+                    ),
                   ),
                 ),
-    );
+      );
+      
   }
 
   Widget _buildTextField({
@@ -223,5 +264,56 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
         },
       ),
     );
+  }
+
+  void _setInitialValues() {
+    _initialBanco = _bancoController.text;
+    _initialTipoCuenta = _tipoCuentaController.text;
+    _initialNumeroCuenta = _numeroCuentaController.text;
+    _initialRut = _rutController.text;
+  }
+
+  void _handleFormChanges() {
+    if (_isInitializingControllers) return;
+    if (!mounted) return;
+
+    final hasChanges = _bancoController.text != _initialBanco ||
+        _tipoCuentaController.text != _initialTipoCuenta ||
+        _numeroCuentaController.text != _initialNumeroCuenta ||
+        _rutController.text != _initialRut;
+
+    if (hasChanges != _hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = hasChanges;
+      });
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_hasUnsavedChanges) {
+      return true;
+    }
+
+    final shouldDiscard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cambios sin guardar'),
+        content: const Text(
+          'Tienes cambios sin guardar. ¿Deseas descartar los cambios o seguir editando?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Seguir editando'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldDiscard ?? false;
   }
 }

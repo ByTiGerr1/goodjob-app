@@ -31,10 +31,25 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
 
   bool _isLoading = true;
   String? _errorMessage;
+  bool _hasUnsavedChanges = false;
+  bool _isInitializingControllers = false;
+
+  String _initialNombre = '';
+  String _initialApellido = '';
+  String _initialTelefono = '';
+  String _initialDescripcion = '';
+  String _initialOcupacion = '';
+  String _initialCarrera = '';
 
   @override
   void initState() {
     super.initState();
+    _nombreController.addListener(_handleFormChanges);
+    _apellidoController.addListener(_handleFormChanges);
+    _telefonoController.addListener(_handleFormChanges);
+    _descripcionController.addListener(_handleFormChanges);
+    _ocupacionController.addListener(_handleFormChanges);
+    _carreraController.addListener(_handleFormChanges);
     _cargarDatosUsuario();
   }
 
@@ -51,6 +66,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
 
   Future<void> _cargarDatosUsuario() async {
     if (_user == null) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Usuario no autenticado.';
         _isLoading = false;
@@ -61,6 +77,8 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     try {
       final doc = await _firestore.collection('usuarios').doc(_user.uid).get();
       final data = doc.data();
+
+      _isInitializingControllers = true;
 
       if (data != null) {
         // Cargar datos básicos
@@ -73,11 +91,20 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         _ocupacionController.text = data['ocupacion'] ?? '';
         _carreraController.text = data['carrera'] ?? '';
       }
+
+      _setInitialValues();
     } catch (e) {
-      // Usamos debugPrint o log en lugar de asignar al mensaje de error de la UI 
-      debugPrint('Error al cargar los datos: $e'); 
-      _errorMessage = 'Ocurrió un error al cargar su información.';
+      // Usamos debugPrint o log en lugar de asignar al mensaje de error de la UI
+      debugPrint('Error al cargar los datos: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Ocurrió un error al cargar su información.';
+        });
+      }
     } finally {
+      _isInitializingControllers = false;
+      if (!mounted) return;
+      _handleFormChanges();
       setState(() {
         _isLoading = false;
       });
@@ -105,6 +132,11 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       await _firestore.collection('usuarios').doc(_user.uid).set(userData, SetOptions(merge: true));
 
       if (mounted) {
+        _setInitialValues();
+        setState(() {
+          _hasUnsavedChanges = false;
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Perfil actualizado con exito!')),
         );
@@ -118,90 +150,126 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     }
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Editar Perfil', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      body: _isLoading && _errorMessage == null
-          ? const Center(child: CircularProgressIndicator(color: _PRIMARY_COLOR))
-          : _errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Text('Error: $_errorMessage', style: TextStyle(color: Colors.red.shade700)),
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // --- SECCIÓN INFORMACIÓN PERSONAL ---
-                        const Text('Información Personal', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _PRIMARY_COLOR)),
-                        const Divider(color: _PRIMARY_COLOR),
-                        
-                        _buildTextField(
-                          controller: _nombreController,
-                          label: 'Nombre(s)',
-                          icon: Icons.person_outline,
-                        ),
-                        _buildTextField(
-                          controller: _apellidoController,
-                          label: 'Apellido(s)',
-                          icon: Icons.person_outline,
-                        ),
-                        _buildTextField(
-                          controller: _telefonoController,
-                          label: 'Telefono',
-                          icon: Icons.phone,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // --- SECCIÓN PERFIL PROFESIONAL ---
-                        const Text('Perfil Profesional', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _PRIMARY_COLOR)),
-                        const Divider(color: _PRIMARY_COLOR),
-                        
-                        _buildTextField(
-                          controller: _descripcionController,
-                          label: 'Sobre mí (Descripción)',
-                          icon: Icons.notes,
-                          maxLines: 4, // Multi-línea para la descripción
-                        ),
-                        _buildTextField(
-                          controller: _ocupacionController,
-                          label: 'Ocupación principal',
-                          icon: Icons.work_outline,
-                        ),
-                        _buildTextField(
-                          controller: _carreraController,
-                          label: 'Carrera / Estudios',
-                          icon: Icons.school_outlined,
-                        ),
-                        const SizedBox(height: 40),
-
-                        // --- BOTÓN DE GUARDAR ---
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _guardarPerfil,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _PRIMARY_COLOR,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            minimumSize: const Size(double.infinity, 50),
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Editar Perfil', style: TextStyle(fontWeight: FontWeight.bold)),
+          leading: BackButton(
+            onPressed: () async {
+              if (await _onWillPop()) {
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              }
+            },
+          ),
+        ),
+        body: _isLoading && _errorMessage == null
+            ? const Center(child: CircularProgressIndicator(color: _PRIMARY_COLOR))
+            : _errorMessage != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text(
+                        'Error: $_errorMessage',
+                        style: TextStyle(color: Colors.red.shade700),
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // --- SECCIÓN INFORMACIÓN PERSONAL ---
+                          const Text(
+                            'Información Personal',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: _PRIMARY_COLOR,
+                            ),
                           ),
-                          child: _isLoading 
-                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Text('GUARDAR CAMBIOS', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
+                          const Divider(color: _PRIMARY_COLOR),
+                          _buildTextField(
+                            controller: _nombreController,
+                            label: 'Nombre(s)',
+                            icon: Icons.person_outline,
+                          ),
+                          _buildTextField(
+                            controller: _apellidoController,
+                            label: 'Apellido(s)',
+                            icon: Icons.person_outline,
+                          ),
+                          _buildTextField(
+                            controller: _telefonoController,
+                            label: 'Telefono',
+                            icon: Icons.phone,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: 20),
+                          // --- SECCIÓN PERFIL PROFESIONAL ---
+                          const Text(
+                            'Perfil Profesional',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: _PRIMARY_COLOR,
+                            ),
+                          ),
+                          const Divider(color: _PRIMARY_COLOR),
+                          _buildTextField(
+                            controller: _descripcionController,
+                            label: 'Sobre mí (Descripción)',
+                            icon: Icons.notes,
+                            maxLines: 4,
+                          ),
+                          _buildTextField(
+                            controller: _ocupacionController,
+                            label: 'Ocupación principal',
+                            icon: Icons.work_outline,
+                          ),
+                          _buildTextField(
+                            controller: _carreraController,
+                            label: 'Carrera / Estudios',
+                            icon: Icons.school_outlined,
+                          ),
+                          const SizedBox(height: 40),
+                          ElevatedButton(
+                            onPressed: _isLoading ? null : _guardarPerfil,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _PRIMARY_COLOR,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'GUARDAR CAMBIOS',
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+      ),
     );
   }
 
@@ -237,5 +305,60 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         },
       ),
     );
+  }
+
+  void _setInitialValues() {
+    _initialNombre = _nombreController.text;
+    _initialApellido = _apellidoController.text;
+    _initialTelefono = _telefonoController.text;
+    _initialDescripcion = _descripcionController.text;
+    _initialOcupacion = _ocupacionController.text;
+    _initialCarrera = _carreraController.text;
+  }
+
+  void _handleFormChanges() {
+    if (_isInitializingControllers) return;
+    if (!mounted) return;
+
+    final hasChanges = _nombreController.text != _initialNombre ||
+        _apellidoController.text != _initialApellido ||
+        _telefonoController.text != _initialTelefono ||
+        _descripcionController.text != _initialDescripcion ||
+        _ocupacionController.text != _initialOcupacion ||
+        _carreraController.text != _initialCarrera;
+
+    if (hasChanges != _hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = hasChanges;
+      });
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_hasUnsavedChanges) {
+      return true;
+    }
+
+    final shouldDiscard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cambios sin guardar'),
+        content: const Text(
+          'Tienes cambios sin guardar. ¿Deseas descartar los cambios o seguir editando?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Seguir editando'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldDiscard ?? false;
   }
 }
