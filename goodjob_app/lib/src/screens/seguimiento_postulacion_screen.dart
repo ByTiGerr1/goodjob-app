@@ -226,6 +226,10 @@ class _PostulacionContent extends StatelessWidget {
     return extractTrabajoStart(t);
   }
 
+  DateTime? _getTrabajoEndDateTime(Map<String, dynamic> t) {
+    return extractTrabajoEnd(t);
+  }
+
   String _formatearUbicacion(Map<String, dynamic>? ubicacion) {
     if (ubicacion == null) return 'Ubicación no disponible';
     final partes =
@@ -246,8 +250,9 @@ class _PostulacionContent extends StatelessWidget {
     return '$dia/$mes/$anio';
   }
 
-  String _formatearHora(DateTime? inicioProgramado) {
-    if (inicioProgramado == null) return 'Horario por confirmar';
+  String _formatearHora(DateTime? inicioProgramado,
+      {String fallback = 'Horario por confirmar'}) {
+    if (inicioProgramado == null) return fallback;
 
     final horaTexto = inicioProgramado.hour.toString().padLeft(2, '0');
     final minutoTexto = inicioProgramado.minute.toString().padLeft(2, '0');
@@ -561,6 +566,7 @@ class _PostulacionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fechaTrabajo = _getTrabajoStartDateTime(trabajo);
+    final fechaFinProgramada = _getTrabajoEndDateTime(trabajo);
     final empresa = trabajo['empresa'] ?? '';
     final estadoPrincipal = _estadoPostulacionPrincipal(postulacion);
     final confirmacionRegistrada = _tieneConfirmacionRegistrada(
@@ -594,6 +600,10 @@ class _PostulacionContent extends StatelessWidget {
     final finTrabajoReal =
         _parseDate(postulacion['finTrabajoReal']) ??
             _parseDate(trabajo['finTrabajoReal']);
+    final fechaReferencia =
+        fechaTrabajo ?? fechaFinProgramada ?? inicioTrabajoReal ?? finTrabajoReal;
+    final horarioInicio = inicioTrabajoReal ?? fechaTrabajo;
+    final horarioFin = finTrabajoReal ?? fechaFinProgramada;
     final tieneCheckInActivo =
         inicioTrabajoReal != null && finTrabajoReal == null && esTrabajoActivo;
 
@@ -770,11 +780,11 @@ class _PostulacionContent extends StatelessWidget {
                         ),
                         _buildInfoChip(
                           Icons.event,
-                          _formatearFecha(fechaTrabajo),
+                          _formatearFecha(fechaReferencia),
                         ),
                         _buildInfoChip(
                           Icons.access_time,
-                          _formatearHora(fechaTrabajo),
+                          '${_formatearHora(horarioInicio, fallback: 'Por confirmar')} - ${_formatearHora(horarioFin, fallback: 'Por confirmar')}',
                         ),
                         _buildInfoChip(
                           Icons.payments,

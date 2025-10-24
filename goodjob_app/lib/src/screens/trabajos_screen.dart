@@ -3,10 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:goodjob_app/src/utils/format_utils.dart';
-import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/src/utils/resistant_page_scroll_physics.dart';
+import 'package:goodjob_app/theme/app_colors.dart';
 
 import '../models/trabajo.dart';
 import '../services/postulacion_service.dart';
@@ -41,6 +42,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   String? _ultimoTrabajoSeleccionadoId;
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
   final Set<String> _trabajosMarcadosPorRevisar = <String>{};
+  bool _isCarouselInteracting = false;
 
   // Color primario utilizado en los selectores/marcadores
   static const Color _primaryAppColor = AppColors.primary;
@@ -152,6 +154,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     final coords = extractLatLngFromUbicacion(ubicacion);
     if (coords == null) return;
     _mapController.move(coords, 17.0);
+  }
+
+  void _setCarouselInteraction(bool value) {
+    if (_isCarouselInteracting == value) return;
+    setState(() => _isCarouselInteracting = value);
   }
 
   void _onTrabajoCarruselTap(
@@ -801,27 +808,30 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: zoom,
-            maxZoom: 40,
-            minZoom: 9,
-            onMapReady: () {
-              if (_currentPosition != null) {
-                _centrarEnUbicacion();
-              }
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate:
-                  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-              subdomains: const ['a', 'b', 'c', 'd'],
+        IgnorePointer(
+          ignoring: _isCarouselInteracting,
+          child: FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: center,
+              initialZoom: zoom,
+              maxZoom: 40,
+              minZoom: 9,
+              onMapReady: () {
+                if (_currentPosition != null) {
+                  _centrarEnUbicacion();
+                }
+              },
             ),
-            MarkerLayer(markers: markers),
-          ],
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+              ),
+              MarkerLayer(markers: markers),
+            ],
+          ),
         ),
 
         if (!hayTrabajosDisponibles)
@@ -894,17 +904,22 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 ),
                 SizedBox(
                   height: 150,
-                  child: PageView.builder(
-                    controller: _carouselController,
-                    itemCount: trabajosOrdenadosPorDistancia.length,
-                    onPageChanged: (index) {
-                      final trabajo = trabajosOrdenadosPorDistancia[index];
-                      setState(
-                        () => _ultimoTrabajoSeleccionadoId = trabajo['id'],
-                      );
-                      _centrarEnTrabajo(trabajo);
-                    },
-                    itemBuilder: (context, index) {
+                  child: Listener(
+                    onPointerDown: (_) => _setCarouselInteraction(true),
+                    onPointerCancel: (_) => _setCarouselInteraction(false),
+                    onPointerUp: (_) => _setCarouselInteraction(false),
+                    child: PageView.builder(
+                      controller: _carouselController,
+                      physics: const ResistantPageScrollPhysics(),
+                      itemCount: trabajosOrdenadosPorDistancia.length,
+                      onPageChanged: (index) {
+                        final trabajo = trabajosOrdenadosPorDistancia[index];
+                        setState(
+                          () => _ultimoTrabajoSeleccionadoId = trabajo['id'],
+                        );
+                        _centrarEnTrabajo(trabajo);
+                      },
+                      itemBuilder: (context, index) {
                       final trabajo = trabajosOrdenadosPorDistancia[index];
                       final id = trabajo['id'] as String?;
                       final seleccionado =
@@ -1026,6 +1041,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                     },
                   ),
                 ),
+                )
               ],
             ),
           ),
