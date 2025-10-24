@@ -30,6 +30,28 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
   final Auth _authService = Auth();
   final PostulacionService _postulacionService = PostulacionService();
 
+  String _normalizeStatus(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+    }
+    return '';
+  }
+
+  bool _isTrabajoCompletado(Map<String, dynamic> postulacionData) {
+    final estadoTrabajo =
+        _normalizeStatus(postulacionData['estadoTrabajo'] ?? postulacionData['estado']);
+    final estadoPago = _normalizeStatus(postulacionData['estadoPago']);
+    final trabajoCompletado = postulacionData['trabajoCompletado'] == true;
+
+    return trabajoCompletado ||
+        estadoTrabajo == 'pendienterevision' ||
+        estadoTrabajo == 'porpagar' ||
+        estadoTrabajo == 'finalizado' ||
+        estadoTrabajo == 'pagado' ||
+        estadoPago == 'pagado' ||
+        estadoPago == 'completado';
+  }
+  
   @override
   void initState() {
     super.initState();
