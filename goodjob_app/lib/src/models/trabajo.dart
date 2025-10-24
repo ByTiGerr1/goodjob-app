@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart'; // Importar para usar Color
 
-enum EstadoTrabajo { 
+// --- ENUM ESTADO TRABAJO ---
+enum EstadoTrabajo {
   activo,
   porConfirmar,
   pendiente,
@@ -16,83 +17,57 @@ enum EstadoTrabajo {
 extension EstadoTrabajoExtension on EstadoTrabajo {
   String get texto {
     switch (this) {
-      case EstadoTrabajo.activo:
-        return "Abierto";
-      case EstadoTrabajo.porConfirmar:
-        return "Por confirmar";
-      case EstadoTrabajo.pendiente:
-        return "Pendiente";
-      case EstadoTrabajo.enCurso:
-        return "En curso";
-      case EstadoTrabajo.porRevisar:
-        return "Por revisar";
-      case EstadoTrabajo.porPagar:
-        return "Por pagar";
-      case EstadoTrabajo.finalizado:
-        return "Finalizado";
-      case EstadoTrabajo.cancelado:
-        return "Cancelado";
-      case EstadoTrabajo.rechazado:
-        return "Rechazado";
+      case EstadoTrabajo.activo: return "Abierto";
+      case EstadoTrabajo.porConfirmar: return "Por confirmar";
+      case EstadoTrabajo.pendiente: return "Pendiente";
+      case EstadoTrabajo.enCurso: return "En curso";
+      case EstadoTrabajo.porRevisar: return "Por revisar";
+      case EstadoTrabajo.porPagar: return "Por pagar";
+      case EstadoTrabajo.finalizado: return "Finalizado";
+      case EstadoTrabajo.cancelado: return "Cancelado";
+      case EstadoTrabajo.rechazado: return "Rechazado";
     }
   }
 
-  // UX: Color de fondo claro para el chip - PALETA MEJORADA PARA DISTINCIÓN Y CONTRASTE
+  // Colores del Chip (Paleta mejorada)
   Color get colorChip {
     switch (this) {
       case EstadoTrabajo.activo:
-        return Colors.green.shade100; // Verde claro (Éxito/Disponible)
-      case EstadoTrabajo.enCurso:
-        return Colors.blue.shade100; // Azul claro (Proceso Activo)
-      case EstadoTrabajo.porConfirmar:
-        return Colors.orange.shade100; // Naranja claro (Advertencia, requiere acción)
-      case EstadoTrabajo.pendiente:
-        return Colors.yellow.shade100; // Amarillo claro (Esperando)
-      case EstadoTrabajo.porRevisar:
-        return Colors.cyan.shade100; // Cian claro (Necesita atención)
-      case EstadoTrabajo.porPagar:
-        return Colors.purple.shade100; // Púrpura claro (Acción financiera)
-      case EstadoTrabajo.finalizado:
-        return Colors.grey.shade300; // Gris medio (Completado, historial)
-      case EstadoTrabajo.cancelado:
-        return Colors.red.shade100; // Rojo claro (Fallo/Interrumpido)
-      case EstadoTrabajo.rechazado:
-        return Colors.pink.shade100; // Rosa claro (Decisión final/Rechazo - Distinto de Cancelado)
+      case EstadoTrabajo.enCurso: return Colors.blue.shade100;
+      case EstadoTrabajo.porConfirmar: return Colors.orange.shade100;
+      case EstadoTrabajo.pendiente: return Colors.yellow.shade100;
+      case EstadoTrabajo.porRevisar: return Colors.cyan.shade100;
+      case EstadoTrabajo.porPagar: return Colors.purple.shade100;
+      case EstadoTrabajo.finalizado: return Colors.grey.shade300;
+      case EstadoTrabajo.cancelado: return Colors.red.shade100;
+      case EstadoTrabajo.rechazado: return Colors.pink.shade100;
     }
   }
 
-  // UX: Color de texto oscuro para el chip - PALETA MEJORADA PARA CONTRASTE
+  // Colores del Texto del Chip (Paleta mejorada)
   Color get colorTextoChip {
     switch (this) {
       case EstadoTrabajo.activo:
-        return Colors.green.shade800; 
-      case EstadoTrabajo.enCurso:
-        return Colors.blue.shade800;
-      case EstadoTrabajo.porConfirmar:
-        return Colors.orange.shade800;
-      case EstadoTrabajo.pendiente:
-        return Colors.brown.shade800; // Cambiado a Marrón oscuro para un contraste superior sobre Amarillo claro
-      case EstadoTrabajo.porRevisar:
-        return Colors.cyan.shade900;
-      case EstadoTrabajo.porPagar:
-        return Colors.purple.shade800;
-      case EstadoTrabajo.finalizado:
-        return Colors.grey.shade800;
-      case EstadoTrabajo.cancelado:
-        return Colors.red.shade800;
-      case EstadoTrabajo.rechazado:
-        return Colors.pink.shade900; // Magenta oscuro (Distinto de Rojo estándar)
+      case EstadoTrabajo.enCurso: return Colors.blue.shade800;
+      case EstadoTrabajo.porConfirmar: return Colors.orange.shade800;
+      case EstadoTrabajo.pendiente: return Colors.brown.shade800;
+      case EstadoTrabajo.porRevisar: return Colors.cyan.shade900;
+      case EstadoTrabajo.porPagar: return Colors.purple.shade800;
+      case EstadoTrabajo.finalizado: return Colors.grey.shade800;
+      case EstadoTrabajo.cancelado: return Colors.red.shade800;
+      case EstadoTrabajo.rechazado: return Colors.pink.shade900;
     }
   }
 }
 
+// --- CLASE TRABAJO ---
 class Trabajo {
   final String id;
   final String titulo;
   final String descripcion;
   final String empresa;
   final Map<String, dynamic> ubicacion;
-  final DateTime? fechaLimite;
+  final DateTime? fechaLimite; // Puede ser nulo
   final DateTime fechaInicioTrabajo;
   final DateTime fechaFinTrabajo;
   final double precio;
@@ -100,11 +75,17 @@ class Trabajo {
   final bool requiereUniforme;
   final List<String> implementosUniforme;
   final Map<String, String> contacto;
-  EstadoTrabajo estado;
+  EstadoTrabajo estado; // Cambiado a no final si necesitas modificarlo
   final bool sinFechaLimite;
   final bool pagado;
-  final String? trabajadorAsignadoId;
-  final String? motivoRechazo;
+  final String? trabajadorAsignadoId; // Puede ser nulo
+  final String? motivoRechazo; // Puede ser nulo
+  final DateTime? creadoEn; // Añadido para completitud
+  final DateTime? actualizadoEn; // Añadido para completitud
+  final bool destacado; // Añadido para completitud
+
+  // ⚠️ CAMPO AÑADIDO
+  final String? imagenPrincipalUrl;
 
   Trabajo({
     required this.id,
@@ -112,7 +93,7 @@ class Trabajo {
     required this.descripcion,
     required this.empresa,
     required this.ubicacion,
-    required this.fechaLimite,
+    this.fechaLimite, // Hacer opcional en constructor
     required this.fechaInicioTrabajo,
     required this.fechaFinTrabajo,
     required this.precio,
@@ -125,66 +106,106 @@ class Trabajo {
     this.pagado = false,
     this.trabajadorAsignadoId,
     this.motivoRechazo,
+    this.creadoEn, // Añadido
+    this.actualizadoEn, // Añadido
+    this.destacado = false, // Añadido
+
+    // ⚠️ PARÁMETRO AÑADIDO AL CONSTRUCTOR
+    this.imagenPrincipalUrl,
   });
 
-  factory Trabajo.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    
-    // Determinar el estado del trabajo (soporta tanto 'name' como 'texto')
-    EstadoTrabajo estado;
-    try {
-      final estadoData = data['estado'] as String?;
-      if (estadoData != null) {
-        final estadoLower = estadoData.toLowerCase();
-        if (estadoLower == 'abierto') {
-          estado = EstadoTrabajo.activo;
-        } else {
-          final estadoNormalizado =
-              estadoLower.replaceAll(RegExp(r'[\s_-]+'), '');
-
-          estado = EstadoTrabajo.values.firstWhere(
-            (e) {
-              final nombreNormalizado =
-                  e.name.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
-              final textoNormalizado =
-                  e.texto.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
-              return estadoNormalizado == nombreNormalizado ||
-                  estadoNormalizado == textoNormalizado;
-            },
-            orElse: () => EstadoTrabajo.activo,
-          );
-        }
-      } else {
-        estado = EstadoTrabajo.activo;
-      }
-    } catch (e) {
-      estado = EstadoTrabajo.activo;
+  // --- Helper Interno para Timestamps ---
+  static DateTime? _timestampToDateTime(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      return timestamp.toDate();
     }
-    
-    return Trabajo(
-      id: doc.id,
-      titulo: data['titulo'] ?? '',
-      descripcion: data['descripcion'] ?? '',
-      empresa: data['empresa'] ?? '',
-      ubicacion: data['ubicacion'] ?? {},
-      fechaLimite: (data['fechaLimite'] as Timestamp?)?.toDate(),
-      fechaInicioTrabajo: (data['fechaInicioTrabajo'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      fechaFinTrabajo: (data['fechaFinTrabajo'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(hours: 8)),
-      precio: (data['precio'] as num?)?.toDouble() ?? 0.0,
-      instrucciones: data['instrucciones'] ?? '',
-      requiereUniforme: data['requiereUniforme'] ?? false,
-      implementosUniforme: List<String>.from(data['implementosUniforme'] ?? []),
-      contacto: Map<String, String>.from(data['contacto'] ?? {}),
-      estado: estado,
-      sinFechaLimite: data['sinFechaLimite'] == true,
-      pagado: data['pagado'] == true,
-      trabajadorAsignadoId: data['trabajadorAsignadoId'],
-      motivoRechazo: data['motivoRechazo'],
+    return null;
+  }
+
+  // --- Helper Interno para Estado ---
+  static EstadoTrabajo _parseEstado(String? estadoStr) {
+    if (estadoStr == null) return EstadoTrabajo.activo;
+    final estadoLower = estadoStr.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+    if (estadoLower == 'abierto') return EstadoTrabajo.activo; // O EstadoTrabajo.abierto si lo defines
+
+    return EstadoTrabajo.values.firstWhere(
+        (e) {
+          final nombreNormalizado = e.name.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+          // final textoNormalizado = e.texto.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), ''); // Podrías comparar con .texto también
+          return estadoLower == nombreNormalizado; // || estadoLower == textoNormalizado;
+        },
+        orElse: () => EstadoTrabajo.activo // Default seguro
     );
   }
 
+  // --- CONSTRUCTOR fromFirestore (usado para leer de Firestore) ---
+  factory Trabajo.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {}; // Manejo seguro si no hay datos
+
+    return Trabajo(
+      id: doc.id,
+      titulo: data['titulo'] as String? ?? 'Sin Título',
+      descripcion: data['descripcion'] as String? ?? '',
+      empresa: data['empresa'] as String? ?? 'Sin Empresa',
+      ubicacion: Map<String, dynamic>.from(data['ubicacion'] ?? {}),
+      fechaLimite: _timestampToDateTime(data['fechaLimite'] ?? data['fechaLimitePostulacion']), // Maneja campo antiguo
+      fechaInicioTrabajo: _timestampToDateTime(data['fechaInicioTrabajo']) ?? DateTime.now(),
+      fechaFinTrabajo: _timestampToDateTime(data['fechaFinTrabajo']) ?? DateTime.now().add(const Duration(hours: 1)), // Asegurar fin > inicio
+      precio: (data['precio'] as num?)?.toDouble() ?? 0.0,
+      instrucciones: data['instrucciones'] as String? ?? '',
+      requiereUniforme: data['requiereUniforme'] as bool? ?? false,
+      implementosUniforme: List<String>.from(data['implementosUniforme'] ?? []),
+      contacto: Map<String, String>.from(data['contacto'] ?? {}),
+      estado: _parseEstado(data['estado'] as String?),
+      sinFechaLimite: data['sinFechaLimite'] as bool? ?? false,
+      pagado: data['pagado'] as bool? ?? false,
+      trabajadorAsignadoId: data['trabajadorAsignadoId'] as String?,
+      motivoRechazo: data['motivoRechazo'] as String?,
+      creadoEn: _timestampToDateTime(data['creadoEn']),
+      actualizadoEn: _timestampToDateTime(data['actualizadoEn']),
+      destacado: data['destacado'] as bool? ?? false,
+
+      // ⚠️ LEER EL CAMPO DESDE FIRESTORE
+      imagenPrincipalUrl: data['imagenPrincipalUrl'] as String?,
+    );
+  }
+
+  // --- ⚠️ CONSTRUCTOR fromMap (útil para pasar datos entre pantallas) ---
+  factory Trabajo.fromMap(String id, Map<String, dynamic> data) {
+     // Reutiliza la lógica de fromFirestore si los mapas son idénticos
+     // O copia/adapta la lógica aquí:
+     return Trabajo(
+       id: id, // Usa el ID pasado
+       titulo: data['titulo'] as String? ?? 'Sin Título',
+       descripcion: data['descripcion'] as String? ?? '',
+       empresa: data['empresa'] as String? ?? 'Sin Empresa',
+       ubicacion: Map<String, dynamic>.from(data['ubicacion'] ?? {}),
+       fechaLimite: _timestampToDateTime(data['fechaLimite'] ?? data['fechaLimitePostulacion']),
+       fechaInicioTrabajo: _timestampToDateTime(data['fechaInicioTrabajo']) ?? DateTime.now(),
+       fechaFinTrabajo: _timestampToDateTime(data['fechaFinTrabajo']) ?? DateTime.now().add(const Duration(hours: 1)),
+       precio: (data['precio'] as num?)?.toDouble() ?? 0.0,
+       instrucciones: data['instrucciones'] as String? ?? '',
+       requiereUniforme: data['requiereUniforme'] as bool? ?? false,
+       implementosUniforme: List<String>.from(data['implementosUniforme'] ?? []),
+       contacto: Map<String, String>.from(data['contacto'] ?? {}),
+       estado: _parseEstado(data['estado'] as String?),
+       sinFechaLimite: data['sinFechaLimite'] as bool? ?? false,
+       pagado: data['pagado'] as bool? ?? false,
+       trabajadorAsignadoId: data['trabajadorAsignadoId'] as String?,
+       motivoRechazo: data['motivoRechazo'] as String?,
+       creadoEn: _timestampToDateTime(data['creadoEn']),
+       actualizadoEn: _timestampToDateTime(data['actualizadoEn']),
+       destacado: data['destacado'] as bool? ?? false,
+
+       // ⚠️ LEER EL CAMPO DESDE EL MAPA
+       imagenPrincipalUrl: data['imagenPrincipalUrl'] as String?,
+     );
+   }
+
+
+  // --- MÉTODO toMap (útil para guardar/actualizar en Firestore) ---
   Map<String, dynamic> toMap() {
-    final data = {
+    final data = <String, dynamic>{ // Usar inferencia de tipo
       'titulo': titulo,
       'descripcion': descripcion,
       'empresa': empresa,
@@ -196,13 +217,26 @@ class Trabajo {
       'requiereUniforme': requiereUniforme,
       'implementosUniforme': implementosUniforme,
       'contacto': contacto,
-      'estado': estado == EstadoTrabajo.activo && sinFechaLimite ? 'abierto' : estado.name, // Usar .name para consistencia
+      // Guarda 'abierto' o el nombre del enum
+      'estado': estado == EstadoTrabajo.activo && sinFechaLimite ? 'abierto' : estado.name,
       'sinFechaLimite': sinFechaLimite,
       'pagado': pagado,
+      'destacado': destacado, // Añadido
+      'actualizadoEn': FieldValue.serverTimestamp(), // Siempre se actualiza
+      // Campos opcionales (solo incluir si no son null)
+      if (trabajadorAsignadoId != null) 'trabajadorAsignadoId': trabajadorAsignadoId,
+      if (motivoRechazo != null) 'motivoRechazo': motivoRechazo,
+
+      // ⚠️ GUARDAR EL CAMPO EN FIRESTORE
+      'imagenPrincipalUrl': imagenPrincipalUrl,
     };
+
+    // Añadir fechaLimite solo si aplica
     if (fechaLimite != null && !sinFechaLimite) {
       data['fechaLimite'] = Timestamp.fromDate(fechaLimite!);
     }
+    // No añadir 'creadoEn' aquí, se maneja en el servicio al crear
+
     return data;
   }
 }

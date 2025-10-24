@@ -17,7 +17,7 @@ class AppColors {
   static const Color neutralColor = Colors.black54;
   static const Color securityColor = Color(0xFF00796B); // Color para datos sensibles/bancarios
   static const Color disabledColor = Color(0xFF9E9E9E);
-  static const  rejectColor = Color(0xFFD32F2F); // Rojo para indicar "Rechazado"
+  static const Color rejectColor = Color(0xFFD32F2F); // Rojo para indicar "Rechazado"
   static const Color pendingColor = Color(0xFFFFA000); // Naranja para indicar "Pendiente"
   static const Color cancelColor = Color(0xFF757575); // Gris para cancelar
   static const Color timelineColor = Color(0xFFB39DDB); // Púrpura más claro para la línea

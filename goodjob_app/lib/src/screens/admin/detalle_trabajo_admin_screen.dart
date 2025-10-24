@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/models/trabajo.dart'; // Asegúrate que Trabajo y EstadoTrabajo estén aquí
 import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart'; // Asegúrate que esta ruta sea correcta
+
+// Importa la pantalla de creación/edición
+import 'package:goodjob_app/src/screens/admin/crear_trabajo_screen.dart'; // Ajusta la ruta si es necesario
+
+// Importa los widgets de admin
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_gestion_pago.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_info_postulante.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_lista_postulantes.dart';
@@ -29,31 +34,63 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
     PostulanteService? postulanteService,
     TrabajoService? trabajoService,
     StorageService? storageService,
-  })  : postulacionService = postulacionService ?? PostulacionService(),
-        postulanteService = postulanteService ?? PostulanteService(),
-        trabajoService = trabajoService ?? TrabajoService(),
-        storageService = storageService ?? StorageService();
+  }) : postulacionService = postulacionService ?? PostulacionService(),
+       postulanteService = postulanteService ?? PostulanteService(),
+       trabajoService = trabajoService ?? TrabajoService(),
+       storageService = storageService ?? StorageService();
 
   @override
   Widget build(BuildContext context) {
     final Color primaryColor = Theme.of(context).primaryColor;
+    final Color alertColor = Theme.of(context).colorScheme.error;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalle del Trabajo')),
+      appBar: AppBar(
+        title: const Text('Detalle del Trabajo'),
+        actions: [
+          // **CONDICIÓN AÑADIDA:** Mostrar solo si el estado es 'abierto'
+          if (trabajo.estado == EstadoTrabajo.activo)
+            IconButton(
+              icon: const Icon(Icons.edit_rounded),
+              tooltip: 'Editar Trabajo',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        CrearTrabajoScreen(trabajoParaEditar: trabajo),
+                  ),
+                ).then((resultadoEdicion) {
+                  // Opcional: Manejar resultado al volver
+                  if (resultadoEdicion == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Trabajo actualizado'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    // Considera recargar datos si esta pantalla fuera StatefulWidget
+                  }
+                });
+              },
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- 1. Título y Estado (Sección de Encabezado) ---
+              // --- Título y Estado ---
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
                       trabajo.titulo,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: primaryColor,
                           ),
@@ -70,30 +107,31 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
                       ),
                     ),
                     backgroundColor: trabajo.estado.colorChip.withOpacity(0.2),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
-              const SizedBox(height: 24), // Espacio en blanco
+              const SizedBox(height: 24),
 
-              // --- 2. Contenedor Desplegable (Versión AnimatedSize) ---
+              // --- Contenedor Desplegable ---
               _CollapsibleInfoContainer(trabajo: trabajo),
 
               const SizedBox(height: 24),
 
-              // --- 3. Contenido Dinámico (Acciones) ---
+              // --- Contenido Dinámico ---
               Text(
                 'Acciones Administrativas',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              
               ..._buildDynamicContent(context, trabajo),
-              
-              const SizedBox(height: 20),
+              const SizedBox(height: 20), // Espacio final
             ],
           ),
         ),
@@ -101,8 +139,11 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
     );
   }
 
-  /// Helper que construye la tarjeta de info del postulante
-  Widget _buildInfoPostulanteCondicional(BuildContext context, {String? mensaje}) {
+  /// Helper para mostrar info del postulante (si aplica)
+  Widget _buildInfoPostulanteCondicional(
+    BuildContext context, {
+    String? mensaje,
+  }) {
     if (trabajo.trabajadorAsignadoId == null) {
       return const SizedBox.shrink();
     }
@@ -113,10 +154,9 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
     );
   }
 
-  /// Decide qué widgets específicos mostrar según el estado del trabajo
+  /// Decide qué widgets mostrar según el estado
   List<Widget> _buildDynamicContent(BuildContext context, Trabajo trabajo) {
-    
-    const spacer = SizedBox(height: 24); 
+    const spacer = SizedBox(height: 24);
 
     switch (trabajo.estado) {
       case EstadoTrabajo.activo:
@@ -125,7 +165,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             trabajo: trabajo,
             postulacionService: postulacionService,
             postulanteService: postulanteService,
-          )
+          ),
         ];
       case EstadoTrabajo.porRevisar:
         return [
@@ -135,8 +175,10 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             storageService: storageService,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context,
-            mensaje: 'Postulante esperando revisión de evidencias.')
+          _buildInfoPostulanteCondicional(
+            context,
+            mensaje: 'Postulante esperando revisión...',
+          ),
         ];
       case EstadoTrabajo.porPagar:
         return [
@@ -145,97 +187,106 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             postulanteService: postulanteService,
             trabajoService: trabajoService,
             storageService: storageService,
-            adminId: adminId, 
+            adminId: adminId,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context,
-            mensaje: 'Postulante esperando pago.')
+          _buildInfoPostulanteCondicional(
+            context,
+            mensaje: 'Postulante esperando pago.',
+          ),
         ];
       case EstadoTrabajo.porConfirmar:
         return [
           WidgetMensajeInformativo(
             icono: Icons.hourglass_top_rounded,
-            mensaje: 'Esperando que el postulante acepte la oferta.',
+            mensaje: 'Esperando confirmación...',
             color: trabajo.estado.colorTextoChip,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context)
         ];
-
-      // ⚠️ CAMBIO DE ICONO REALIZADO AQUÍ 
       case EstadoTrabajo.pendiente:
         return [
           WidgetMensajeInformativo(
-            icono: Icons.calendar_today_outlined, // <-- ICONO CAMBIADO
-            mensaje: 'El trabajo está agendado y listo para comenzar.',
+            icono: Icons.calendar_today_outlined,
+            mensaje: 'Trabajo agendado.',
             color: trabajo.estado.colorTextoChip,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context,
-            mensaje: 'Postulante agendado.')
+          _buildInfoPostulanteCondicional(
+            context,
+            mensaje: 'Postulante agendado.',
+          ),
         ];
-        
       case EstadoTrabajo.enCurso:
         return [
           WidgetMensajeInformativo(
             icono: Icons.directions_run_rounded,
-            mensaje: 'El trabajo está actualmente en curso.',
+            mensaje: 'Trabajo en curso.',
             color: trabajo.estado.colorTextoChip,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context,
-            mensaje: 'Postulante en faena.')
+          _buildInfoPostulanteCondicional(
+            context,
+            mensaje: 'Postulante en faena.',
+          ),
         ];
       case EstadoTrabajo.finalizado:
         return [
           WidgetMensajeInformativo(
             icono: Icons.check_circle_rounded,
-            mensaje: 'Este trabajo fue completado y pagado exitosamente.',
+            mensaje: 'Trabajo completado.',
             color: trabajo.estado.colorTextoChip,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context,
-            mensaje: 'Trabajo completado por este postulante.')
+          _buildInfoPostulanteCondicional(
+            context,
+            mensaje: 'Trabajo completado por este postulante.',
+          ),
         ];
       case EstadoTrabajo.cancelado:
         return [
           WidgetMensajeInformativo(
             icono: Icons.cancel_rounded,
-            mensaje: 'Este trabajo fue cancelado.',
+            mensaje: 'Trabajo cancelado.',
             color: trabajo.estado.colorTextoChip,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context)
+          _buildInfoPostulanteCondicional(context),
         ];
       case EstadoTrabajo.rechazado:
         return [
           WidgetMensajeInformativo(
             icono: Icons.thumb_down_rounded,
-            mensaje: 'Evidencias rechazadas: ${trabajo.motivoRechazo ?? "Sin motivo."}',
+            mensaje:
+                'Evidencias rechazadas: ${trabajo.motivoRechazo ?? "Sin motivo."}',
             color: trabajo.estado.colorTextoChip,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(context,
-            mensaje: 'Evidencias rechazadas a este postulante.')
+          _buildInfoPostulanteCondicional(
+            context,
+            mensaje: 'Evidencias rechazadas.',
+          ),
+        ];
+      default:
+        return [
+          Center(child: Text('Estado no manejado: ${trabajo.estado.name}')),
         ];
     }
   }
 }
 
-// -------------------------------------------------------------------
-// WIDGET DESPLEGABLE MEJORADO (con AnimatedSize)
-// -------------------------------------------------------------------
+// --- WIDGET DESPLEGABLE (_CollapsibleInfoContainer) ---
 class _CollapsibleInfoContainer extends StatefulWidget {
   final Trabajo trabajo;
   const _CollapsibleInfoContainer({required this.trabajo});
 
   @override
-  State<_CollapsibleInfoContainer> createState() => _CollapsibleInfoContainerState();
+  State<_CollapsibleInfoContainer> createState() =>
+      _CollapsibleInfoContainerState();
 }
 
-class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer> 
+class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
     with SingleTickerProviderStateMixin {
-  
   bool _isExpanded = false;
   late AnimationController _animationController;
   late Animation<double> _iconAnimation;
@@ -261,11 +312,10 @@ class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
   void _toggleExpand() {
     setState(() {
       _isExpanded = !_isExpanded;
-      if (_isExpanded) {
+      if (_isExpanded)
         _animationController.forward();
-      } else {
+      else
         _animationController.reverse();
-      }
     });
   }
 
@@ -282,10 +332,12 @@ class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
       ),
       child: Column(
         children: [
-          // --- 1. El Encabezado Cliqueable ---
           InkWell(
             onTap: _toggleExpand,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(12),
+              bottom: Radius.circular(_isExpanded ? 0 : 12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -295,35 +347,47 @@ class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
                   Expanded(
                     child: Text(
                       'Detalles del Trabajo',
-                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   RotationTransition(
                     turns: _iconAnimation,
-                    child: Icon(Icons.expand_more_rounded, color: colorScheme.onSurfaceVariant),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-
-          // --- 2. El Contenido Animado (con AnimatedSize) ---
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            child: _isExpanded 
-              ? _buildExpandedContent(context) // Muestra el contenido
-              : const SizedBox(width: double.infinity), // Ocupa espacio 0
+            alignment: Alignment.topCenter,
+            child: _isExpanded
+                ? _buildExpandedContent(context)
+                : const SizedBox(width: double.infinity, height: 0),
           ),
         ],
       ),
     );
   }
 
-  /// Contenido interno del desplegable
   Widget _buildExpandedContent(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    // Contenido interno del desplegable
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.5),
+            width: 0.5,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -336,7 +400,7 @@ class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
               style: Theme.of(context).textTheme.bodyLarge,
             ),
           ),
-          const Divider(height: 32),
+          const SizedBox(height: 24),
           _InfoSection(
             context: context,
             icon: Icons.list_alt_outlined,
@@ -345,27 +409,26 @@ class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
               children: [
                 _InfoRow(
                   icon: Icons.location_on_outlined,
-                  text: widget.trabajo.ubicacion['direccion'] ?? 'Ubicación no especificada',
+                  text: widget.trabajo.ubicacion['direccion'] ?? 'N/A',
                 ),
-                
-                // Usando formatDate como solicitaste
                 _InfoRow(
                   icon: Icons.calendar_today_outlined,
-                  text: 'Inicia: ${FormatUtils.formatDate(widget.trabajo.fechaInicioTrabajo)}',
+                  text:
+                      'Inicia: ${FormatUtils.formatDate(widget.trabajo.fechaInicioTrabajo)}',
                 ),
                 _InfoRow(
                   icon: Icons.flag_outlined,
-                  text: 'Finaliza: ${FormatUtils.formatDate(widget.trabajo.fechaFinTrabajo)}',
+                  text:
+                      'Finaliza: ${FormatUtils.formatDate(widget.trabajo.fechaFinTrabajo)}',
                 ),
-
-                if (widget.trabajo.estado != EstadoTrabajo.cancelado && 
+                if (widget.trabajo.estado != EstadoTrabajo.cancelado &&
                     widget.trabajo.estado != EstadoTrabajo.rechazado) ...[
                   const SizedBox(height: 8),
                   _InfoRow(
                     icon: Icons.attach_money_outlined,
                     text: FormatUtils.formatCurrency(widget.trabajo.precio),
                   ),
-                ]
+                ],
               ],
             ),
           ),
@@ -374,12 +437,9 @@ class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
     );
   }
 }
-// -------------------------------------------------------------------
-// (Fin del widget desplegable)
-// -------------------------------------------------------------------
+// --- FIN WIDGET DESPLEGABLE ---
 
-
-/// Helper para títulos de sección con icono
+// --- HELPERS _InfoSection y _InfoRow ---
 Widget _InfoSection({
   required BuildContext context,
   required IconData icon,
@@ -388,7 +448,6 @@ Widget _InfoSection({
 }) {
   final textTheme = Theme.of(context).textTheme;
   final colorScheme = Theme.of(context).colorScheme;
-
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -397,38 +456,34 @@ Widget _InfoSection({
         children: [
           Icon(icon, color: colorScheme.primary, size: 20),
           const SizedBox(width: 8),
-          Text(
-            title,
-            style: textTheme.titleLarge,
-          ),
+          Text(title, style: textTheme.titleLarge?.copyWith(fontSize: 18)),
         ],
       ),
       const SizedBox(height: 12),
-      child,
+      Padding(padding: const EdgeInsets.only(left: 4.0), child: child),
     ],
   );
 }
 
-/// Widget helper interno (Diseño de Lista Plana)
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
-  
   const _InfoRow({required this.icon, required this.text, super.key});
-
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.grey.shade500, size: 20),
-          const SizedBox(width: 16),
+          Icon(icon, color: Colors.grey.shade600, size: 18),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(height: 1.4),
             ),
           ),
         ],
@@ -436,3 +491,10 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
+// --- FIN HELPERS ---
+
+// ⚠️ Asegúrate de tener tu Enum EstadoTrabajo y sus extensiones definidas o importadas
+/*
+enum EstadoTrabajo { activo, abierto, porConfirmar, ... }
+extension EstadoTrabajoExtension on EstadoTrabajo { ... }
+*/
