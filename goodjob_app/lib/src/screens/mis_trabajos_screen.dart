@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
+import 'package:goodjob_app/src/utils/trabajo_schedule_utils.dart';
 import '../services/firebase_service.dart';
 import '../services/postulacion_service.dart';
 import '../services/user_eligibility_service.dart';
@@ -51,7 +52,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         estadoPago == 'pagado' ||
         estadoPago == 'completado';
   }
-  
+
   @override
   void initState() {
     super.initState();
@@ -118,6 +119,13 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     return '$day/$month/$year';
   }
 
+  String _formatHora(DateTime? fecha) {
+    if (fecha == null) return 'Por confirmar';
+    final hour = fecha.hour.toString().padLeft(2, '0');
+    final minute = fecha.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
   DateTime? _parseDate(dynamic value) {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
@@ -125,15 +133,62 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     return null;
   }
 
+  DateTime? _obtenerInicioTrabajo(
+    Map<String, dynamic> trabajoData,
+    Map<String, dynamic> postulacionData,
+  ) {
+    return extractTrabajoStart(trabajoData) ??
+        _parseDate(postulacionData['inicioTrabajoReal']) ??
+        _parseDate(postulacionData['inicioTrabajoLocal']) ??
+        _parseDate(trabajoData['fechaTrabajo']) ??
+        _parseDate(postulacionData['fechaTrabajo']);
+  }
+
+  DateTime? _obtenerFinTrabajo(
+    Map<String, dynamic> trabajoData,
+    Map<String, dynamic> postulacionData,
+  ) {
+    return extractTrabajoEnd(trabajoData) ??
+        _parseDate(postulacionData['finTrabajoReal']) ??
+        _parseDate(trabajoData['finTrabajoReal']);
+  }
+
   DateTime? _obtenerFechaTrabajo(
     Map<String, dynamic> trabajoData,
     Map<String, dynamic> postulacionData,
   ) {
-    return _parseDate(trabajoData['fechaTrabajo']) ??
-        _parseDate(trabajoData['fechaInicioTrabajo']) ??
-        _parseDate(trabajoData['fechaFinTrabajo']) ??
-        _parseDate(postulacionData['fechaTrabajo']) ??
+    return _obtenerInicioTrabajo(trabajoData, postulacionData) ??
+        _obtenerFinTrabajo(trabajoData, postulacionData) ??
         _parseDate(postulacionData['fechaAceptacion']);
+  }
+
+  Widget _buildScheduleInfo(DateTime? inicio, DateTime? fin) {
+    final fechaReferencia = inicio ?? fin;
+    final fechaTexto = _formatFecha(fechaReferencia);
+    final horarioTexto = '${_formatHora(inicio)} - ${_formatHora(fin)}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Fecha: $fechaTexto',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Horario: $horarioTexto',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
   }
 
   // --- Lógica de Acciones ---
@@ -217,7 +272,11 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         final estadoRaw = postulacionData['estado']?.toString() ?? 'pendiente';
         final estado = estadoRaw.toLowerCase();
 
-        final fechaTrabajo = _obtenerFechaTrabajo(trabajoData, postulacionData);
+        final inicioTrabajo =
+            _obtenerInicioTrabajo(trabajoData, postulacionData);
+        final finTrabajo = _obtenerFinTrabajo(trabajoData, postulacionData);
+        final fechaTrabajo =
+            _obtenerFechaTrabajo(trabajoData, postulacionData);
 
         final fechaPostulacionTs =
             postulacionData['fechaPostulacion'] as Timestamp?;
@@ -248,14 +307,8 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
           subtitleContent = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Fecha: ${_formatFecha(fechaTrabajo)}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
+              _buildScheduleInfo(inicioTrabajo, finTrabajo),
+              const SizedBox(height: 4),
               // Color de pago ahora es Verde Azulado
               Text(
                 'Pago: $precio',
@@ -278,15 +331,6 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
           );
         } else if (estado == 'aceptado') {
           // Si está aceptado, forzamos la acción de Confirmar/Rechazar
-          subtitleContent = Text(
-            '¡Seleccionado! Pendiente de tu confirmación.',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: _COLOR_ACEPTADO,
-            ),
-          );
-
           actionButtons = Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -327,11 +371,33 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
               ),
             ],
           );
+          subtitleContent = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '¡Seleccionado! Pendiente de tu confirmación.',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _COLOR_ACEPTADO,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildScheduleInfo(inicioTrabajo, finTrabajo),
+            ],
+          );
         } else {
           // Pendiente, Rechazado
-          subtitleContent = Text(
-            'Postulado el ${_formatFecha(fechaPostulacion)}',
-            style: const TextStyle(fontSize: 14, color: Colors.black54),
+          subtitleContent = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Postulado el ${_formatFecha(fechaPostulacion)}',
+                style: const TextStyle(fontSize: 14, color: Colors.black54),
+              ),
+              const SizedBox(height: 8),
+              _buildScheduleInfo(inicioTrabajo, finTrabajo),
+            ],
           );
           actionButtons = TextButton(
             onPressed: abrirSeguimiento,
