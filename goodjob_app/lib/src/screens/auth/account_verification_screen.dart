@@ -18,7 +18,6 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _bankFormKey = GlobalKey<FormState>();
 
-  final TextEditingController _bankNameController = TextEditingController();
   final TextEditingController _accountNumberController = TextEditingController();
 
   User? _user;
@@ -32,12 +31,29 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
   bool _savingBankData = false;
   bool _hasBankData = false;
 
-  final List<String> _accountTypes = [
+  final List<String> _banks = [
+    'Banco Estado',
+    'Banco de Chile',
+    'Banco Santander',
+    'Banco BCI',
+    'Banco Itaú',
+    'Scotiabank',
+    'Banco Security',
+    'Banco Falabella',
+    'Banco Ripley',
+    'Banco Consorcio',
+    'Banco Internacional',
+    'Banco BICE',
+  ];
+
+  final List<String> _baseAccountTypes = [
     'Cuenta corriente',
     'Cuenta vista',
     'Cuenta de ahorro',
-    'Cuenta RUT',
   ];
+  static const String _rutAccountType = 'Cuenta RUT';
+
+  String? _selectedBankName;
   String? _selectedAccountType;
 
   @override
@@ -53,9 +69,22 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
 
   @override
   void dispose() {
-    _bankNameController.dispose();
     _accountNumberController.dispose();
     super.dispose();
+  }
+
+  List<String> _accountTypeOptionsForBank(String? bank,
+      {String? includeType}) {
+    final options = List<String>.from(_baseAccountTypes);
+    if (bank == 'Banco Estado') {
+      options.add(_rutAccountType);
+    }
+    if (includeType != null && includeType.isNotEmpty) {
+      if (!options.contains(includeType)) {
+        options.add(includeType);
+      }
+    }
+    return options;
   }
 
   Future<void> _refreshUser() async {
@@ -203,16 +232,25 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
               (accountNumber != null && accountNumber.trim().isNotEmpty) &&
               (accountType != null && accountType.trim().isNotEmpty));
 
+      final String? normalizedBankName =
+          (bankName != null && bankName.trim().isNotEmpty)
+              ? bankName.trim()
+              : null;
+      final String? normalizedAccountNumber =
+          accountNumber != null ? accountNumber.trim() : null;
+      final String? normalizedAccountType =
+          (accountType != null && accountType.trim().isNotEmpty)
+              ? accountType.trim()
+              : null;
+
       if (!mounted) return;
       setState(() {
-        _bankNameController.text = bankName ?? '';
-        _accountNumberController.text = accountNumber ?? '';
-        if (accountType != null && accountType.isNotEmpty) {
-          if (!_accountTypes.contains(accountType)) {
-            _accountTypes.add(accountType);
-          }
-          _selectedAccountType = accountType;
+        if (normalizedBankName != null && !_banks.contains(normalizedBankName)) {
+          _banks.add(normalizedBankName);
         }
+        _selectedBankName = normalizedBankName;
+        _accountNumberController.text = normalizedAccountNumber ?? '';
+        _selectedAccountType = normalizedAccountType;
         _hasBankData = completed;
         _editingBankData = !completed;
       });
@@ -245,7 +283,7 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
       _savingBankData = true;
     });
 
-    final bankName = _bankNameController.text.trim();
+    final bankName = _selectedBankName?.trim() ?? '';
     final accountNumber = _accountNumberController.text.trim();
     final accountType = _selectedAccountType ?? '';
 
@@ -420,6 +458,7 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
   }
 
   Widget _buildBankSummary(ThemeData theme) {
+    final bankName = _selectedBankName ?? '';
     final accountType = _selectedAccountType ?? '';
     final accountNumber = _accountNumberController.text;
     return Container(
@@ -432,7 +471,7 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Banco: ${_bankNameController.text}',
+          Text('Banco: $bankName',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               )),
@@ -456,6 +495,8 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
     final statusText = _hasBankData
         ? 'Tus datos bancarios están completos. Puedes actualizarlos cuando quieras.'
         : 'Registra los datos de tu cuenta bancaria para recibir tus pagos.';
+    final accountTypeOptions =
+        _accountTypeOptionsForBank(_selectedBankName, includeType: _selectedAccountType);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -511,25 +552,44 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
                 key: _bankFormKey,
                 child: Column(
                   children: [
-                    TextFormField(
-                      controller: _bankNameController,
+                    DropdownButtonFormField<String>(
+                      value: _selectedBankName,
                       decoration: const InputDecoration(
                         labelText: 'Nombre del banco',
                       ),
+                      items: _banks
+                          .map(
+                            (bank) => DropdownMenuItem(
+                              value: bank,
+                              child: Text(bank),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedBankName = value;
+                          final validTypes =
+                              _accountTypeOptionsForBank(value);
+                          if (_selectedAccountType != null &&
+                              !validTypes.contains(_selectedAccountType)) {
+                            _selectedAccountType = null;
+                          }
+                        });
+                      },
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Ingresa el nombre del banco';
+                          return 'Selecciona el banco';
                         }
                         return null;
                       },
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedAccountType,
+                      value: _selectedAccountType,
                       decoration: const InputDecoration(
                         labelText: 'Tipo de cuenta',
                       ),
-                      items: _accountTypes
+                      items: accountTypeOptions
                           .map(
                             (type) => DropdownMenuItem(
                               value: type,
@@ -537,14 +597,24 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
                             ),
                           )
                           .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedAccountType = value;
-                        });
-                      },
+                      onChanged: _selectedBankName == null
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _selectedAccountType = value;
+                              });
+                            },
                       validator: (value) {
+                        if (_selectedBankName == null ||
+                            _selectedBankName!.trim().isEmpty) {
+                          return 'Selecciona el banco';
+                        }
                         if (value == null || value.trim().isEmpty) {
                           return 'Selecciona el tipo de cuenta';
+                        }
+                        if (value == _rutAccountType &&
+                            _selectedBankName != 'Banco Estado') {
+                          return 'La Cuenta RUT solo está disponible para Banco Estado';
                         }
                         return null;
                       },
