@@ -271,7 +271,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildAddressStep() {
+  Widget _buildDataStep() {
     return Form(
       key: _formKeys[1],
       child: Column(
@@ -540,7 +540,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 0:
         return _buildPersonalDataStep();
       case 1:
-        return _buildAddressStep();
+        return _buildDataStep();
       case 2:
         return _buildAccountDataStep();
       default:
