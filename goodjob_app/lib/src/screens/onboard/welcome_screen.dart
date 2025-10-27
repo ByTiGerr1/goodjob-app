@@ -118,7 +118,7 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'Ya tengo una cuenta (Iniciar Sesión)',
+                          'Iniciar Sesión',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
