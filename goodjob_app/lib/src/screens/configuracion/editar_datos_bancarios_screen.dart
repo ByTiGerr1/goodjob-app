@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
+import '../../utils/rut_input_formatter.dart';
+import '../../utils/rut_utils.dart';
 
 import '../../services/encryption_service.dart';
 
@@ -64,7 +67,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
   void initState() {
     super.initState();
     _numeroCuentaController.addListener(_handleFormChanges);
-    _rutController.addListener(_handleFormChanges);
+     _rutController.addListener(_onRutChanged);
     _cargarDatosBancarios();
   }
 
@@ -107,7 +110,8 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
       String? normalizedAccountType;
 
       if (data != null) {
-        _rutController.text = data['rut'] ?? '';
+        final String rut = data['rut'] is String ? data['rut'] as String : '';
+        _rutController.text = RutUtils.format(rut);
 
         final encryption = EncryptionService();
 
@@ -155,6 +159,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
         _selectedAccountType = normalizedAccountType;
       });
 
+      _syncAccountNumberWithRut();
       _setInitialValues();
     } catch (e) {
       debugPrint('Error al cargar los datos: $e');
@@ -184,16 +189,22 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     try {
       final encryption = EncryptionService();
 
+      final rutNormalizado = RutUtils.normalize(_rutController.text);
       final bankName = _selectedBankName?.trim() ?? '';
       final accountType = _selectedAccountType?.trim() ?? '';
-      final accountNumber = _numeroCuentaController.text.trim();
+      final accountNumber = _selectedAccountType == _rutAccountType
+          ? RutUtils.bodyWithoutVerifier(_rutController.text)
+          : _numeroCuentaController.text.trim();
 
+      if (_selectedAccountType == _rutAccountType) {
+        _numeroCuentaController.text = accountNumber;
+      }
       final encryptedBank = await encryption.encrypt(bankName);
       final encryptedAccountType = await encryption.encrypt(accountType);
       final encryptedAccountNumber = await encryption.encrypt(accountNumber);
 
       final bankDataToSave = {
-        'rut': _rutController.text.trim(),
+        'rut': rutNormalizado,
         'banco': encryptedBank,
         'numeroCuenta': encryptedAccountNumber,
         'tipoCuenta': encryptedAccountType,
@@ -263,10 +274,27 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildTextField(
+                           _buildTextField(
                             controller: _rutController,
                             label: 'RUT / Identificacion',
                             icon: Icons.badge_outlined,
+                            keyboardType: TextInputType.text,
+                            textCapitalization: TextCapitalization.characters,
+                            autocorrect: false,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9kK]')),
+                              RutInputFormatter(),
+                            ],
+                            validator: (value) {
+                              final trimmed = value?.trim() ?? '';
+                              if (trimmed.isEmpty) {
+                                return 'Ingresa el RUT';
+                              }
+                              if (!RutUtils.isValid(trimmed)) {
+                                return 'Ingresa un RUT válido';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 16),
                           _buildBankDropdown(),
@@ -278,7 +306,15 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
                             label: 'Numero de Cuenta',
                             icon: Icons.numbers,
                             keyboardType: TextInputType.number,
+                            readOnly: _selectedAccountType == _rutAccountType,
                             validator: (value) {
+                              if (_selectedAccountType == _rutAccountType) {
+                                final rutBody = RutUtils.bodyWithoutVerifier(_rutController.text);
+                                if (rutBody.isEmpty) {
+                                  return 'Ingresa un RUT válido para generar la Cuenta RUT';
+                                }
+                                return null;
+                              }
                               if (value == null || value.trim().isEmpty) {
                                 return 'Ingresa el numero de cuenta';
                               }
@@ -326,10 +362,18 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+     bool readOnly = false,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    bool autocorrect = true,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      readOnly: readOnly,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
+      autocorrect: autocorrect,
       decoration: _inputDecoration(label, icon),
       validator: validator ?? (value) {
         if (value == null || value.isEmpty) {
@@ -390,12 +434,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
           .toList(),
       onChanged: _selectedBankName == null
           ? null
-          : (value) {
-              setState(() {
-                _selectedAccountType = value;
-              });
-              _handleFormChanges();
-            },
+          : _onAccountTypeChanged,
       validator: (value) {
         if (_selectedBankName == null || _selectedBankName!.trim().isEmpty) {
           return 'Selecciona el banco';
@@ -430,6 +469,32 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     _initialTipoCuenta = _selectedAccountType ?? '';
     _initialNumeroCuenta = _numeroCuentaController.text;
     _initialRut = _rutController.text;
+  }
+
+  void _onRutChanged() {
+    if (_isInitializingControllers) return;
+    if (_selectedAccountType == _rutAccountType) {
+      _syncAccountNumberWithRut();
+    }
+    _handleFormChanges();
+  }
+
+  void _syncAccountNumberWithRut() {
+    if (_selectedAccountType != _rutAccountType) {
+      return;
+    }
+    final rutBody = RutUtils.bodyWithoutVerifier(_rutController.text);
+    if (_numeroCuentaController.text != rutBody) {
+      _numeroCuentaController.text = rutBody;
+    }
+  }
+
+  void _onAccountTypeChanged(String? value) {
+    setState(() {
+      _selectedAccountType = value;
+    });
+    _syncAccountNumberWithRut();
+    _handleFormChanges();
   }
 
   void _handleFormChanges() {

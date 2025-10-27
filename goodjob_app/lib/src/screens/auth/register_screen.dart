@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../services/firebase_service.dart';
+import '../../utils/rut_input_formatter.dart';
+import '../../utils/rut_utils.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -168,7 +170,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: password,
         name: _nameController.text.trim(),
         lastName: _lastNameController.text.trim(),
-        rut: _rutController.text.trim(),
+        rut: RutUtils.normalize(_rutController.text),
         birthDate: _selectedBirthDate!,
         phoneNumber: _phoneController.text.trim(),
         gender: _selectedGender!,
@@ -227,26 +229,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           TextFormField(
             controller: _rutController,
             decoration: const InputDecoration(labelText: 'RUT'),
-            keyboardType: TextInputType.number,
+            keyboardType: TextInputType.text,
+            textCapitalization: TextCapitalization.characters,
+            autocorrect: false,
             inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(9),
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9kK]')),
+              RutInputFormatter(),
             ],
             validator: (value) {
-              if (value == null) {
-                return 'Ingrese su RUT';
-              }
-              final trimmed = value.trim();
+              final trimmed = value?.trim() ?? '';
               if (trimmed.isEmpty) {
                 return 'Ingrese su RUT';
               }
-              if (trimmed.length > 9) {
-                return 'El RUT debe tener un máximo de 9 números';
-              }
-              final onlyDigits =
-                  trimmed.split('').every((digit) => int.tryParse(digit) != null);
-              if (!onlyDigits) {
-                return 'El RUT debe contener solo números';
+              if (!RutUtils.isValid(trimmed)) {
+                return 'Ingrese un RUT válido';
               }
               return null;
             },
