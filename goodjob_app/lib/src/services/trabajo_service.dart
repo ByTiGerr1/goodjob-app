@@ -19,6 +19,14 @@ class TrabajoService {
         .snapshots();
   }
 
+  Stream<QuerySnapshot> obtenerTrabajosTerminadosRecientes({int limite = 10}) {
+    return _trabajos
+        .where('estado', isEqualTo: EstadoTrabajo.porRevisar.name) // Filtra por 'finalizado'
+        .orderBy('actualizadoEn', descending: true) // Ordena por fecha de finalización
+        .limit(limite) // Limita los resultados
+        .snapshots();
+  }
+
   /// Creates a new job document in Firestore.
   Future<String> crearTrabajo({
     required String titulo,
@@ -121,7 +129,10 @@ class TrabajoService {
   
   /// Updates the status of a job.
   Future<void> actualizarEstado(String trabajoId, EstadoTrabajo estado) {
-    return _trabajos.doc(trabajoId).update({'estado': estado.name});
+    return _trabajos.doc(trabajoId).update({
+      'estado': estado.name,
+      'actualizadoEn': FieldValue.serverTimestamp(), // <-- AÑADIDO
+    });
   }
 
   /// Updates the status of a job to 'finalizado' and marks it as paid.
@@ -129,6 +140,7 @@ class TrabajoService {
     return _trabajos.doc(trabajoId).update({
       'estado': EstadoTrabajo.finalizado.name,
       'pagado': true,
+      'actualizadoEn': FieldValue.serverTimestamp(), // <-- AÑADIDO
     });
   }
 
@@ -138,18 +150,21 @@ class TrabajoService {
   }
 
 Future<void> actualizarCamposTrabajo(String trabajoId, Map<String, dynamic> data) async {
-    try {
-      // Si pasamos un enum, lo convertimos a string
-      if (data['estado'] is EstadoTrabajo) {
-        data['estado'] = (data['estado'] as EstadoTrabajo).name;
-      }
-      
-      await _trabajos.doc(trabajoId).update(data);
-    } catch (e) {
-      debugPrint('Error al actualizar campos del trabajo: $e');
-      rethrow; // Lanza el error para que la UI lo maneje
+  try {
+    // Si pasamos un enum, lo convertimos a string
+    if (data['estado'] is EstadoTrabajo) {
+      data['estado'] = (data['estado'] as EstadoTrabajo).name;
     }
+
+    // Aseguramos que la fecha de actualización siempre esté presente
+    data['actualizadoEn'] = FieldValue.serverTimestamp(); // <-- AÑADIDO
+
+    await _trabajos.doc(trabajoId).update(data);
+  } catch (e) {
+    debugPrint('Error al actualizar campos del trabajo: $e');
+    rethrow; // Lanza el error para que la UI lo maneje
   }
+}
 
   /// Counts the number of applications for a specific job.
   Future<int> contarPostulaciones(String trabajoId) async {
@@ -164,4 +179,5 @@ Future<void> actualizarCamposTrabajo(String trabajoId, Map<String, dynamic> data
       return 0;
     }
   }
+  
 }
