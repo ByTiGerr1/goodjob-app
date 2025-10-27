@@ -34,14 +34,33 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
     final estadoPago = _normalizeStatus(data['estadoPago']);
     final trabajoCompletado = data['trabajoCompletado'] == true;
 
-    return trabajoCompletado ||
-        estadoTrabajo == 'pendienterevision' ||
-        estadoTrabajo == 'porpagar' ||
-        estadoTrabajo == 'finalizado' ||
-        estadoTrabajo == 'pagado' ||
-        estadoPago == 'pagado' ||
-        estadoPago == 'completado';
-  }
+    if (trabajoCompletado) return true;
+
+    const estadosTrabajoFinales = {
+      'finalizado',
+      'pagado',
+      'rechazado',
+      'completado',
+      'terminado',
+      'cerrado',
+    };
+
+    const estadosPagoFinales = {
+      'pagado',
+      'completado',
+      'rechazado',
+    };
+
+    if (estadosTrabajoFinales.contains(estadoTrabajo)) {
+      return true;
+    }
+
+    if (estadosPagoFinales.contains(estadoPago)) {
+      return true;
+    }
+
+    return false;
+  } 
 
   Widget _buildEmptyCompletedJobs() {
     return Center(
