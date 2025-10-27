@@ -104,9 +104,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
-    if (email.isEmpty || confirmEmail.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (email.isEmpty ||
+        confirmEmail.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, complete todos los campos requeridos.')),
+        const SnackBar(
+            content: Text('Por favor, complete todos los campos requeridos.')),
       );
       return;
     }
@@ -130,14 +134,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
     if (!_termsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe aceptar los términos y condiciones.')),
+        const SnackBar(
+            content: Text('Debe aceptar los términos y condiciones.')),
       );
       return;
     }
 
     if (_selectedBirthDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, seleccione su fecha de nacimiento.')),
+        const SnackBar(
+            content: Text('Por favor, seleccione su fecha de nacimiento.')),
       );
       return;
     }
@@ -194,7 +200,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
-            
           ),
           const SizedBox(height: 24),
           TextFormField(
@@ -238,14 +243,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
               if (trimmed.length > 9) {
                 return 'El RUT debe tener un máximo de 9 números';
               }
-              final onlyDigits = trimmed.split('').every((digit) => int.tryParse(digit) != null);
+              final onlyDigits =
+                  trimmed.split('').every((digit) => int.tryParse(digit) != null);
               if (!onlyDigits) {
                 return 'El RUT debe contener solo números';
               }
               return null;
             },
           ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _nextStep,
+              child: const Text('Siguiente'),
+            ),
+          ),
           const SizedBox(height: 12),
+          // NUEVO: Botón para cancelar y volver a la pantalla anterior (login)
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar y Volver',
+                style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressStep() {
+    return Form(
+      key: _formKeys[1],
+      child: Column(
+        children: [
+          const Text(
+            'Datos personales',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 24),
           TextFormField(
             controller: _birthDateController,
             readOnly: true,
@@ -277,13 +316,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 return 'Seleccione su fecha de nacimiento';
               }
               final today = DateTime.now();
-              final adultDate = DateTime(today.year - 18, today.month, today.day);
+              final adultDate =
+                  DateTime(today.year - 18, today.month, today.day);
               if (_selectedBirthDate!.isAfter(adultDate)) {
                 return 'Debe ser mayor de 18 años';
               }
               return null;
             },
-            
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -302,7 +341,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: _selectedGender,
+            value: _selectedGender, // Usar 'value' en lugar de 'initialValue'
             decoration: const InputDecoration(labelText: 'Género'),
             items: _genderOptions.map((value) {
               return DropdownMenuItem<String>(
@@ -324,7 +363,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: _selectedNationality,
+            value: _selectedNationality, // Usar 'value' en lugar de 'initialValue'
             decoration: const InputDecoration(labelText: 'Nacionalidad'),
             items: _nationalityOptions.map((value) {
               return DropdownMenuItem<String>(
@@ -344,7 +383,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               return null;
             },
           ),
-          
           const SizedBox(height: 12),
           CheckboxListTile(
             value: _hasDisability,
@@ -369,74 +407,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: const Text('Siguiente'),
             ),
           ),
-          // Botón para volver
-          OutlinedButton(
-            onPressed: () => Navigator.pushNamed(context, 'login'),
-            child: const Text('Iniciar Sesión'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddressStep() {
-    return Form(
-      key: _formKeys[1],
-      child: Column(
-        children: [
-          const Text(
-            'Dirección',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 24),
-          TextFormField(
-            controller: _regionController,
-            decoration: const InputDecoration(labelText: 'Región'),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Ingrese su región';
-              }
-              return null;
-            },
-          ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _streetController,
-            decoration: const InputDecoration(labelText: 'Calle'),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Ingrese su calle';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _streetNumberController,
-            decoration: const InputDecoration(labelText: 'Número'),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Ingrese el número de su domicilio';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _nextStep,
-              child: const Text('Siguiente'),
-            ),
-          ),
+          // CORREGIDO: Botón para volver al paso 0
           TextButton(
             onPressed: _previousStep,
             child: const Text('Atrás', style: TextStyle(color: Colors.white70)),
@@ -549,6 +521,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: const Text('Crear Cuenta'),
             ),
           ),
+          // ESTO YA ERA CORRECTO para volver al paso 1
           TextButton(
             onPressed: _previousStep,
             child: const Text('Atrás', style: TextStyle(color: Colors.white70)),
