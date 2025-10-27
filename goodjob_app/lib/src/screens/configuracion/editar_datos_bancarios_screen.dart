@@ -290,6 +290,10 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
                               if (trimmed.isEmpty) {
                                 return 'Ingresa el RUT';
                               }
+                              final normalized = RutUtils.normalize(trimmed);
+                              if (normalized.length < 8 || normalized.length > 9) {
+                                return 'Ingrese un RUT válido';
+                              }
                               if (!RutUtils.isValid(trimmed)) {
                                 return 'Ingresa un RUT válido';
                               }

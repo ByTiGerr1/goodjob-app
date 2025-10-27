@@ -241,6 +241,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               if (trimmed.isEmpty) {
                 return 'Ingrese su RUT';
               }
+              final normalized = RutUtils.normalize(trimmed);
+              if (normalized.length < 8 || normalized.length > 9) {
+                return 'Ingrese un RUT válido';
+              }
               if (!RutUtils.isValid(trimmed)) {
                 return 'Ingrese un RUT válido';
               }

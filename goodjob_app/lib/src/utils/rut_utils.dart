@@ -43,7 +43,7 @@ class RutUtils {
   /// Validates the RUT using the Chilean modulus 11 algorithm.
   static bool isValid(String rut) {
     final normalized = normalize(rut);
-    if (normalized.length < 2) {
+    if (normalized.length < 8 || normalized.length > 9) {
       return false;
     }
 
