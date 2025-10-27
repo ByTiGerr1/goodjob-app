@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/models/trabajo.dart'; // Asegúrate que Trabajo y TrabajoPlantilla estén aquí o importados
+import 'package:goodjob_app/src/screens/admin/seleccionar_ubicacion_screen.dart';
 import 'package:goodjob_app/src/services/plantilla_trabajo_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
@@ -82,8 +83,6 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   bool _requiereUniforme = false;
   final Set<String> _implementosSeleccionados = {};
   final _instruccionesController = TextEditingController();
-  
-  
 
   // Colores
   late Color _primaryColor;
@@ -845,7 +844,18 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               onPressed: _isSaving
                   ? null
                   : () async {
-                      /* Buscar Coords */
+                      // Lógica de V2
+                      final coords = await _obtenerCoords(
+                        _ubicacionDireccionCtrl.text,
+                        _ubicacionCiudadCtrl.text,
+                        _ubicacionPaisCtrl.text,
+                      );
+                      if (coords != null) {
+                        setState(() => _ubicacionLatLng = coords);
+                        _showError('Coordenadas obtenidas de la dirección.');
+                      } else {
+                        _showError('Dirección no encontrada. Use el mapa.');
+                      }
                     },
               child: const Text('Buscar'),
             ),
@@ -853,7 +863,21 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
               onPressed: _isSaving
                   ? null
                   : () async {
-                      /* Elegir Mapa */
+                      // Lógica de V2
+                      final result = await Navigator.push<LatLng>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SeleccionarUbicacionScreen(
+                            // V2 usa una coordenada por defecto (Santiago). Puedes hacer lo mismo.
+                            initialPosition:
+                                _ubicacionLatLng ??
+                                const LatLng(-33.447487, -70.673676),
+                          ),
+                        ),
+                      );
+                      if (result != null) {
+                        setState(() => _ubicacionLatLng = result);
+                      }
                     },
               child: const Text('Mapa'),
             ),
