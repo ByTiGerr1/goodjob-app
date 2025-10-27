@@ -44,6 +44,14 @@ class TrabajoService {
         .snapshots();
   }
 
+  /// Escucha en tiempo real un trabajo específico y emite sus actualizaciones.
+  Stream<Trabajo?> escucharTrabajo(String trabajoId) {
+    return _trabajos.doc(trabajoId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return Trabajo.fromFirestore(doc);
+    });
+  }
+  
   /// Creates a new job document in Firestore.
   Future<String> crearTrabajo({
     required String titulo,
