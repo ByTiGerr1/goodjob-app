@@ -21,7 +21,13 @@ class PostulacionService {
     if (horaData is Map) {
       final horas = _parseEntero(horaData['h']);
       final minutos = _parseEntero(horaData['m']);
-      return DateTime(fechaBase.year, fechaBase.month, fechaBase.day, horas, minutos);
+      return DateTime(
+        fechaBase.year,
+        fechaBase.month,
+        fechaBase.day,
+        horas,
+        minutos,
+      );
     }
 
     if (horaData is String && horaData.contains(':')) {
@@ -29,7 +35,13 @@ class PostulacionService {
       if (partes.length >= 2) {
         final horas = int.tryParse(partes[0]) ?? 0;
         final minutos = int.tryParse(partes[1]) ?? 0;
-        return DateTime(fechaBase.year, fechaBase.month, fechaBase.day, horas, minutos);
+        return DateTime(
+          fechaBase.year,
+          fechaBase.month,
+          fechaBase.day,
+          horas,
+          minutos,
+        );
       }
     }
 
@@ -92,7 +104,7 @@ class PostulacionService {
           .collection('postulaciones')
           .count()
           .get();
-      
+
       // CORRECCIÓN: Usamos ?? 0 para garantizar que se retorne un int no nulo.
       return aggregateQuery.count ?? 0;
     } catch (e) {
@@ -176,7 +188,7 @@ class PostulacionService {
         .doc(trabajoId);
 
     final batch = _firestore.batch();
-    
+
     // 1. Eliminar la postulación de la subcolección del trabajo
     batch.delete(postulacionRef);
 
@@ -240,11 +252,13 @@ class PostulacionService {
       final estadoTrabajoNormalizado = estadoTrabajo.toLowerCase();
 
       // Solo permitir aceptar postulantes si el trabajo está en estado "activo" o "abierto"
-      if (estadoTrabajoNormalizado != 'activo' && estadoTrabajoNormalizado != 'abierto') {
+      if (estadoTrabajoNormalizado != 'activo' &&
+          estadoTrabajoNormalizado != 'abierto') {
         throw Exception(
-            'No se puede aceptar postulaciones porque el trabajo no está en estado Abierto. Estado actual: $estadoTrabajo');
+          'No se puede aceptar postulaciones porque el trabajo no está en estado Abierto. Estado actual: $estadoTrabajo',
+        );
       }
-      
+
       final querySnapshot = await _firestore
           .collection('trabajos')
           .doc(trabajoId)
@@ -254,7 +268,8 @@ class PostulacionService {
 
       if (querySnapshot.docs.isNotEmpty) {
         throw Exception(
-            'Ya existe un usuario con el estado "aceptado" o "confirmado" para este trabajo.');
+          'Ya existe un usuario con el estado "aceptado" o "confirmado" para este trabajo.',
+        );
       }
 
       // Cambiar el estado del trabajo a "Por confirmar"
@@ -286,17 +301,9 @@ class PostulacionService {
         if (trabajoTitulo != null) 'trabajoTitulo': trabajoTitulo,
       };
 
-      batch.set(
-        postulacionRef,
-        data,
-        SetOptions(merge: true),
-      );
+      batch.set(postulacionRef, data, SetOptions(merge: true));
 
-      batch.set(
-        postulacionesUsuarioRef,
-        usuarioData,
-        SetOptions(merge: true),
-      );
+      batch.set(postulacionesUsuarioRef, usuarioData, SetOptions(merge: true));
 
       await batch.commit();
       return;
@@ -325,9 +332,7 @@ class PostulacionService {
       }
     }
 
-    Map<String, dynamic> data = {
-      'estado': estadoNormalizado,
-    };
+    Map<String, dynamic> data = {'estado': estadoNormalizado};
 
     if (estadoNormalizado == 'rechazado') {
       data['fechaAceptacion'] = FieldValue.delete();
@@ -346,27 +351,16 @@ class PostulacionService {
       usuarioData.remove('aceptadoEn');
       usuarioData.remove('confirmarAntesDe');
     }
-    
+
     if (limitarAUsuario) {
-      await postulacionesUsuarioRef.set(
-        usuarioData,
-        SetOptions(merge: true),
-      );
+      await postulacionesUsuarioRef.set(usuarioData, SetOptions(merge: true));
       return;
     }
 
     final batch = _firestore.batch();
-    batch.set(
-      postulacionRef,
-      data,
-      SetOptions(merge: true),
-    );
+    batch.set(postulacionRef, data, SetOptions(merge: true));
 
-    batch.set(
-      postulacionesUsuarioRef,
-      usuarioData,
-      SetOptions(merge: true),
-    );
+    batch.set(postulacionesUsuarioRef, usuarioData, SetOptions(merge: true));
 
     await batch.commit();
   }
@@ -409,62 +403,48 @@ class PostulacionService {
         .collection('postulaciones')
         .doc(trabajoId);
     final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
-    final notificacionesRef =
-        _firestore.collection('notificaciones_admin').doc();
+    final notificacionesRef = _firestore
+        .collection('notificaciones_admin')
+        .doc();
 
     final timestamp = FieldValue.serverTimestamp();
 
     final batch = _firestore.batch();
-    
+
     // Actualizar la postulación en la subcolección del trabajo
-    batch.set(
-      postulacionRef,
-      {
-        'estado': 'confirmado',
-        'fechaAceptacion': timestamp,
-        'confirmadoEn': timestamp,
-      },
-      SetOptions(merge: true),
-    );
-    
+    batch.set(postulacionRef, {
+      'estado': 'confirmado',
+      'fechaAceptacion': timestamp,
+      'confirmadoEn': timestamp,
+    }, SetOptions(merge: true));
+
     // Actualizar la postulación en la subcolección del usuario
-    batch.set(
-      postulacionesUsuarioRef,
-      {
-        'estado': 'confirmado',
-        'trabajoId': trabajoId,
-        'usuarioId': postulanteId,
-        'trabajoTitulo': trabajoTitulo,
-        'fechaAceptacion': timestamp,
-        'confirmadoEn': timestamp,
-      },
-      SetOptions(merge: true),
-    );
-    
+    batch.set(postulacionesUsuarioRef, {
+      'estado': 'confirmado',
+      'trabajoId': trabajoId,
+      'usuarioId': postulanteId,
+      'trabajoTitulo': trabajoTitulo,
+      'fechaAceptacion': timestamp,
+      'confirmadoEn': timestamp,
+    }, SetOptions(merge: true));
+
     // Actualizar el estado del trabajo
-    batch.set(
-      trabajoRef,
-      {
-        'trabajadorAsignadoId': postulanteId,
-        'estado': 'pendiente',
-        'confirmadoEn': timestamp,
-        'estadoAsignacion': 'confirmado',
-      },
-      SetOptions(merge: true),
-    );
-    
+    batch.set(trabajoRef, {
+      'trabajadorAsignadoId': postulanteId,
+      'estado': 'pendiente',
+      'confirmadoEn': timestamp,
+      'estadoAsignacion': 'confirmado',
+    }, SetOptions(merge: true));
+
     // Crear notificación para el admin
-    batch.set(
-      notificacionesRef,
-      {
-        'tipo': 'confirmacion_trabajo',
-        'trabajoId': trabajoId,
-        'postulanteId': postulanteId,
-        'trabajoTitulo': trabajoTitulo,
-        'creadoEn': timestamp,
-        'leido': false,
-      },
-    );
+    batch.set(notificacionesRef, {
+      'tipo': 'confirmacion_trabajo',
+      'trabajoId': trabajoId,
+      'postulanteId': postulanteId,
+      'trabajoTitulo': trabajoTitulo,
+      'creadoEn': timestamp,
+      'leido': false,
+    });
 
     await batch.commit();
   }
@@ -486,53 +466,39 @@ class PostulacionService {
         .collection('postulaciones')
         .doc(trabajoId);
     final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
-    final notificacionesRef =
-        _firestore.collection('notificaciones_admin').doc();
+    final notificacionesRef = _firestore
+        .collection('notificaciones_admin')
+        .doc();
 
     final batch = _firestore.batch();
-    batch.set(
-      postulacionRef,
-      {
-        'estado': 'pendiente',
-        'confirmadoEn': FieldValue.delete(),
-        'fechaAceptacion': FieldValue.delete(),
-        'confirmarAntesDe': FieldValue.delete(),
-        'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    batch.set(
-      postulacionesUsuarioRef,
-      {
-        'estado': 'pendiente',
-        'confirmadoEn': FieldValue.delete(),
-        'fechaAceptacion': FieldValue.delete(),
-        'confirmarAntesDe': FieldValue.delete(),
-        'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    batch.set(
-      trabajoRef,
-      {
-        'trabajadorAsignadoId': FieldValue.delete(),
-        'estadoAsignacion': FieldValue.delete(),
-        'confirmadoEn': FieldValue.delete(),
-        'confirmacionExpiradaEn': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    batch.set(
-      notificacionesRef,
-      {
-        'tipo': 'confirmacion_expirada',
-        'trabajoId': trabajoId,
-        'postulanteId': postulanteId,
-        'trabajoTitulo': trabajoTitulo,
-        'creadoEn': FieldValue.serverTimestamp(),
-        'leido': false,
-      },
-    );
+    batch.set(postulacionRef, {
+      'estado': 'pendiente',
+      'confirmadoEn': FieldValue.delete(),
+      'fechaAceptacion': FieldValue.delete(),
+      'confirmarAntesDe': FieldValue.delete(),
+      'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(postulacionesUsuarioRef, {
+      'estado': 'pendiente',
+      'confirmadoEn': FieldValue.delete(),
+      'fechaAceptacion': FieldValue.delete(),
+      'confirmarAntesDe': FieldValue.delete(),
+      'liberadoPorExpiracionEn': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(trabajoRef, {
+      'trabajadorAsignadoId': FieldValue.delete(),
+      'estadoAsignacion': FieldValue.delete(),
+      'confirmadoEn': FieldValue.delete(),
+      'confirmacionExpiradaEn': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(notificacionesRef, {
+      'tipo': 'confirmacion_expirada',
+      'trabajoId': trabajoId,
+      'postulanteId': postulanteId,
+      'trabajoTitulo': trabajoTitulo,
+      'creadoEn': FieldValue.serverTimestamp(),
+      'leido': false,
+    });
 
     await batch.commit();
   }
@@ -625,26 +591,23 @@ class PostulacionService {
       'finTrabajoReal': FieldValue.delete(),
       'duracionTrabajoMinutos': FieldValue.delete(),
       'trabajoCompletado': false,
-      if (checkInLocal != null) 'inicioTrabajoLocal': Timestamp.fromDate(checkInLocal),
+      if (checkInLocal != null)
+        'inicioTrabajoLocal': Timestamp.fromDate(checkInLocal),
       if (retrasoMinutos != null) 'retrasoCheckInMinutos': retrasoMinutos,
     };
 
     final batch = _firestore.batch();
     batch.set(postulacionTrabajoRef, updates, SetOptions(merge: true));
     batch.set(postulacionUsuarioRef, updates, SetOptions(merge: true));
-    batch.set(
-      trabajoRef,
-      {
-        'estado': 'enCurso',
-        'estadoTrabajo': 'en_curso',
-        'inicioTrabajoReal': serverTimestamp,
-        'finTrabajoReal': FieldValue.delete(),
-        'duracionTrabajoMinutos': FieldValue.delete(),
-        'trabajoCompletado': false,
-        if (retrasoMinutos != null) 'retrasoCheckInMinutos': retrasoMinutos,
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(trabajoRef, {
+      'estado': 'enCurso',
+      'estadoTrabajo': 'en_curso',
+      'inicioTrabajoReal': serverTimestamp,
+      'finTrabajoReal': FieldValue.delete(),
+      'duracionTrabajoMinutos': FieldValue.delete(),
+      'trabajoCompletado': false,
+      if (retrasoMinutos != null) 'retrasoCheckInMinutos': retrasoMinutos,
+    }, SetOptions(merge: true));
 
     await batch.commit();
   }
@@ -701,7 +664,8 @@ class PostulacionService {
     final updates = <String, dynamic>{
       'finTrabajoReal': serverTimestamp,
       'trabajoCompletado': true,
-      if (checkOutLocal != null) 'finTrabajoLocal': Timestamp.fromDate(checkOutLocal),
+      if (checkOutLocal != null)
+        'finTrabajoLocal': Timestamp.fromDate(checkOutLocal),
       if (duracionMinutos != null) 'duracionTrabajoMinutos': duracionMinutos,
     };
 
@@ -738,4 +702,53 @@ class PostulacionService {
 
     await batch.commit();
   }
-}
+
+  // --- 🚀 MÉTODO AÑADIDO ---
+  // Este es el método que tu widget de revisión necesita.
+
+  /// Obtiene los datos de una postulación específica.
+  /// Retorna un Map<String, dynamic> si existe, o null en caso de error o no encontrado.
+  Future<Map<String, dynamic>?> obtenerDatosPostulacion({
+    required String trabajoId,
+    required String postulanteId,
+  }) async {
+    // Valida que los IDs no estén vacíos para evitar errores
+    if (trabajoId.isEmpty || postulanteId.isEmpty) {
+      print(
+        '❌ Error: trabajoId o postulanteId están vacíos en obtenerDatosPostulacion.',
+      );
+      return null;
+    }
+    try {
+      // 1. Define la ruta al documento
+      final docRef = _firestore
+          .collection('trabajos')
+          .doc(trabajoId)
+          .collection(
+            'postulaciones',
+          ) // ⚠️ ¡Verifica que este sea el nombre de tu subcolección!
+          .doc(postulanteId);
+
+      // 2. Obtiene el documento
+      final docSnapshot = await docRef.get();
+
+      // 3. Comprueba si existe y retorna los datos
+      if (docSnapshot.exists && docSnapshot.data() != null) {
+        final data = docSnapshot.data()!;
+        data['id'] = docSnapshot.id; // Añadir ID por si se necesita
+        return data;
+      } else {
+        print(
+          'ℹ️ No se encontró postulación para trabajo $trabajoId / postulante $postulanteId',
+        );
+        return null;
+      }
+    } catch (e) {
+      // Manejo de errores
+      print(
+        '❌ Error general en obtenerDatosPostulacion ($trabajoId, $postulanteId): $e',
+      );
+      return null;
+    }
+  }
+} // <-- Este es el último '}' de tu clase PostulacionService

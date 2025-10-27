@@ -1,8 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
+import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/src/widgets/admin_trabajo/widget_lista_postulantes.dart';
 
 class WidgetRevisionEvidencias extends StatefulWidget {
   final Trabajo trabajo;
@@ -20,20 +24,28 @@ class WidgetRevisionEvidencias extends StatefulWidget {
        super(key: key);
 
   @override
-  State<WidgetRevisionEvidencias> createState() => _WidgetRevisionEvidenciasState();
+  State<WidgetRevisionEvidencias> createState() =>
+      _WidgetRevisionEvidenciasState();
 }
 
 class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
   bool _isLoading = false;
   Future<Map<String, dynamic>?>? _postulanteFuture;
+  Future<Map<String, dynamic>?>? _postulacionDataFuture;
+  final PostulacionService _postulacionService = PostulacionService();
 
   @override
   void initState() {
     super.initState();
     final assignedWorkerId = widget.trabajo.trabajadorAsignadoId;
     if (assignedWorkerId != null && assignedWorkerId.isNotEmpty) {
-      _postulanteFuture =
-          widget.postulanteService.obtenerDatosUsuario(assignedWorkerId);
+      _postulanteFuture = widget.postulanteService.obtenerDatosUsuario(
+        assignedWorkerId,
+      );
+      _postulacionDataFuture = _postulacionService.obtenerDatosPostulacion(
+        trabajoId: widget.trabajo.id,
+        postulanteId: assignedWorkerId,
+      );
     }
   }
 
@@ -43,10 +55,18 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Aprobar Evidencias'),
-        content: const Text('¿Estás seguro de que deseas aprobar estas evidencias y pasar al pago?'),
+        content: const Text(
+          '¿Estás seguro de que deseas aprobar estas evidencias y pasar al pago?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Aprobar')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Aprobar'),
+          ),
         ],
       ),
     );
@@ -61,7 +81,9 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al aprobar: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al aprobar: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -83,7 +105,9 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al rechazar: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al rechazar: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -95,20 +119,46 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Revisión de Evidencias',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
-        // ⚠️ MEJORA UI: Más espacio
         const SizedBox(height: 12),
-        const Text('El postulante ha marcado el trabajo como finalizado y subió las siguientes evidencias:'),
-        // ⚠️ MEJORA UI: Más espacio
+        const Text(
+          'El postulante ha marcado el trabajo como finalizado',
+        ),
         const SizedBox(height: 20),
-        
+        FutureBuilder<Map<String, dynamic>?>(
+          future: _postulacionDataFuture, // Usa el Future
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40.0),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            if (snapshot.hasError ||
+                !snapshot.hasData ||
+                snapshot.data == null) {
+              // No mostrar nada si falla la carga de datos de postulación
+              return const SizedBox.shrink();
+            }
+
+            final postulacionData = snapshot.data!;
+            // Llama al widget de resumen con los datos cargados
+            return _buildWorkSummarySection(context, postulacionData);
+          },
+        ),
+
+        const Divider(height: 32), // Un separador antes de las evidencias
+        // --- SECCIÓN DE EVIDENCIAS ---
         StreamBuilder<List<Map<String, dynamic>>>(
           stream: widget.storageService.mostrarEvidencias(widget.trabajo.id),
           builder: (context, snapshot) {
@@ -143,7 +193,6 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
-                // ⚠️ MEJORA UI: Más espacio entre imágenes
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
@@ -151,8 +200,11 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
               itemBuilder: (context, index) {
                 final evidencia = evidencias[index];
                 final String url = evidencia['url'] as String;
-                final String etapa = evidencia['etapa'] as String? ?? 'Evidencia';
-                final String etapaCapitalizada = etapa.isNotEmpty ? '${etapa[0].toUpperCase()}${etapa.substring(1)}' : '';
+                final String etapa =
+                    evidencia['etapa'] as String? ?? 'Evidencia';
+                final String etapaCapitalizada = etapa.isNotEmpty
+                    ? '${etapa[0].toUpperCase()}${etapa.substring(1)}'
+                    : '';
 
                 return InkWell(
                   onTap: () {
@@ -166,23 +218,34 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                         Image.network(
                           url,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, progress) => progress == null
+                          loadingBuilder: (context, child, progress) =>
+                              progress == null
                               ? child
-                              : const Center(child: CircularProgressIndicator()),
+                              : const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                           errorBuilder: (context, error, stackTrace) =>
                               Container(
                                 color: Colors.grey.shade200,
-                                child: Icon(Icons.broken_image_outlined, color: Colors.grey.shade500, size: 40),
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: Colors.grey.shade500,
+                                  size: 40,
+                                ),
                               ),
                         ),
-                        
+
                         Center(
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.3),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 36),
+                            child: const Icon(
+                              Icons.zoom_in_rounded,
+                              color: Colors.white,
+                              size: 36,
+                            ),
                           ),
                         ),
 
@@ -195,11 +258,14 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                             color: Colors.black.withOpacity(0.6),
                             child: Text(
                               etapaCapitalizada,
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -208,10 +274,9 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
             );
           },
         ),
-        
-        // ⚠️ MEJORA UI: Más espacio antes de los botones
         const SizedBox(height: 32),
-        
+
+        // --- SECCIÓN DE BOTONES ---
         Row(
           children: [
             Expanded(
@@ -222,7 +287,9 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                   backgroundColor: Colors.red.shade700,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: _rechazar,
               ),
@@ -236,15 +303,127 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
                   backgroundColor: Colors.green.shade700,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: _aprobar,
               ),
             ),
           ],
-        )
+        ),
       ],
     );
+  }
+
+  // ⚠️ 2. FUNCIONES HELPER AÑADIDAS
+  /// Construye la sección de resumen del trabajo
+  Widget _buildWorkSummarySection(
+    BuildContext context,
+    Map<String, dynamic> postulacionData,
+  ) {
+    final inicio =
+        _readDate(postulacionData['inicioTrabajoReal']) ??
+        _readDate(postulacionData['inicioTrabajoLocal']);
+    final fin =
+        _readDate(postulacionData['finTrabajoReal']) ??
+        _readDate(postulacionData['finTrabajoLocal']);
+
+    final durationMinutes =
+        postulacionData['duracionTrabajoMinutos'] as int? ??
+        _calculateDurationMinutes(inicio, fin);
+
+    final evidenciasEnviadas = postulacionData['evidenciasEnviadas'] as int?;
+    final evidenciasRequeridas =
+        postulacionData['evidenciasRequeridas'] as int?;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Resumen del Trabajo Registrado',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: primaryColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: primaryColor.withOpacity(0.3)),
+          ),
+          child: Column(
+            children: [
+              _InfoRow(
+                icon: Icons.timer_outlined,
+                title: 'Tiempo registrado',
+                value: durationMinutes != null
+                    ? _formatDuration(durationMinutes)
+                    : 'No disponible',
+              ),
+              _InfoRow(
+                icon: Icons.work_off_outlined,
+                title: 'Fecha de Inicio',
+                value: inicio != null
+                    ? FormatUtils.formatDate(inicio)
+                    : 'No registrado',
+              ),
+              _InfoRow(
+                icon: Icons.play_circle_outline,
+                title: 'Inicio Registrado',
+                value: inicio != null
+                    ? FormatUtils.formatTime(inicio)
+                    : 'No registrado',
+              ),
+              _InfoRow(
+                icon: Icons.stop_circle_outlined,
+                title: 'Fin Registrado',
+                value: fin != null
+                    ? FormatUtils.formatTime(fin)
+                    : 'No registrado',
+              ),
+              if (evidenciasEnviadas != null && evidenciasRequeridas != null)
+                _InfoRow(
+                  icon: Icons.photo_library_outlined,
+                  title: 'Evidencias enviadas',
+                  value: '$evidenciasEnviadas de $evidenciasRequeridas',
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Helper para leer fechas (Timestamp, String, etc.)
+  DateTime? _readDate(dynamic data) {
+    if (data is Timestamp) {
+      return data.toDate();
+    }
+    if (data is String) {
+      return DateTime.tryParse(data);
+    }
+    return null;
+  }
+
+  /// Helper para calcular duración si no viene
+  int? _calculateDurationMinutes(DateTime? inicio, DateTime? fin) {
+    if (inicio == null || fin == null) return null;
+    if (fin.isBefore(inicio)) return 0;
+    return fin.difference(inicio).inMinutes;
+  }
+
+  /// Helper para formatear duración
+  String _formatDuration(int totalMinutes) {
+    if (totalMinutes < 0) return 'N/A';
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    return '${minutes}m';
   }
 
   // --- (Helper _mostrarImagenFullScreen se mantiene igual) ---
@@ -261,15 +440,19 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
               InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: Center(
-                  child: Image.network(url, fit: BoxFit.contain),
-                ),
+                child: Center(child: Image.network(url, fit: BoxFit.contain)),
               ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: IconButton(
-                  style: IconButton.styleFrom(backgroundColor: Colors.black.withOpacity(0.3)),
-                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withOpacity(0.3),
+                  ),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 30,
+                  ),
                   onPressed: () => Navigator.of(ctx).pop(),
                   tooltip: 'Cerrar',
                 ),
@@ -277,7 +460,7 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
             ],
           ),
         );
-      }
+      },
     );
   }
 
@@ -304,14 +487,18 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
           const SizedBox(height: 16),
           Text(
             titulo,
-            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: color),
+            style: textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
             textAlign: TextAlign.center,
           ),
-          // ⚠️ MEJORA UI: Más espacio
           const SizedBox(height: 8),
           Text(
             mensaje,
-            style: textTheme.bodyMedium?.copyWith(color: color.withOpacity(0.8)),
+            style: textTheme.bodyMedium?.copyWith(
+              color: color.withOpacity(0.8),
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -320,7 +507,50 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
   }
 }
 
-// --- (Helper _DialogoRechazo se mantiene igual) ---
+// ⚠️ 3. WIDGETS HELPER (FUERA DE LA CLASE STATE)
+/// Widget UI para la fila de info
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color.fromARGB(255, 49, 47, 47), size: 20),
+          const SizedBox(width: 12),
+          Text(
+            '$title:',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color.fromARGB(255, 12, 12, 12)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DialogoRechazo extends StatefulWidget {
   @override
   _DialogoRechazoState createState() => _DialogoRechazoState();
@@ -349,13 +579,18 @@ class _DialogoRechazoState extends State<_DialogoRechazo> {
             hintText: 'Escribe por qué se rechazan las evidencias...',
             border: OutlineInputBorder(),
           ),
-          validator: (value) => (value == null || value.isEmpty) ? 'Debe ingresar un motivo' : null,
-          maxLines: 3,
+          validator: (value) => (value == null || value.isEmpty)
+              ? 'Debe ingresar un motivo'
+              : null,
+          maxLines: 5,
           autofocus: true,
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
