@@ -122,6 +122,7 @@ class PostulacionService {
         .snapshots();
   }
 
+
   // Obtiene las postulaciones para un trabajo específico
   Stream<QuerySnapshot> obtenerPostulacionesDeTrabajo(String trabajoId) {
     return _firestore
