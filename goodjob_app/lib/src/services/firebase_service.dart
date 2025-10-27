@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'encryption_service.dart';
 import 'notification_service.dart';
+import '../utils/rut_utils.dart';
 
 // Manejo de la autenticación y registro de usuarios
 class RequiresRecentLoginException implements Exception {
@@ -240,7 +241,7 @@ class Auth {
           'email': email,
           'nombre': name,
           'apellido': lastName,
-          'rut': rut,
+          'rut': RutUtils.normalize(rut),
           'fechaNacimiento': Timestamp.fromDate(birthDate),
           'telefono': phoneNumber,
           'genero': gender,

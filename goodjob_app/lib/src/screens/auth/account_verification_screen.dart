@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/encryption_service.dart';
 import '../../services/firebase_service.dart';
+import '../../utils/rut_utils.dart';
 
 class AccountVerificationScreen extends StatefulWidget {
   const AccountVerificationScreen({super.key});
@@ -55,6 +56,7 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
 
   String? _selectedBankName;
   String? _selectedAccountType;
+  String _normalizedUserRut = '';
 
   @override
   void initState() {
@@ -85,6 +87,16 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
       }
     }
     return options;
+  }
+
+  void _onAccountTypeChanged(String? value) {
+    setState(() {
+      _selectedAccountType = value;
+    });
+    if (_selectedAccountType == _rutAccountType) {
+      _accountNumberController.text =
+          RutUtils.bodyWithoutVerifier(_normalizedUserRut);
+    }
   }
 
   Future<void> _refreshUser() async {
@@ -198,6 +210,9 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
       }
 
       final data = doc.data()!;
+      final dynamic rutValue = data['rut'];
+      final String normalizedRut =
+          rutValue is String ? RutUtils.normalize(rutValue) : '';
       final encryption = EncryptionService();
 
       Future<String?> decryptField(dynamic value) async {
@@ -243,17 +258,28 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
               ? accountType.trim()
               : null;
 
+      String? accountNumberForState = normalizedAccountNumber;
+      if (normalizedAccountType == _rutAccountType) {
+        final rutBody = RutUtils.bodyWithoutVerifier(normalizedRut);
+        accountNumberForState = rutBody;
+      }
+
       if (!mounted) return;
       setState(() {
         if (normalizedBankName != null && !_banks.contains(normalizedBankName)) {
           _banks.add(normalizedBankName);
         }
         _selectedBankName = normalizedBankName;
-        _accountNumberController.text = normalizedAccountNumber ?? '';
+        _accountNumberController.text = accountNumberForState ?? '';
         _selectedAccountType = normalizedAccountType;
+        _normalizedUserRut = normalizedRut;
         _hasBankData = completed;
         _editingBankData = !completed;
       });
+      if (_selectedAccountType == _rutAccountType) {
+        _accountNumberController.text =
+            RutUtils.bodyWithoutVerifier(_normalizedUserRut);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -284,8 +310,14 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
     });
 
     final bankName = _selectedBankName?.trim() ?? '';
-    final accountNumber = _accountNumberController.text.trim();
     final accountType = _selectedAccountType ?? '';
+    final accountNumber = _selectedAccountType == _rutAccountType
+        ? RutUtils.bodyWithoutVerifier(_normalizedUserRut)
+        : _accountNumberController.text.trim();
+
+    if (_selectedAccountType == _rutAccountType) {
+      _accountNumberController.text = accountNumber;
+    }
 
     try {
       final encryption = EncryptionService();
@@ -599,11 +631,7 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
                           .toList(),
                       onChanged: _selectedBankName == null
                           ? null
-                          : (value) {
-                              setState(() {
-                                _selectedAccountType = value;
-                              });
-                            },
+                          : _onAccountTypeChanged,
                       validator: (value) {
                         if (_selectedBankName == null ||
                             _selectedBankName!.trim().isEmpty) {
@@ -626,11 +654,32 @@ class _AccountVerificationScreenState extends State<AccountVerificationScreen> {
                         labelText: 'Número de cuenta',
                       ),
                       keyboardType: TextInputType.number,
+                      readOnly: _selectedAccountType == _rutAccountType,
                       validator: (value) {
+                        if (_selectedBankName == null ||
+                            _selectedBankName!.trim().isEmpty) {
+                          return 'Selecciona el banco';
+                        }
                         if (value == null || value.trim().isEmpty) {
+                          if (_selectedAccountType == _rutAccountType) {
+                            final rutBody =
+                                RutUtils.bodyWithoutVerifier(_normalizedUserRut);
+                            if (rutBody.isEmpty) {
+                              return 'Actualiza tu RUT antes de usar Cuenta RUT';
+                            }
+                            return null;
+                          }
                           return 'Ingresa el número de cuenta';
                         }
                         if (value.trim().length < 6) {
+                          if (_selectedAccountType == _rutAccountType) {
+                            final rutBody =
+                                RutUtils.bodyWithoutVerifier(_normalizedUserRut);
+                            if (rutBody.isEmpty) {
+                              return 'Actualiza tu RUT antes de usar Cuenta RUT';
+                            }
+                            return null;
+                          }
                           return 'Ingresa un número de cuenta válido';
                         }
                         return null;

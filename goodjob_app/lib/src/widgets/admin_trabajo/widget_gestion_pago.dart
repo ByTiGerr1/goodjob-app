@@ -7,6 +7,7 @@ import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart'; // Asegúrate que esta ruta sea correcta
 import 'package:image_picker/image_picker.dart';
+import 'package:goodjob_app/src/utils/rut_utils.dart';
 
 class WidgetGestionPago extends StatefulWidget {
   final Trabajo trabajo;
@@ -168,8 +169,10 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
             final String apellido = postulanteData['apellido'] ?? '';
             final String nombreCompleto = '$nombre $apellido'.trim();
             // Extraer RUT del nivel superior si existe, si no, del mapa bancario
-            final String rut = postulanteData['rut'] ?? datosBancarios['rut'] ?? 'No especificado';
-
+            final dynamic rutFuente = postulanteData['rut'] ?? datosBancarios['rut'];
+            final String rut = (rutFuente is String && rutFuente.trim().isNotEmpty)
+                ? RutUtils.format(rutFuente)
+                : 'No especificado';
             return Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
