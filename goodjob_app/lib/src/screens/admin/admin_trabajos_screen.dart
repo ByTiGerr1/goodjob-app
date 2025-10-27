@@ -306,8 +306,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
     final String fechaInicio = FormatUtils.formatDate(
       trabajo.fechaInicioTrabajo,
     );
-    final String fechaFin = FormatUtils.formatDate(trabajo.fechaFinTrabajo);
-    final String fechaTexto = '$fechaInicio - $fechaFin';
+    final String fechaTexto = fechaInicio;
 
     return Card(
       elevation: 6,
@@ -641,38 +640,13 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Implementación principal con Scaffold, AppBar y FAB.
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Trabajos'),
         centerTitle: false,
         elevation: 2, // Añade una ligera sombra
-        actions: [
-          // Opción de búsqueda
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () {
-              // TODO: Implementar funcionalidad de búsqueda
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Funcionalidad de búsqueda no implementada'),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: _buildTrabajosListBody(context),
-      // Puedes agregar un FloatingActionButton aquí si necesitas crear trabajos
-      /*
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: () {
-        // TODO: Navegar a la pantalla de crear trabajo
-      },
-      label: const Text('Crear Trabajo'),
-      icon: const Icon(Icons.add),
-    ),
-    */
     );
   } // Fin del build principal
 } // Fin de _AdminTrabajosScreenState
