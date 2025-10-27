@@ -19,6 +19,23 @@ class TrabajoService {
         .snapshots();
   }
 
+  Future<Trabajo?> obtenerDatosTrabajo(String trabajoId) async {
+    try {
+      final docSnapshot = await _trabajos.doc(trabajoId).get();
+
+      if (docSnapshot.exists) {
+        // Usamos tu modelo Trabajo para parsear los datos
+        return Trabajo.fromFirestore(docSnapshot);
+      } else {
+        debugPrint('No se encontró el trabajo con ID: $trabajoId');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error al obtener datos del trabajo $trabajoId: $e');
+      rethrow; // Lanza el error para que el FutureBuilder lo maneje
+    }
+  }
+
   Stream<QuerySnapshot> obtenerTrabajosTerminadosRecientes({int limite = 10}) {
     return _trabajos
         .where('estado', isEqualTo: EstadoTrabajo.porRevisar.name) // Filtra por 'finalizado'
