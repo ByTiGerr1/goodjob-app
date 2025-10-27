@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/widgets/postulante_avatar.dart';
 import '../../services/postulante_service.dart';
 import 'widget_mensaje_informativo.dart';
 
@@ -39,19 +40,19 @@ class WidgetInfoPostulante extends StatelessWidget {
 
             final postulanteData = snapshot.data!;
             final String nombre = postulanteData['nombre'] ?? 'Sin nombre';
+            final String apellido = postulanteData['apellido'] ?? '';
             final String telefono = postulanteData['telefono'] ?? 'No disponible';
+            final String? fotoUrl = postulanteData['fotoUrl'];
 
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: ListTile(
-                leading: CircleAvatar(child: Text(nombre.isNotEmpty ? nombre[0] : 'U')),
-                title: Text(nombre), // Dato real
-                subtitle: Text('Contacto: $telefono'), // Dato real
-                trailing: IconButton(
-                  icon: const Icon(Icons.message_outlined),
-                  onPressed: () {
-                    // TODO: Abrir chat con el postulante
-                  },
+                leading: PostulanteAvatar(nombre: nombre, fotoUrl: fotoUrl, radius: 40),
+                title: Text('$nombre $apellido'), // Dato real
+                subtitle: Text('Contacto: $telefono'), 
+                trailing: Icon(
+                  Icons.check_circle,
+                  color: trabajo.estado.colorTextoChip,
                 ),
               ),
             );

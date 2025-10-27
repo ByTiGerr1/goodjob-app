@@ -1,48 +1,11 @@
 import 'package:flutter/material.dart';
-// Importaciones de tus servicios
-import 'package:goodjob_app/src/services/postulacion_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+ import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/widgets/postulante_avatar.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
-
-// ====================================================================
-// WIDGET AUXILIAR: Avatar (Sin cambios)
-// ====================================================================
-class _PostulanteAvatar extends StatelessWidget {
-  const _PostulanteAvatar({
-    required this.nombre,
-    required this.fotoUrl,
-    required this.primaryColor,
-  });
-
-  final String nombre;
-  final String? fotoUrl;
-  final Color primaryColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasPhoto = fotoUrl != null && fotoUrl!.isNotEmpty;
-    final initials =
-        nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?';
-
-    return CircleAvatar(
-      radius: 60,
-      backgroundColor: primaryColor.withOpacity(0.1),
-      backgroundImage: hasPhoto ? NetworkImage(fotoUrl!) : null,
-      child: hasPhoto
-          ? null
-          : Text(
-              initials,
-              style: TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
-              ),
-            ),
-    );
-  }
-}
 
 // ====================================================================
 // PANTALLA PRINCIPAL: PostulanteDetalleScreen
@@ -165,7 +128,7 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
     }
   }
 
-  // --- WIDGET AUXILIAR: Ítem de Detalle (Sin cambios) ---
+  // --- WIDGET AUXILIAR: Ítem de Detalle ---
   Widget _buildDetailItem(
       BuildContext context, IconData icon, String title, String value) {
     // --- MODIFICACIÓN: Manejar valor vacío ---
@@ -188,7 +151,7 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
     );
   }
 
-  // Widget auxiliar para crear tarjetas de sección (Sin cambios)
+  // Widget auxiliar para crear tarjetas de sección
   Widget _buildSectionCard(BuildContext context,
       {required String title, required List<Widget> children}) {
     return Card(
@@ -213,6 +176,19 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
         ),
       ),
     );
+  }
+
+  // --- NUEVO: Función para calcular la edad ---
+  int? _calcularEdad(Timestamp? timestamp) {
+    if (timestamp == null) return null;
+    final birthDate = timestamp.toDate();
+    final hoy = DateTime.now();
+    int edad = hoy.year - birthDate.year;
+    if (hoy.month < birthDate.month ||
+        (hoy.month == birthDate.month && hoy.day < birthDate.day)) {
+      edad--;
+    }
+    return edad;
   }
 
   @override
@@ -261,20 +237,28 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
     final telefono = usuarioData['telefono'] ?? ''; // Vacío por defecto
     final descripcion = usuarioData['descripcion'] ?? ''; // Vacío por defecto
 
-    // --- NUEVO: Extracción de nuevos campos ---
+    // --- NUEVO: Extracción de datos personales ---
+    final genero = usuarioData['genero'] ?? 'No especificado';
+    final nacionalidad = usuarioData['nacionalidad'] ?? 'No especificada';
+    final hasDisability = usuarioData['discapacidad'] as bool? ?? false;
+    final birthDateTimestamp = usuarioData['fechaNacimiento'] as Timestamp?;
+    final int? edad = _calcularEdad(birthDateTimestamp);
+
+    // Extracción de campos de perfil
     final carrera = usuarioData['carrera'] ?? '';
     final ocupacion = usuarioData['ocupacion'] as String? ?? 'No especificada';
     final otraOcupacion = usuarioData['otraOcupacion'] as String? ?? '';
     final habilidades =
         (usuarioData['habilidades'] as List<dynamic>?)?.cast<String>() ?? [];
     final experiencias =
-        (usuarioData['experiencias'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+        (usuarioData['experiencias'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+            [];
 
     final primaryColor = Theme.of(context).colorScheme.primary;
     final successColor = AppColors.success;
     final rejectColor = AppColors.rejectColor;
 
-    // --- NUEVO: Lógica para el título principal ---
+    // Lógica para el título principal
     String tituloPrincipal;
     if (ocupacion == 'Estudiante' && carrera.isNotEmpty) {
       tituloPrincipal = carrera;
@@ -285,7 +269,7 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
     }
     // --- FIN LÓGICA TÍTULO ---
 
-    // Condición para mostrar botones (Sin cambios)
+    // Condición para mostrar botones
     final bool esActivo = trabajoData.estado == EstadoTrabajo.activo;
     final bool noAsignado = trabajoData.trabajadorAsignadoId == null ||
         trabajoData.trabajadorAsignadoId!.isEmpty;
@@ -303,10 +287,10 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
               Center(
                 child: Column(
                   children: [
-                    _PostulanteAvatar(
+                    PostulanteAvatar(
                       nombre: nombre,
                       fotoUrl: fotoUrl,
-                      primaryColor: primaryColor,
+                      radius: 70,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -315,7 +299,6 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
                           fontSize: 24, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
-                    // --- MODIFICADO: Título principal dinámico ---
                     Text(
                       tituloPrincipal,
                       style: TextStyle(
@@ -330,7 +313,6 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
               const SizedBox(height: 32),
 
               // --- 2. ACERCA DE MÍ (DESCRIPCIÓN) ---
-              // --- MODIFICADO: Manejo de descripción vacía ---
               _buildSectionCard(
                 context,
                 title: 'Acerca de mí',
@@ -351,7 +333,30 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- 3. NUEVO: HABILIDADES ---
+              // --- NUEVO: 3. DATOS PERSONALES ---
+              _buildSectionCard(
+                context,
+                title: 'Datos Personales',
+                children: [
+                  _buildDetailItem(context, Icons.cake_outlined, 'Edad',
+                      edad != null ? '$edad años' : 'No disponible'),
+                  const Divider(indent: 16, endIndent: 16),
+                  _buildDetailItem(
+                      context, Icons.person_search_outlined, 'Género', genero),
+                  const Divider(indent: 16, endIndent: 16),
+                  _buildDetailItem(context, Icons.flag_outlined, 'Nacionalidad',
+                      nacionalidad),
+                  const Divider(indent: 16, endIndent: 16),
+                  _buildDetailItem(
+                      context,
+                      Icons.accessible_forward_outlined,
+                      'Cuenta con discapacidad',
+                      hasDisability ? 'Sí' : 'No'),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // --- 4. HABILIDADES ---
               _buildSectionCard(
                 context,
                 title: 'Habilidades',
@@ -381,7 +386,7 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- 4. NUEVO: MI EXPERIENCIA ---
+              // --- 5. MI EXPERIENCIA ---
               _buildSectionCard(
                 context,
                 title: 'Mi Experiencia',
@@ -421,7 +426,7 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- 5. INFORMACIÓN DE CONTACTO ---
+              // --- 6. INFORMACIÓN DE CONTACTO ---
               _buildSectionCard(
                 context,
                 title: 'Información de contacto',
@@ -438,7 +443,7 @@ class _PostulanteDetalleScreenState extends State<PostulanteDetalleScreen> {
           ),
         ),
 
-        // --- BOTONES CONDICIONALES (Sin cambios) ---
+        // --- BOTONES CONDICIONALES ---
         if (mostrarBotones)
           Positioned(
             bottom: 0,

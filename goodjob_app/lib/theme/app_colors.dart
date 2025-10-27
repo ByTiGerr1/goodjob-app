@@ -24,9 +24,6 @@ class AppColors {
   static const Color confirmadoPorUsuario = Color(0xFF00897B,); // VERDE AZULADO (Confirmado por Usuario - Compromiso)
 
 
-
-
-
   // Colores de texto y fondo
   static const Color textDark = Color(0xFF212121); // Negro oscuro para texto principal
   static const Color backgroundLight = Color(0xFFFAFAFA);
