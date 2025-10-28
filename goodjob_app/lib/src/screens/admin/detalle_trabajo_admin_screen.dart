@@ -16,6 +16,7 @@ import 'package:goodjob_app/src/widgets/admin_trabajo/widget_gestion_pago.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_info_postulante.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_lista_postulantes.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_mensaje_informativo.dart';
+import 'package:goodjob_app/src/widgets/admin_trabajo/widget_resumen_pago.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_revision_evidencias.dart';
 
 // --- 1. CONVERTIDO A STATEFULWIDGET ---
@@ -288,13 +289,7 @@ class _DetalleTrabajoAdminScreenState extends State<DetalleTrabajoAdminScreen> {
         ];
       case EstadoTrabajo.finalizado:
         return [
-          WidgetGestionPago(
-            trabajo: trabajoActual,
-            postulanteService: postulanteService,
-            trabajoService: trabajoService,
-            storageService: storageService,
-            adminId: widget.adminId, // <-- USA EL ID DEL WIDGET
-          ),
+          WidgetResumenPago(trabajo: trabajoActual, postulanteService: postulanteService, storageService: storageService),
           spacer,
           WidgetRevisionEvidencias(
             trabajo: trabajoActual,
@@ -304,13 +299,7 @@ class _DetalleTrabajoAdminScreenState extends State<DetalleTrabajoAdminScreen> {
         ];
       case EstadoTrabajo.cancelado:
         return [
-          WidgetGestionPago(
-            trabajo: trabajoActual,
-            postulanteService: postulanteService,
-            trabajoService: trabajoService,
-            storageService: storageService,
-            adminId: widget.adminId, // <-- USA EL ID DEL WIDGET
-          ),
+          WidgetResumenPago(trabajo: trabajoActual, postulanteService: postulanteService, storageService: storageService),
           spacer,
           WidgetRevisionEvidencias(
             trabajo: trabajoActual,

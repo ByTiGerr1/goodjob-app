@@ -16,6 +16,7 @@ class WidgetInfoPostulante extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String? idPostulante = trabajo.trabajadorAsignadoId;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -29,27 +30,38 @@ class WidgetInfoPostulante extends StatelessWidget {
 
         // ¡CONECTADO A TU SERVICIO!
         FutureBuilder<Map<String, dynamic>?>(
-          future: postulanteService.obtenerDatosUsuario(trabajo.trabajadorAsignadoId!),
+          future: idPostulante != null
+              ? postulanteService.obtenerDatosUsuario(idPostulante)
+              : Future.value(null),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-              return const Text('No se pudieron cargar los datos del postulante.');
+            if (snapshot.hasError ||
+                !snapshot.hasData ||
+                snapshot.data == null) {
+              return const Text(
+                'No se pudieron cargar los datos del postulante.',
+              );
             }
 
             final postulanteData = snapshot.data!;
             final String nombre = postulanteData['nombre'] ?? 'Sin nombre';
             final String apellido = postulanteData['apellido'] ?? '';
-            final String telefono = postulanteData['telefono'] ?? 'No disponible';
+            final String telefono =
+                postulanteData['telefono'] ?? 'No disponible';
             final String? fotoUrl = postulanteData['fotoUrl'];
 
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: ListTile(
-                leading: PostulanteAvatar(nombre: nombre, fotoUrl: fotoUrl, radius: 40),
+                leading: PostulanteAvatar(
+                  nombre: nombre,
+                  fotoUrl: fotoUrl,
+                  radius: 40,
+                ),
                 title: Text('$nombre $apellido'), // Dato real
-                subtitle: Text('Contacto: $telefono'), 
+                subtitle: Text('Contacto: $telefono'),
                 trailing: Icon(
                   Icons.check_circle,
                   color: trabajo.estado.colorTextoChip,
