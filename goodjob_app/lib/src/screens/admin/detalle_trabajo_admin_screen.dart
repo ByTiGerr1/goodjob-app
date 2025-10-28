@@ -242,6 +242,7 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
           WidgetGestionPago(
             trabajo: trabajoActual,
             postulanteService: postulanteService,
+            postulacionService: postulacionService,
             trabajoService: trabajoService,
             storageService: storageService,
             adminId: adminId,

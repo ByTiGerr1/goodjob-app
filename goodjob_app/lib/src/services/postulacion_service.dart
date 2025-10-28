@@ -199,6 +199,45 @@ class PostulacionService {
     await batch.commit();
   }
 
+  Future<void> actualizarEstadoPago({
+    required String trabajoId,
+    required String postulanteId,
+    required String nuevoEstado,
+    String? confirmadoPorId,
+    String? confirmadoPorNombre,
+  }) async {
+    final postulacionRef = _firestore
+        .collection('trabajos')
+        .doc(trabajoId)
+        .collection('postulaciones')
+        .doc(postulanteId);
+    final postulacionUsuarioRef = _firestore
+        .collection('usuarios')
+        .doc(postulanteId)
+        .collection('postulaciones')
+        .doc(trabajoId);
+
+    final estadoNormalizado = nuevoEstado.trim().toLowerCase();
+    final timestamp = FieldValue.serverTimestamp();
+
+    final commonData = <String, dynamic>{
+      'estadoPago': estadoNormalizado,
+      'estadoPagoActualizadoEn': timestamp,
+      if (estadoNormalizado == 'pagado' || estadoNormalizado == 'completado')
+        'pagoConfirmadoEn': timestamp,
+      if (confirmadoPorId != null && confirmadoPorId.isNotEmpty)
+        'pagoConfirmadoPorId': confirmadoPorId,
+      if (confirmadoPorNombre != null && confirmadoPorNombre.trim().isNotEmpty)
+        'pagoConfirmadoPorNombre': confirmadoPorNombre.trim(),
+    };
+
+    final batch = _firestore.batch();
+    batch.set(postulacionRef, commonData, SetOptions(merge: true));
+    batch.set(postulacionUsuarioRef, commonData, SetOptions(merge: true));
+
+    await batch.commit();
+  }
+  
   // Verifica si un usuario ya se postuló a un trabajo
   Future<bool> existePostulacion({
     required String trabajoId,

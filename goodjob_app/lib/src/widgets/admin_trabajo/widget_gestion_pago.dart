@@ -2,6 +2,7 @@ import 'dart:io'; // Needed for File
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Para el portapapeles (Clipboard)
 import 'package:goodjob_app/src/models/trabajo.dart';
+import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
@@ -12,6 +13,7 @@ import 'package:goodjob_app/src/utils/rut_utils.dart';
 class WidgetGestionPago extends StatefulWidget {
   final Trabajo trabajo;
   final PostulanteService postulanteService;
+    final PostulacionService postulacionService;
   final TrabajoService trabajoService;
   final StorageService storageService;
   final String adminId;
@@ -20,6 +22,7 @@ class WidgetGestionPago extends StatefulWidget {
     Key? key,
     required this.trabajo,
     required this.postulanteService,
+    required this.postulacionService,
     required this.trabajoService,
     required this.storageService,
     required this.adminId,
@@ -87,6 +90,16 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
       await widget.trabajoService.finalizarYMarcarComoPagado(
         widget.trabajo.id,
       );
+
+      final trabajadorAsignadoId = widget.trabajo.trabajadorAsignadoId;
+      if (trabajadorAsignadoId != null) {
+        await widget.postulacionService.actualizarEstadoPago(
+          trabajoId: widget.trabajo.id,
+          postulanteId: trabajadorAsignadoId,
+          nuevoEstado: 'pagado',
+          confirmadoPorId: widget.adminId,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,7 +107,7 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
       // Only stop loading if there was an error
       if (mounted) setState(() => _isLoading = false);
     }
-     // Don't set isLoading to false on success, let the screen rebuild trigger
+    // Don't set isLoading to false on success, let the screen rebuild trigger
   }
 
   @override
