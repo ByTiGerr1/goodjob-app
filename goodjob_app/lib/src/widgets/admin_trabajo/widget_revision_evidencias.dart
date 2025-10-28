@@ -124,15 +124,6 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Revisión de Evidencias',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        const Text('El postulante ha marcado el trabajo como finalizado'),
-        const SizedBox(height: 20),
         FutureBuilder<Map<String, dynamic>?>(
           future: _postulacionDataFuture, // Usa el Future
           builder: (context, snapshot) {
@@ -361,9 +352,9 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.2),
+            color: widget.trabajo.estado.colorTextoChip.withOpacity(0.05),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: primaryColor.withOpacity(0.3)),
+            border: Border.all(color: widget.trabajo.estado.colorTextoChip.withOpacity(0.05)),
           ),
           child: Column(
             children: [

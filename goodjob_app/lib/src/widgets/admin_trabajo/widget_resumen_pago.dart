@@ -39,9 +39,9 @@ class WidgetResumenPago extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Colors.green.shade50.withOpacity(0.5),
+        color: trabajo.estado.colorTextoChip.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.shade200),
+        border: Border.all(color: trabajo.estado.colorTextoChip.withOpacity(0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,40 +66,7 @@ class WidgetResumenPago extends StatelessWidget {
             'Se transfirió ${FormatUtils.formatCurrency(trabajo.precio)} al postulante.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
-          const Divider(height: 24),
-
-          // --- Mini-Resumen del Postulante ---
-          FutureBuilder<Map<String, dynamic>?>(
-            future: postulanteService.obtenerDatosUsuario(trabajadorAsignadoId),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData || snapshot.data == null) {
-                return const SizedBox(
-                    height: 30,
-                    child: Center(child: CircularProgressIndicator()));
-              }
-              final data = snapshot.data!;
-              final nombre = data['nombre'] ?? '';
-              final apellido = data['apellido'] ?? '';
-              final rut = data['rut'] ?? '';
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Beneficiario:',
-                      style: Theme.of(context).textTheme.labelLarge),
-                  Text('$nombre $apellido'.trim(),
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          )),
-                  const SizedBox(height: 4),
-                  if (rut.isNotEmpty)
-                    Text(RutUtils.format(rut),
-                        style: Theme.of(context).textTheme.bodyMedium),
-                  const Divider(height: 24),
-                ],
-              );
-            },
-          ),
+          const SizedBox(height: 24),
 
           // --- Comprobante ---
           Text(

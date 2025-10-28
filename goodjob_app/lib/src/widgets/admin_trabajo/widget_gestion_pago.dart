@@ -7,6 +7,7 @@ import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart'; // Asegúrate que esta ruta sea correcta
+import 'package:goodjob_app/theme/app_colors.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:goodjob_app/src/utils/rut_utils.dart';
 
@@ -309,7 +310,7 @@ class _WidgetGestionPagoState extends State<WidgetGestionPago> {
                     label: Text(comprobanteSubido ? 'Reemplazar Comprobante' : 'Subir Comprobante'),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 48),
-                      backgroundColor: comprobanteSubido ? Colors.orange.shade700 : Theme.of(context).primaryColor,
+                      backgroundColor: comprobanteSubido ? AppColors.cancelColor : Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
