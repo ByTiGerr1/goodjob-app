@@ -244,6 +244,7 @@ class _DetalleTrabajoAdminScreenState extends State<DetalleTrabajoAdminScreen> {
           WidgetGestionPago(
             trabajo: trabajoActual,
             postulanteService: postulanteService,
+            postulacionService: postulacionService,
             trabajoService: trabajoService,
             storageService: storageService,
             adminId: widget.adminId, 

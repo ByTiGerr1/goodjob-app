@@ -419,7 +419,16 @@ class _CompletedJobCard extends StatelessWidget {
     final pagoLabel = _paymentLabel(estadoPago);
     final pagoColor = _paymentColor(estadoPago, context);
 
-    return Wrap(
+    final pagoConfirmadoEn = _readDate(
+          _postulacionData['pagoConfirmadoEn'],
+        ) ??
+        _readDate(trabajoData?['pagoConfirmadoEn']);
+    final pagoActualizadoEn = _readDate(
+          _postulacionData['estadoPagoActualizadoEn'],
+        ) ??
+        _readDate(trabajoData?['estadoPagoActualizadoEn']);
+
+    final chips = Wrap(
       spacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
@@ -450,6 +459,42 @@ class _CompletedJobCard extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
+          ),
+      ],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        chips,
+        if (pagoConfirmadoEn != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.event_available_outlined, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  'Pago confirmado el ${FormatUtils.formatDate(pagoConfirmadoEn)} a las ${FormatUtils.formatTime(pagoConfirmadoEn)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          )
+        else if (pagoActualizadoEn != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.schedule_rounded, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  'Última actualización de pago: ${FormatUtils.formatDate(pagoActualizadoEn)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
       ],
     );
