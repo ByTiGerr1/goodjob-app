@@ -60,6 +60,7 @@ class _PagosFilterControlsState extends State<_PagosFilterControls> {
     // Usamos los colores del tema para la estética
 
     final primaryColor = AppColors.primary;
+    final alertColor = AppColors.alertColor;
 
     return Consumer<TrabajoProvider>(
       builder: (context, trabajoProvider, child) {
@@ -172,8 +173,7 @@ class _PagosFilterControlsState extends State<_PagosFilterControls> {
 }
 
 // =========================================================================
-// WIDGET PRINCIPAL RENOMBRADO: PagosScreen
-// (Esta clase no necesita cambios)
+// WIDGET PRINCIPAL : PagosScreen
 // =========================================================================
 class PagosScreen extends StatefulWidget {
   const PagosScreen({super.key});
@@ -223,89 +223,12 @@ class _PagosScreenState extends State<PagosScreen> {
     }
   }
 
-  Widget _buildWorkerName(String trabajoId) {
-    return FutureBuilder<String>(
-      future: _fetchConfirmedWorkerName(trabajoId),
 
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Text(
-            'Cargando trabajador...',
-            style: TextStyle(fontSize: 13, color: Colors.black45),
-          );
-        }
-
-        final name = snapshot.data ?? 'Trabajador no encontrado';
-
-        return Row(
-          children: [
-            const Icon(Icons.person, size: 16, color: primaryColor),
-
-            const SizedBox(width: 4),
-
-            Expanded(
-              child: Text(
-                name,
-
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<String> _fetchConfirmedWorkerName(String trabajoId) async {
-    try {
-      final postulacionesSnapshot = await _firestore
-          .collection('trabajos')
-          .doc(trabajoId)
-          .collection('postulaciones')
-          .where('estado', isEqualTo: 'confirmado')
-          .limit(1)
-          .get();
-
-      if (postulacionesSnapshot.docs.isNotEmpty) {
-        final usuarioId =
-            postulacionesSnapshot.docs.first.data()['usuarioId'] as String?;
-
-        if (usuarioId != null) {
-          final usuarioDoc = await _firestore
-              .collection('usuarios')
-              .doc(usuarioId)
-              .get();
-
-          if (usuarioDoc.exists) {
-            final data = usuarioDoc.data();
-
-            final nombre = data?['nombre'] ?? '';
-
-            final apellido = data?['apellido'] ?? '';
-
-            return '$nombre $apellido'.trim();
-          }
-        }
-      }
-
-      return 'N/A';
-    } catch (e) {
-      debugPrint('Error fetching worker name: $e');
-
-      return 'Error al cargar';
-    }
-  }
 
   // Tarjeta de trabajo de Pago (Compacta y optimizada para la lista)
   Widget _buildTrabajoPagoCompact(BuildContext context, Trabajo trabajo) {
     final double precio = trabajo.precio;
-    final Color estadoTextColor = trabajo.estado.colorTextoChip;
+    final Color estadoTextColor = Colors.black;
     final Color estadoBackgroundColor = trabajo.estado.colorChip;
     final String actionTitle = trabajo.estado == EstadoTrabajo.porPagar
         ? 'PAGAR'
@@ -351,8 +274,58 @@ class _PagosScreenState extends State<PagosScreen> {
                       maxLines: 2,
                     ),
                     const SizedBox(height: 6),
-                    // Nombre del Trabajador
-                    _buildWorkerName(trabajo.id),
+                    (trabajo.trabajadorAsignadoId == null ||
+                            trabajo.trabajadorAsignadoId!.isEmpty)
+                        ? Text(
+                            'Trabajador sin asignar',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          )
+                        : FutureBuilder<DocumentSnapshot>(
+                            future: _firestore
+                                .collection('usuarios') 
+                                .doc(trabajo.trabajadorAsignadoId)
+                                .get(),
+                            builder: (context,
+                                AsyncSnapshot<DocumentSnapshot> snapshot) {
+                              String nombreMostrado = 'Cargando...';
+                              Color colorTexto = Colors.grey.shade400;
+
+                              if (snapshot.connectionState ==
+                                  ConnectionState.done) {
+                                if (snapshot.hasData &&
+                                    snapshot.data!.exists) {
+                                  // Caso 3: Usuario encontrado
+                                  final data = snapshot.data!.data()
+                                      as Map<String, dynamic>;
+                                  final String nombre = data['nombre'] ?? '';
+                                  final String apellido = data['apellido'] ?? '';
+                                  nombreMostrado = '$nombre $apellido'.trim();
+                                  
+                                  if (nombreMostrado.isEmpty) {
+                                    nombreMostrado = 'Postulante (sin nombre)';
+                                  }
+                                  colorTexto = Colors.grey.shade600;
+
+                                } else {
+                                  nombreMostrado = 'ID No Encontrado';
+                                  colorTexto = Colors.red.shade400;
+                                }
+                              }
+
+                              return Text(
+                                nombreMostrado,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorTexto,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              );
+                            },
+                          ),
                     const SizedBox(height: 10),
                     // Chip de Estado
                     Container(
@@ -508,7 +481,7 @@ class _PagosScreenState extends State<PagosScreen> {
                         ),
                         const SizedBox(height: 16),
                         const Text(
-                          '¡Excelente! No hay trabajos pendientes de liquidación en este filtro.',
+                          '¡Excelente! No hay trabajos pendientes de pago.',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -518,7 +491,7 @@ class _PagosScreenState extends State<PagosScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Todos los trabajos de este estado han sido liquidados o no existen.',
+                          'Todos los trabajos de este estado han sido pagados o no existen.',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 14, color: Colors.black54),
                         ),
@@ -555,22 +528,7 @@ class _PagosScreenState extends State<PagosScreen> {
           'Liquidación de Pagos',
           style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
-        // Se mantiene el icono de búsqueda
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () {
-              // TODO: Implementar funcionalidad de búsqueda en Pagos
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Búsqueda de pagos no implementada'),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: _buildPagosListBody(context),
     );
