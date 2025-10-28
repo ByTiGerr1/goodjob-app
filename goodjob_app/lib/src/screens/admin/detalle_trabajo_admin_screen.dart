@@ -8,94 +8,99 @@ import 'package:goodjob_app/src/utils/format_utils.dart';
 
 // Importa las pantallas necesarias
 import 'package:goodjob_app/src/screens/admin/crear_trabajo_screen.dart';
-// ⚠️ IMPORTACIÓN CORREGIDA: Pantalla de detalle del postulante
 import 'package:goodjob_app/src/screens/admin/postulante_detalle_screen.dart';
 
 // Importa los widgets de admin
+import 'package:goodjob_app/src/widgets/admin_trabajo/widget_detalle_trabajo_colapsable.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_gestion_pago.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_info_postulante.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_lista_postulantes.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_mensaje_informativo.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_revision_evidencias.dart';
 
-class DetalleTrabajoAdminScreen extends StatelessWidget {
+// --- 1. CONVERTIDO A STATEFULWIDGET ---
+class DetalleTrabajoAdminScreen extends StatefulWidget {
   final Trabajo trabajo;
-
-  // Servicios
-  final PostulacionService postulacionService;
-  final PostulanteService postulanteService;
-  final TrabajoService trabajoService;
-  final StorageService storageService;
   final String adminId;
 
-  DetalleTrabajoAdminScreen({
+  // Servicios (opcionales, para inyección de dependencias)
+  final PostulacionService? postulacionService;
+  final PostulanteService? postulanteService;
+  final TrabajoService? trabajoService;
+  final StorageService? storageService;
+
+  const DetalleTrabajoAdminScreen({
     super.key,
     required this.trabajo,
     required this.adminId,
-    PostulacionService? postulacionService,
-    PostulanteService? postulanteService,
-    TrabajoService? trabajoService,
-    StorageService? storageService,
-  }) : postulacionService = postulacionService ?? PostulacionService(),
-       postulanteService = postulanteService ?? PostulanteService(),
-       trabajoService = trabajoService ?? TrabajoService(),
-       storageService = storageService ?? StorageService();
+    this.postulacionService,
+    this.postulanteService,
+    this.trabajoService,
+    this.storageService,
+  });
 
   @override
+  State<DetalleTrabajoAdminScreen> createState() =>
+      _DetalleTrabajoAdminScreenState();
+}
+
+// --- 2. CREADA LA CLASE STATE ---
+class _DetalleTrabajoAdminScreenState extends State<DetalleTrabajoAdminScreen> {
+  // Servicios
+  late final PostulacionService postulacionService;
+  late final PostulanteService postulanteService;
+  late final TrabajoService trabajoService;
+  late final StorageService storageService;
+
+  // Stream que se inicializará UNA SOLA VEZ
+  late final Stream<Trabajo?> _trabajoStream;
+
+  // --- 3. INICIALIZACIÓN EN INITSTATE ---
+  @override
+  void initState() {
+    super.initState();
+
+    // Inicializa los servicios usando los del widget (si se pasaron) o creando nuevos
+    postulacionService = widget.postulacionService ?? PostulacionService();
+    postulanteService = widget.postulanteService ?? PostulanteService();
+    trabajoService = widget.trabajoService ?? TrabajoService();
+    storageService = widget.storageService ?? StorageService();
+
+    // ¡Aquí está la magia!
+    // El stream se crea UNA VEZ y se reutiliza en todos los StreamBuilders.
+    // Usamos widget.trabajo.id para obtener el ID.
+    _trabajoStream = trabajoService.escucharTrabajo(widget.trabajo.id);
+  }
+
+  // --- 4. MÉTODO BUILD (AHORA DENTRO DEL STATE) ---
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Trabajo?>(
-      stream: trabajoService.escucharTrabajo(trabajo.id),
-      initialData: trabajo,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Detalle del Trabajo')),
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Text(
-                  'Ocurrió un error al cargar el trabajo. Intenta nuevamente.',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          );
-        }
+    final Color primaryColor = Theme.of(context).primaryColor;
 
-        final trabajoActual = snapshot.data;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Detalle del Trabajo'),
+        actions: [
+          // BUILDER #1: Solo para el botón de editar
+          StreamBuilder<Trabajo?>(
+            stream: _trabajoStream,
+            initialData: widget.trabajo, // Usa el trabajo inicial del WIDGET
+            builder: (context, snapshot) {
+              final estadoActual =
+                  snapshot.data?.estado ?? widget.trabajo.estado;
 
-        if (trabajoActual == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Detalle del Trabajo')),
-            body: const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Text(
-                  'Este trabajo ya no está disponible.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          );
-        }
-
-        final Color primaryColor = Theme.of(context).primaryColor;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Detalle del Trabajo'),
-            actions: [
-              if (trabajoActual.estado == EstadoTrabajo.activo)
-                IconButton(
+              if (estadoActual == EstadoTrabajo.activo) {
+                return IconButton(
                   icon: const Icon(Icons.edit_rounded),
                   tooltip: 'Editar Trabajo',
                   onPressed: () {
+                    // Pasamos la versión MÁS reciente del trabajo
+                    final trabajoParaEditar = snapshot.data ?? widget.trabajo;
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => CrearTrabajoScreen(
-                          trabajoParaEditar: trabajoActual,
+                          trabajoParaEditar: trabajoParaEditar,
                         ),
                       ),
                     ).then((resultadoEdicion) {
@@ -109,107 +114,110 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
                       }
                     });
                   },
-                ),
-            ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
           ),
-          body: snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20.0,
-                      vertical: 16.0,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                trabajoActual.titulo,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: primaryColor,
-                                    ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Chip(
-                              label: Text(
-                                trabajoActual.estado.texto,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      trabajoActual.estado.colorTextoChip,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              backgroundColor: trabajoActual.estado.colorChip
-                                  .withOpacity(0.2),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 0,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        _CollapsibleInfoContainer(trabajo: trabajoActual),
-                        const SizedBox(height: 24),
-                        const SizedBox(height: 16),
-                        ..._buildDynamicContent(context, trabajoActual),
-                        const SizedBox(height: 20),
-                      ],
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20.0,
+            vertical: 16.0,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    // El título no cambia, usamos el dato inicial del WIDGET
+                    child: Text(
+                      widget.trabajo.titulo,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
                     ),
                   ),
-                ),
-        );
-      },
-    );
-  }
+                  const SizedBox(width: 12),
+                  // BUILDER #2: Solo para el Chip de estado
+                  StreamBuilder<Trabajo?>(
+                    stream: _trabajoStream,
+                    initialData: widget.trabajo,
+                    builder: (context, snapshot) {
+                      final trabajoVivo = snapshot.data ?? widget.trabajo;
+                      return Chip(
+                        label: Text(
+                          trabajoVivo.estado.texto,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: trabajoVivo.estado.colorTextoChip,
+                            fontSize: 13,
+                          ),
+                        ),
+                        backgroundColor:
+                            trabajoVivo.estado.colorChip.withOpacity(0.2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 0,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
 
-  /// ⚠️ FUNCIÓN CORREGIDA: Usa trabajo.trabajadorAsignadoId directamente
-  Widget _buildInfoPostulanteCondicional(
-    BuildContext context,
-    Trabajo trabajoActual, {
-    String? mensaje,
-  }) {
-    final String? postulanteId = trabajoActual.trabajadorAsignadoId;
+              // Tu widget refactorizado. Usa los datos iniciales del WIDGET
+              DetalleTrabajoColapsable(trabajo: widget.trabajo),
 
-    if (postulanteId == null) {
-      return const SizedBox.shrink(); // No mostrar nada si no hay ID
-    }
+              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-    return InkWell(
-      // ⚠️ REDIRECCIÓN AL PERFIL DEL POSTULANTE
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PostulanteDetalleScreen(
-              usuarioId: postulanteId, // Usamos la variable local correcta
-              trabajoId: trabajoActual.id, // ID del trabajo actual
-            ),
+              // BUILDER #3: Solo para el contenido dinámico
+              StreamBuilder<Trabajo?>(
+                stream: _trabajoStream,
+                initialData: widget.trabajo,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return const Center(
+                        child: Text('Error al cargar esta sección.'));
+                  }
+
+                  final trabajoActual = snapshot.data;
+
+                  if (trabajoActual == null) {
+                    return const Center(
+                        child: Text('Este trabajo ya no está disponible.'));
+                  }
+
+                  // Llama a la función de construcción
+                  return Column(
+                    children: _buildDynamicContent(context, trabajoActual),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
-        );
-      },
-      // Usamos el widget existente para mostrar la tarjeta de información
-      child: WidgetInfoPostulante(
-        trabajo: trabajoActual,
-        postulanteService: postulanteService,
-        mensaje: mensaje ?? 'Postulante asignado a este trabajo.',
+        ),
       ),
     );
   }
 
-  /// Decide qué widgets mostrar según el estado
+  // --- 5. MÉTODOS HELPER (AHORA DENTRO DEL STATE) ---
+
+
   List<Widget> _buildDynamicContent(
       BuildContext context, Trabajo trabajoActual) {
     const spacer = SizedBox(height: 24);
@@ -230,12 +238,6 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             trabajoService: trabajoService,
             storageService: storageService,
           ),
-          spacer,
-          _buildInfoPostulanteCondicional(
-            context,
-            trabajoActual,
-            mensaje: 'Postulante esperando revisión...',
-          ),
         ];
       case EstadoTrabajo.porPagar:
         return [
@@ -244,37 +246,33 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             postulanteService: postulanteService,
             trabajoService: trabajoService,
             storageService: storageService,
-            adminId: adminId,
+            adminId: widget.adminId, 
           ),
           spacer,
-          _buildInfoPostulanteCondicional(
-            context,
-            trabajoActual,
-            mensaje: 'Postulante esperando pago.',
+          WidgetRevisionEvidencias(
+            trabajo: trabajoActual,
+            trabajoService: trabajoService,
+            storageService: storageService,
           ),
         ];
       case EstadoTrabajo.porConfirmar:
         return [
+          WidgetInfoPostulante(trabajo: trabajoActual, postulanteService: postulanteService),
+          spacer,
           WidgetMensajeInformativo(
             icono: Icons.hourglass_top_rounded,
             mensaje: 'Esperando confirmación...',
             color: trabajoActual.estado.colorTextoChip,
           ),
-          spacer,
-          _buildInfoPostulanteCondicional(context, trabajoActual),
         ];
       case EstadoTrabajo.pendiente:
         return [
+          WidgetInfoPostulante(trabajo: trabajoActual, postulanteService: postulanteService),
+          spacer,
           WidgetMensajeInformativo(
             icono: Icons.calendar_today_outlined,
             mensaje: 'Trabajo agendado.',
             color: trabajoActual.estado.colorTextoChip,
-          ),
-          spacer,
-          _buildInfoPostulanteCondicional(
-            context,
-            trabajoActual,
-            mensaje: 'Postulante agendado.',
           ),
         ];
       case EstadoTrabajo.enCurso:
@@ -285,273 +283,63 @@ class DetalleTrabajoAdminScreen extends StatelessWidget {
             color: trabajoActual.estado.colorTextoChip,
           ),
           spacer,
-          _buildInfoPostulanteCondicional(
-            context,
-            trabajoActual,
-            mensaje: 'Postulante en trabajo.',
-          ),
+          WidgetInfoPostulante(trabajo: trabajoActual, postulanteService: postulanteService),
         ];
       case EstadoTrabajo.finalizado:
         return [
-          WidgetMensajeInformativo(
-            icono: Icons.check_circle_rounded,
-            mensaje: 'Trabajo completado.',
-            color: trabajoActual.estado.colorTextoChip,
+          WidgetGestionPago(
+            trabajo: trabajoActual,
+            postulanteService: postulanteService,
+            trabajoService: trabajoService,
+            storageService: storageService,
+            adminId: widget.adminId, // <-- USA EL ID DEL WIDGET
           ),
           spacer,
-          _buildInfoPostulanteCondicional(
-            context,
-            trabajoActual,
-            mensaje: 'Trabajo completado por este postulante.',
+          WidgetRevisionEvidencias(
+            trabajo: trabajoActual,
+            trabajoService: trabajoService,
+            storageService: storageService,
           ),
         ];
       case EstadoTrabajo.cancelado:
         return [
+          WidgetGestionPago(
+            trabajo: trabajoActual,
+            postulanteService: postulanteService,
+            trabajoService: trabajoService,
+            storageService: storageService,
+            adminId: widget.adminId, // <-- USA EL ID DEL WIDGET
+          ),
+          spacer,
+          WidgetRevisionEvidencias(
+            trabajo: trabajoActual,
+            trabajoService: trabajoService,
+            storageService: storageService,
+          ),
+          spacer,
+          WidgetInfoPostulante(trabajo: trabajoActual, postulanteService: postulanteService),
+          spacer,
           WidgetMensajeInformativo(
             icono: Icons.cancel_rounded,
             mensaje: 'Trabajo cancelado.',
             color: trabajoActual.estado.colorTextoChip,
           ),
-          spacer,
-          _buildInfoPostulanteCondicional(context, trabajoActual),
         ];
       case EstadoTrabajo.rechazado:
         return [
+          WidgetRevisionEvidencias(
+            trabajo: trabajoActual,
+            trabajoService: trabajoService,
+            storageService: storageService,
+          ),
+          spacer,
           WidgetMensajeInformativo(
             icono: Icons.thumb_down_rounded,
             mensaje:
                 'Evidencias rechazadas: ${trabajoActual.motivoRechazo ?? "Sin motivo."}',
             color: trabajoActual.estado.colorTextoChip,
           ),
-          spacer,
-          _buildInfoPostulanteCondicional(
-            context,
-            trabajoActual,
-            mensaje: 'Evidencias rechazadas.',
-          ),
-        ];
-      default:
-        return [
-          Center(
-              child: Text('Estado no manejado: ${trabajoActual.estado.name}')),
         ];
     }
   }
 }
-
-// --- WIDGET DESPLEGABLE (_CollapsibleInfoContainer) ---
-class _CollapsibleInfoContainer extends StatefulWidget {
-  final Trabajo trabajo;
-  const _CollapsibleInfoContainer({required this.trabajo});
-
-  @override
-  State<_CollapsibleInfoContainer> createState() =>
-      _CollapsibleInfoContainerState();
-}
-
-class _CollapsibleInfoContainerState extends State<_CollapsibleInfoContainer>
-    with SingleTickerProviderStateMixin {
-  bool _isExpanded = false;
-  late AnimationController _animationController;
-  late Animation<double> _iconAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _iconAnimation = Tween<double>(begin: 0.0, end: 0.5).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  void _toggleExpand() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-      if (_isExpanded)
-        _animationController.forward();
-      else
-        _animationController.reverse();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-    final containerColor = colorScheme.surfaceVariant.withOpacity(0.5);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: containerColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: _toggleExpand,
-            borderRadius: BorderRadius.vertical(
-              top: const Radius.circular(12),
-              bottom: Radius.circular(_isExpanded ? 0 : 12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, color: colorScheme.primary),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'Detalles del Trabajo',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  RotationTransition(
-                    turns: _iconAnimation,
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: _isExpanded
-                ? _buildExpandedContent(context)
-                : const SizedBox(width: double.infinity, height: 0),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExpandedContent(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.5),
-            width: 0.5,
-          ),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _InfoSection(
-            context: context,
-            icon: Icons.description_outlined,
-            title: 'Descripción del Servicio',
-            child: Text(
-              widget.trabajo.descripcion,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _InfoSection(
-            context: context,
-            icon: Icons.list_alt_outlined,
-            title: 'Detalles de Ejecución',
-            child: Column(
-              children: [
-                _InfoRow(
-                  icon: Icons.location_on_outlined,
-                  text: widget.trabajo.ubicacion['direccion'] ?? 'N/A',
-                ),
-                _InfoRow(
-                  icon: Icons.calendar_today_outlined,
-                  text:
-                      'Inicia: ${FormatUtils.formatDate(widget.trabajo.fechaInicioTrabajo)}',
-                ),
-                _InfoRow(
-                  icon: Icons.flag_outlined,
-                  text:
-                      'Finaliza: ${FormatUtils.formatDate(widget.trabajo.fechaFinTrabajo)}',
-                ),
-                if (widget.trabajo.estado != EstadoTrabajo.cancelado &&
-                    widget.trabajo.estado != EstadoTrabajo.rechazado) ...[
-                  const SizedBox(height: 8),
-                  _InfoRow(
-                    icon: Icons.attach_money_outlined,
-                    text: FormatUtils.formatCurrency(widget.trabajo.precio),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-// --- FIN WIDGET DESPLEGABLE ---
-
-// --- HELPERS _InfoSection y _InfoRow ---
-Widget _InfoSection({
-  required BuildContext context,
-  required IconData icon,
-  required String title,
-  required Widget child,
-}) {
-  final textTheme = Theme.of(context).textTheme;
-  final colorScheme = Theme.of(context).colorScheme;
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: colorScheme.primary, size: 20),
-          const SizedBox(width: 8),
-          Text(title, style: textTheme.titleLarge?.copyWith(fontSize: 18)),
-        ],
-      ),
-      const SizedBox(height: 12),
-      Padding(padding: const EdgeInsets.only(left: 4.0), child: child),
-    ],
-  );
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _InfoRow({required this.icon, required this.text, super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.grey.shade600, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(height: 1.4),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-// --- FIN HELPERS ---

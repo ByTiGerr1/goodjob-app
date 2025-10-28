@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:goodjob_app/src/services/postulacion_service.dart';
 import 'package:goodjob_app/src/models/trabajo.dart'; // Asegurar que Trabajo y su extensión están importados
 import 'package:goodjob_app/src/providers/trabajo_provider.dart';
-import 'postulantes_trabajo_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // <-- IMPORTANTE: Asegúrate de tener este import
 
 // =========================================================================

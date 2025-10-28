@@ -6,6 +6,7 @@ import 'package:goodjob_app/src/services/postulante_service.dart';
 import 'package:goodjob_app/src/services/storage_service.dart';
 import 'package:goodjob_app/src/services/trabajo_service.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
+import 'package:goodjob_app/src/widgets/admin_trabajo/widget_info_postulante.dart';
 import 'package:goodjob_app/src/widgets/admin_trabajo/widget_lista_postulantes.dart';
 
 class WidgetRevisionEvidencias extends StatefulWidget {
@@ -130,9 +131,7 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        const Text(
-          'El postulante ha marcado el trabajo como finalizado',
-        ),
+        const Text('El postulante ha marcado el trabajo como finalizado'),
         const SizedBox(height: 20),
         FutureBuilder<Map<String, dynamic>?>(
           future: _postulacionDataFuture, // Usa el Future
@@ -156,8 +155,14 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
             return _buildWorkSummarySection(context, postulacionData);
           },
         ),
-
-        const Divider(height: 32), // Un separador antes de las evidencias
+        const SizedBox(height: 24),
+        Text(
+          'Evidencias Subidas',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 24),
         // --- SECCIÓN DE EVIDENCIAS ---
         StreamBuilder<List<Map<String, dynamic>>>(
           stream: widget.storageService.mostrarEvidencias(widget.trabajo.id),
@@ -276,42 +281,48 @@ class _WidgetRevisionEvidenciasState extends State<WidgetRevisionEvidencias> {
         ),
         const SizedBox(height: 32),
 
-        // --- SECCIÓN DE BOTONES ---
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.close_rounded),
-                label: const Text('Rechazar'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: _rechazar,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.check_rounded),
-                label: const Text('Aprobar'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: _aprobar,
-              ),
-            ),
-          ],
+        WidgetInfoPostulante(
+          trabajo: widget.trabajo,
+          postulanteService: widget.postulanteService,
         ),
+        const SizedBox(height: 24),
+        // --- SECCIÓN DE BOTONES ---
+        if (widget.trabajo.estado == EstadoTrabajo.porRevisar)
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Rechazar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: _rechazar,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Aprobar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: _aprobar,
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -530,9 +541,9 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             '$title:',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color.fromARGB(255, 12, 12, 12)),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: const Color.fromARGB(255, 12, 12, 12),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(

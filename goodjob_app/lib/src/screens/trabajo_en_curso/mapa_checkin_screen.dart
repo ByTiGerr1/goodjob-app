@@ -32,7 +32,7 @@ class _MapaCheckinScreenState extends State<MapaCheckinScreen> {
  
   // --- MODO DE PRUEBA: Cambia a 'false' en producción ---
   // Si es true, el check-in se puede realizar sin estar dentro de la zona delimitada.
-  final bool _testingMode = false;
+  final bool _testingMode = true;
 
   // --- CONFIGURACIÓN DE LA ZONA DELIMITADA ---
   // Establece un radio de 100 metros (personalizable)

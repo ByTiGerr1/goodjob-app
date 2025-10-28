@@ -6,13 +6,11 @@ import 'widget_mensaje_informativo.dart';
 
 class WidgetInfoPostulante extends StatelessWidget {
   final Trabajo trabajo;
-  final String mensaje;
   final PostulanteService postulanteService;
 
   const WidgetInfoPostulante({
     Key? key,
     required this.trabajo,
-    required this.mensaje,
     required this.postulanteService,
   }) : super(key: key);
 
@@ -23,7 +21,9 @@ class WidgetInfoPostulante extends StatelessWidget {
       children: [
         Text(
           'Postulante Seleccionado',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
 
@@ -57,13 +57,6 @@ class WidgetInfoPostulante extends StatelessWidget {
               ),
             );
           },
-        ),
-
-        const SizedBox(height: 24),
-        WidgetMensajeInformativo(
-          icono: Icons.calendar_today_outlined,
-          mensaje: mensaje,
-          color: trabajo.estado.colorTextoChip,
         ),
       ],
     );
