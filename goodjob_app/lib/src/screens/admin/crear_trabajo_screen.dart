@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:goodjob_app/src/models/trabajo.dart'; // Asegúrate que Trabajo y TrabajoPlantilla estén aquí o importados
 import 'package:goodjob_app/src/screens/admin/seleccionar_ubicacion_screen.dart';
 import 'package:goodjob_app/src/services/plantilla_trabajo_service.dart';
@@ -13,6 +14,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 // --- ENUMS Y CLASES AUXILIARES ---
 enum _MenuPlantillaOption { aplicar, crear }
@@ -25,6 +27,32 @@ class _PlantillaDialogResult {
       _PlantillaDialogResult._(plantilla, false);
   factory _PlantillaDialogResult.crear() =>
       const _PlantillaDialogResult._(null, true);
+}
+
+class _ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  _ThousandsSeparatorInputFormatter({required this.formatter});
+
+  final NumberFormat formatter;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(
+        text: '',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+    }
+
+    final formatted = formatter.format(int.parse(digitsOnly));
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
 }
 
 // --- PANTALLA PRINCIPAL ---
@@ -84,6 +112,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   final Set<String> _implementosSeleccionados = {};
   final _instruccionesController = TextEditingController();
 
+  late final NumberFormat _precioFormatter;
+  late final _ThousandsSeparatorInputFormatter _precioInputFormatter;
+
   // Colores
   late Color _primaryColor;
   late Color _secondaryColor;
@@ -92,6 +123,11 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
   @override
   void initState() {
     super.initState();
+    _precioFormatter = NumberFormat.decimalPattern('es_CL')
+      ..minimumFractionDigits = 0
+      ..maximumFractionDigits = 0;
+    _precioInputFormatter =
+        _ThousandsSeparatorInputFormatter(formatter: _precioFormatter);
     _cargarPlantillas(silent: true);
     // Carga datos iniciales si estamos en modo edición
     if (_esModoEdicion) {
@@ -139,10 +175,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     _horaInicio = TimeOfDay.fromDateTime(trabajo.fechaInicioTrabajo);
     _horaFin = TimeOfDay.fromDateTime(trabajo.fechaFinTrabajo);
 
-    _precioCtrl.text = trabajo.precio.toStringAsFixed(
-      0,
-    ); // Muestra sin decimales
-    _sinFechaLimite = trabajo.sinFechaLimite;
+    _setPrecioFromDynamic(trabajo.precio);
 
     final contacto = trabajo.contacto;
     _contactoNombreController.text = contacto['nombre'] ?? '';
@@ -157,6 +190,50 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  void _updatePrecioController(String text) {
+    _precioCtrl.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  void _setPrecioFromDynamic(dynamic value) {
+    if (value == null) {
+      _updatePrecioController('');
+      return;
+    }
+    final num? parsed = _parseDynamicPrecio(value);
+    if (parsed == null) {
+      _updatePrecioController('');
+      return;
+    }
+    _updatePrecioController(_precioFormatter.format(parsed));
+  }
+
+  num? _parseDynamicPrecio(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value;
+    if (value is String) {
+      final cleaned = value.replaceAll(RegExp(r'[^0-9,\.]'), '');
+      if (cleaned.isEmpty) {
+        final digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
+        if (digitsOnly.isEmpty) return null;
+        return double.tryParse(digitsOnly);
+      }
+      final normalized = cleaned.replaceAll('.', '').replaceAll(',', '.');
+      return double.tryParse(normalized) ??
+          double.tryParse(value) ??
+          double.tryParse(value.replaceAll(RegExp(r'[^0-9]'), ''));
+    }
+    return double.tryParse(value.toString());
+  }
+
+  double _parsePrecioText(String text) {
+    final digitsOnly = text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.isEmpty) return 0.0;
+    return double.parse(digitsOnly);
   }
   // --- FIN LÓGICA DE CARGA ---
 
@@ -308,7 +385,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
       }
 
       final dynamic precio = data['precio'];
-      _precioCtrl.text = precio?.toString() ?? '';
+      _setPrecioFromDynamic(precio);
 
       _sinFechaLimite = data['sinFechaLimite'] == true;
 
@@ -615,7 +692,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
         'nombre': _contactoNombreController.text,
         'numero': _contactoNumeroController.text,
       };
-      final precioNum = double.tryParse(_precioCtrl.text) ?? 0.0;
+      final precioNum = _parsePrecioText(_precioCtrl.text);
 
       // 3. Llamar al Servicio Correcto
       if (_esModoEdicion) {
@@ -964,6 +1041,7 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           key: const ValueKey('precio'),
           controller: _precioCtrl,
           enabled: !_isSaving,
+          inputFormatters: [_precioInputFormatter],
           decoration: const InputDecoration(
             labelText: 'Pago a trabajador (CLP)',
             prefixText: 'CLP \$',
@@ -971,7 +1049,9 @@ class _CrearTrabajoScreenState extends State<CrearTrabajoScreen> {
           keyboardType: TextInputType.number,
           validator: (v) {
             if (v == null || v.isEmpty) return 'Requerido';
-            if (double.tryParse(v) == null) return 'Número inválido';
+            if (v.replaceAll(RegExp(r'[^0-9]'), '').isEmpty) {
+              return 'Número inválido';
+            }
             return null;
           },
         ),
