@@ -924,20 +924,64 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.event_busy, color: alertColor, size: 24), // Usamos alertColor para el reloj
-                const SizedBox(width: 8),
-                const Text(
-                  'Esta oferta termina en:',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black54),
-                ),
-                const Spacer(),
-                Text(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 360;
+
+                final countdown = Text(
                   _countdownText,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: alertColor),
-                ),
-              ],
+                  textAlign: isNarrow ? TextAlign.left : TextAlign.right,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.event_busy, color: alertColor, size: 24),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Esta oferta termina en:',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      countdown,
+                    ],
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.event_busy, color: alertColor, size: 24),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Esta oferta termina en:',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(child: countdown),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             _buildBotonAccionPrincipal(context),
