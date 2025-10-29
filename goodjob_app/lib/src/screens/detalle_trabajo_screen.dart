@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
 import '../services/postulacion_service.dart'; // Asumiendo que PostulacionService existe
@@ -749,51 +750,116 @@ class _DetalleTrabajoScreenState extends State<DetalleTrabajoScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 250.0, // Aumentamos la altura para la imagen
-            floating: true,
+            expandedHeight: 260.0,
             pinned: true,
             backgroundColor: primaryColor,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-              centerTitle: false,
-              title: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.trabajo['titulo'] ?? 'Título N/D',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white, shadows: [
-                      Shadow(blurRadius: 5.0, color: Colors.black, offset: Offset(1, 1))
-                    ]),
-                  ),
-                  Text(
-                    widget.trabajo['empresa'] ?? 'Empresa N/D',
-                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.8), shadows: const [
-                      Shadow(blurRadius: 3.0, color: Colors.black, offset: Offset(1, 1))
-                    ]),
-                  ),
-                ],
-              ),
-              background: Container(
-                color: primaryColor,
-                child: imagenUrl != null && imagenUrl.isNotEmpty
-                    ? Image.network(
-                        imagenUrl,
-                        fit: BoxFit.cover,
-                        // Manejo de errores de carga de red
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: primaryColor,
-                            child: const Center(
-                              child: Icon(Icons.business_center_outlined, size: 80, color: Colors.white54),
+            iconTheme: const IconThemeData(color: Colors.white),
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            flexibleSpace: LayoutBuilder(
+              builder: (context, constraints) {
+                final double statusBarHeight = MediaQuery.of(context).padding.top;
+                final double collapsedHeight = kToolbarHeight + statusBarHeight;
+                final bool isCollapsed = constraints.maxHeight <= collapsedHeight + 16;
+                final String? empresa = widget.trabajo['empresa'] as String?;
+                final bool mostrarEmpresa =
+                    empresa != null && empresa.trim().isNotEmpty;
+
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      color: primaryColor,
+                      child: imagenUrl != null && imagenUrl.isNotEmpty
+                          ? Image.network(
+                              imagenUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: primaryColor,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.business_center_outlined,
+                                      size: 80,
+                                      color: Colors.white54,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.business_center_outlined,
+                                size: 80,
+                                color: Colors.white54,
+                              ),
                             ),
-                          );
-                        },
-                      )
-                    : const Center(
-                        child: Icon(Icons.business_center_outlined, size: 80, color: Colors.white54),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(isCollapsed ? 0.4 : 0.15),
+                            Colors.black.withOpacity(0.65),
+                          ],
+                        ),
                       ),
-              ),
+                    ),
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: isCollapsed ? 12 : 28,
+                      child: SafeArea(
+                        top: false,
+                        bottom: false,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.trabajo['titulo'] ?? 'Título N/D',
+                              maxLines: isCollapsed ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: isCollapsed ? 18 : 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                shadows: const [
+                                  Shadow(
+                                    blurRadius: 5.0,
+                                    color: Colors.black54,
+                                    offset: Offset(1, 1),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (mostrarEmpresa) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                empresa!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: isCollapsed ? 12 : 14,
+                                  color: Colors.white.withOpacity(0.85),
+                                  shadows: const [
+                                    Shadow(
+                                      blurRadius: 4.0,
+                                      color: Colors.black38,
+                                      offset: Offset(1, 1),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           
