@@ -70,7 +70,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     'Empleado',
     'Independiente',
     'Desempleado',
-    'Otro'
+    'Otro',
   ];
 
   // --- Estado para Habilidades ---
@@ -146,7 +146,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         _telefonoController.text = data['telefono'] ?? '';
         _descripcionController.text = data['descripcion'] ?? '';
         _carreraController.text = data['carrera'] ?? '';
-        
+
         // NUEVO: Cargar 'otraOcupacion'
         _otraOcupacionController.text = data['otraOcupacion'] ?? '';
 
@@ -200,9 +200,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         'apellido': _apellidoController.text.trim(),
         'telefono': _telefonoController.text.trim(),
         'descripcion': _descripcionController.text.trim(),
-        
+
         'ocupacion': _selectedOcupacion ?? '',
-        
+
         // NUEVO: Lógica condicional para guardar 'carrera' y 'otraOcupacion'
         // Solo guarda 'carrera' si es Estudiante, si no, guarda vacío.
         'carrera': _selectedOcupacion == 'Estudiante'
@@ -212,7 +212,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         'otraOcupacion': _selectedOcupacion == 'Otro'
             ? _otraOcupacionController.text.trim()
             : '',
-            
+
         'habilidades': _habilidades,
         'experiencias': _experiencias.map((e) => e.toMap()).toList(),
       };
@@ -247,8 +247,10 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Editar Perfil',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text(
+            'Editar Perfil',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           leading: BackButton(
             onPressed: () async {
               if (await _onWillPop()) {
@@ -261,121 +263,120 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         ),
         body: _isLoading && _errorMessage == null
             ? const Center(
-                child: CircularProgressIndicator(color: _PRIMARY_COLOR))
+                child: CircularProgressIndicator(color: _PRIMARY_COLOR),
+              )
             : _errorMessage != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text(
-                        'Error: $_errorMessage',
-                        style: TextStyle(color: Colors.red.shade700),
-                      ),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // --- SECCIÓN INFORMACIÓN PERSONAL ---
-                          _buildSectionTitle('Información Personal'),
-                          _buildTextField(
-                            controller: _nombreController,
-                            label: 'Nombre(s)',
-                            icon: Icons.person_outline,
-                          ),
-                          _buildTextField(
-                            controller: _apellidoController,
-                            label: 'Apellido(s)',
-                            icon: Icons.person_outline,
-                          ),
-                          _buildTextField(
-                            controller: _telefonoController,
-                            label: 'Teléfono',
-                            icon: Icons.phone,
-                            keyboardType: TextInputType.phone,
-                            isOptional: true, // MODIFICADO: Ahora es opcional
-                          ),
-                          const SizedBox(height: 20),
-
-                          // --- SECCIÓN PERFIL PROFESIONAL ---
-                          _buildSectionTitle('Perfil Profesional'),
-                          _buildTextField(
-                            controller: _descripcionController,
-                            label: 'Sobre mí (Descripción)',
-                            icon: Icons.notes,
-                            maxLines: 4,
-                            isOptional: true, // MODIFICADO: Ahora es opcional
-                          ),
-                          _buildOcupacionDropdown(),
-
-                          // NUEVO: Campo condicional para 'Otro'
-                          if (_selectedOcupacion == 'Otro')
-                            _buildTextField(
-                              controller: _otraOcupacionController,
-                              label: 'Especifica tu ocupación',
-                              icon: Icons.description_outlined,
-                            ),
-
-                          // Campo condicional para 'Estudiante'
-                          if (_selectedOcupacion == 'Estudiante')
-                            _buildTextField(
-                              controller: _carreraController,
-                              label: 'Carrera / Estudios',
-                              icon: Icons.school_outlined,
-                              isOptional: true, // Carrera también es opcional
-                            ),
-
-                          // --- SECCIÓN HABILIDADES ---
-                          const SizedBox(height: 20),
-                          _buildSectionTitle('Habilidades'),
-                          _buildHabilidadesSection(), // Es opcional por diseño
-
-                          // --- SECCIÓN EXPERIENCIA ---
-                          const SizedBox(height: 20),
-                          // MODIFICADO: Título "Chill"
-                          _buildSectionTitle('Mi Experiencia'), 
-                          _buildExperienciaSection(), // Es opcional por diseño
-
-                          const SizedBox(height: 40),
-                          ElevatedButton(
-                            onPressed:
-                                _isLoading || !_hasUnsavedChanges
-                                    ? null
-                                    : _guardarPerfil,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _PRIMARY_COLOR,
-                              disabledBackgroundColor: Colors.grey.shade300,
-                              foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
-                                    'GUARDAR CAMBIOS',
-                                    style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Text(
+                    'Error: $_errorMessage',
+                    style: TextStyle(color: Colors.red.shade700),
                   ),
+                ),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- SECCIÓN INFORMACIÓN PERSONAL ---
+                      _buildSectionTitle('Información Personal'),
+                      _buildTextField(
+                        controller: _nombreController,
+                        label: 'Nombre(s)',
+                        icon: Icons.person_outline,
+                      ),
+                      _buildTextField(
+                        controller: _apellidoController,
+                        label: 'Apellido(s)',
+                        icon: Icons.person_outline,
+                      ),
+                      _buildTextField(
+                        controller: _telefonoController,
+                        label: 'Teléfono',
+                        icon: Icons.phone,
+                        keyboardType: TextInputType.phone,
+                        isOptional: true, // MODIFICADO: Ahora es opcional
+                      ),
+                      const SizedBox(height: 20),
+
+                      // --- SECCIÓN PERFIL PROFESIONAL ---
+                      _buildSectionTitle('Perfil Profesional'),
+                      _buildTextField(
+                        controller: _descripcionController,
+                        label: 'Sobre mí (Descripción)',
+                        icon: Icons.notes,
+                        maxLines: 4,
+                        isOptional: true, // MODIFICADO: Ahora es opcional
+                      ),
+                      _buildOcupacionDropdown(),
+
+                      // NUEVO: Campo condicional para 'Otro'
+                      if (_selectedOcupacion == 'Otro')
+                        _buildTextField(
+                          controller: _otraOcupacionController,
+                          label: 'Especifica tu ocupación',
+                          icon: Icons.description_outlined,
+                        ),
+
+                      // Campo condicional para 'Estudiante'
+                      if (_selectedOcupacion == 'Estudiante')
+                        _buildTextField(
+                          controller: _carreraController,
+                          label: 'Carrera / Estudios',
+                          icon: Icons.school_outlined,
+                          isOptional: true, // Carrera también es opcional
+                        ),
+
+                      // --- SECCIÓN HABILIDADES ---
+                      const SizedBox(height: 20),
+                      _buildSectionTitle('Habilidades'),
+                      _buildHabilidadesSection(), // Es opcional por diseño
+                      // --- SECCIÓN EXPERIENCIA ---
+                      const SizedBox(height: 20),
+                      // MODIFICADO: Título "Chill"
+                      _buildSectionTitle('Mi Experiencia'),
+                      _buildExperienciaSection(), // Es opcional por diseño
+
+                      const SizedBox(height: 40),
+                      ElevatedButton(
+                        onPressed: _isLoading || !_hasUnsavedChanges
+                            ? null
+                            : _guardarPerfil,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _PRIMARY_COLOR,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'GUARDAR CAMBIOS',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -416,9 +417,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon, color: _PRIMARY_COLOR),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: _PRIMARY_COLOR, width: 2),
@@ -446,19 +445,14 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         decoration: InputDecoration(
           labelText: 'Ocupación principal',
           prefixIcon: const Icon(Icons.work_outline, color: _PRIMARY_COLOR),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: _PRIMARY_COLOR, width: 2),
           ),
         ),
         items: _opcionesOcupacion.map((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
+          return DropdownMenuItem<String>(value: value, child: Text(value));
         }).toList(),
         onChanged: (newValue) {
           setState(() {
@@ -488,14 +482,15 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                 controller: _habilidadController,
                 decoration: InputDecoration(
                   labelText: 'Añadir habilidad (ej: Liderazgo)',
-                  prefixIcon:
-                      const Icon(Icons.star_border, color: _PRIMARY_COLOR),
+                  prefixIcon: const Icon(
+                    Icons.star_border,
+                    color: _PRIMARY_COLOR,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                onFieldSubmitted: (_) =>
-                    _addHabilidad(),
+                onFieldSubmitted: (_) => _addHabilidad(),
               ),
             ),
             IconButton(
@@ -552,8 +547,11 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16.0),
             child: Center(
-                child: Text('Aún no has añadido experiencia.',
-                    style: TextStyle(color: Colors.grey))),
+              child: Text(
+                'Aún no has añadido experiencia.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
           )
         else
           ListView.builder(
@@ -566,8 +564,10 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
           ),
         TextButton.icon(
           icon: const Icon(Icons.add, color: _PRIMARY_COLOR),
-          label:
-              const Text('Añadir Experiencia', style: TextStyle(color: _PRIMARY_COLOR)),
+          label: const Text(
+            'Añadir Experiencia',
+            style: TextStyle(color: _PRIMARY_COLOR),
+          ),
           onPressed: () => _showExperienciaDialog(),
         ),
       ],
@@ -582,9 +582,13 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        title: Text(exp.rol, // Muestra 'rol'
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text("${exp.lugarOProyecto}\n${exp.descripcion}"), // Muestra 'lugarOProyecto'
+        title: Text(
+          exp.rol, // Muestra 'rol'
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          "${exp.lugarOProyecto}\n${exp.descripcion}",
+        ), // Muestra 'lugarOProyecto'
         isThreeLine: true,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -635,24 +639,25 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                 children: [
                   TextFormField(
                     controller: rolController,
-                    decoration:
-                        const InputDecoration(labelText: 'Rol o Actividad'), // Etiqueta
-                    validator: (v) =>
-                        v!.isEmpty ? 'Campo obligatorio' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Rol o Actividad',
+                    ), // Etiqueta
+                    validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: lugarController,
-                    decoration:
-                        const InputDecoration(labelText: 'Lugar o Proyecto'), // Etiqueta
-                    validator: (v) =>
-                        v!.isEmpty ? 'Campo obligatorio' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Lugar o Proyecto',
+                    ), // Etiqueta
+                    validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: descripcionController,
-                    decoration:
-                        const InputDecoration(labelText: 'Descripción (Opcional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Descripción (Opcional)',
+                    ),
                     maxLines: 3,
                   ),
                 ],
@@ -704,8 +709,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     // NUEVO: Guardar estado inicial de 'otraOcupacion'
     _initialOtraOcupacion = _otraOcupacionController.text;
     _initialHabilidades = List.from(_habilidades);
-    _initialExperiencias =
-        _experiencias.map((e) => Experiencia.fromMap(e.toMap())).toList();
+    _initialExperiencias = _experiencias
+        .map((e) => Experiencia.fromMap(e.toMap()))
+        .toList();
   }
 
   // MODIFICADO: Comprueba todos los campos, incluyendo 'otraOcupacion'
@@ -713,7 +719,8 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     if (_isInitializingControllers) return;
     if (!mounted) return;
 
-    final bool textFieldsChanged = _nombreController.text != _initialNombre ||
+    final bool textFieldsChanged =
+        _nombreController.text != _initialNombre ||
         _apellidoController.text != _initialApellido ||
         _telefonoController.text != _initialTelefono ||
         _descripcionController.text != _initialDescripcion ||
@@ -724,12 +731,15 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     final bool ocupacionChanged =
         (_selectedOcupacion ?? '') != _initialOcupacion;
 
-    final bool skillsChanged =
-        !const ListEquality().equals(_habilidades, _initialHabilidades);
+    final bool skillsChanged = !const ListEquality().equals(
+      _habilidades,
+      _initialHabilidades,
+    );
 
     final bool expChanged = !const DeepCollectionEquality().equals(
-        _experiencias.map((e) => e.toMap()).toList(),
-        _initialExperiencias.map((e) => e.toMap()).toList());
+      _experiencias.map((e) => e.toMap()).toList(),
+      _initialExperiencias.map((e) => e.toMap()).toList(),
+    );
 
     final hasChanges =
         textFieldsChanged || ocupacionChanged || skillsChanged || expChanged;

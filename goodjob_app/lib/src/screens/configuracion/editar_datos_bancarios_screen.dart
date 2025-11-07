@@ -16,10 +16,12 @@ class EditarDatosBancariosScreen extends StatefulWidget {
   const EditarDatosBancariosScreen({super.key});
 
   @override
-  State<EditarDatosBancariosScreen> createState() => _EditarDatosBancariosScreenState();
+  State<EditarDatosBancariosScreen> createState() =>
+      _EditarDatosBancariosScreenState();
 }
 
-class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen> {
+class _EditarDatosBancariosScreenState
+    extends State<EditarDatosBancariosScreen> {
   final _formKey = GlobalKey<FormState>();
   final _firestore = FirebaseFirestore.instance;
   final _user = FirebaseAuth.instance.currentUser;
@@ -67,7 +69,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
   void initState() {
     super.initState();
     _numeroCuentaController.addListener(_handleFormChanges);
-     _rutController.addListener(_onRutChanged);
+    _rutController.addListener(_onRutChanged);
     _cargarDatosBancarios();
   }
 
@@ -83,7 +85,9 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     if (bank == 'Banco Estado') {
       options.add(_rutAccountType);
     }
-    if (includeType != null && includeType.isNotEmpty && !options.contains(includeType)) {
+    if (includeType != null &&
+        includeType.isNotEmpty &&
+        !options.contains(includeType)) {
       options.add(includeType);
     }
     return options;
@@ -131,15 +135,29 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
         String? accountType = await decryptField(data['tipoCuenta']);
 
         final dynamic bankData = data['datosBancarios'];
-        if ((bankName == null || bankName.trim().isEmpty) && bankData is Map<String, dynamic>) {
-          bankName = await decryptField(bankData['banco'] ?? bankData['bankName']);
-          accountNumber = await decryptField(bankData['numeroCuenta'] ?? bankData['accountNumber']);
-          accountType = await decryptField(bankData['tipoCuenta'] ?? bankData['accountType']);
+        if ((bankName == null || bankName.trim().isEmpty) &&
+            bankData is Map<String, dynamic>) {
+          bankName = await decryptField(
+            bankData['banco'] ?? bankData['bankName'],
+          );
+          accountNumber = await decryptField(
+            bankData['numeroCuenta'] ?? bankData['accountNumber'],
+          );
+          accountType = await decryptField(
+            bankData['tipoCuenta'] ?? bankData['accountType'],
+          );
         }
 
-        normalizedBankName = (bankName != null && bankName.trim().isNotEmpty) ? bankName.trim() : null;
-        normalizedAccountNumber = accountNumber != null ? accountNumber.trim() : null;
-        normalizedAccountType = (accountType != null && accountType.trim().isNotEmpty) ? accountType.trim() : null;
+        normalizedBankName = (bankName != null && bankName.trim().isNotEmpty)
+            ? bankName.trim()
+            : null;
+        normalizedAccountNumber = accountNumber != null
+            ? accountNumber.trim()
+            : null;
+        normalizedAccountType =
+            (accountType != null && accountType.trim().isNotEmpty)
+            ? accountType.trim()
+            : null;
       } else {
         _rutController.text = '';
         normalizedBankName = null;
@@ -214,11 +232,16 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
           'numeroCuenta': encryptedAccountNumber,
         },
         'datosBancariosCompletos':
-            bankName.isNotEmpty && accountType.isNotEmpty && accountNumber.isNotEmpty,
+            bankName.isNotEmpty &&
+            accountType.isNotEmpty &&
+            accountNumber.isNotEmpty,
         'actualizadoEn': FieldValue.serverTimestamp(),
       };
 
-      await _firestore.collection('usuarios').doc(_user.uid).set(bankDataToSave, SetOptions(merge: true));
+      await _firestore
+          .collection('usuarios')
+          .doc(_user.uid)
+          .set(bankDataToSave, SetOptions(merge: true));
 
       if (mounted) {
         _setInitialValues();
@@ -227,7 +250,9 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
           _isSaving = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Datos bancarios actualizados con exito!')),
+          const SnackBar(
+            content: Text('Datos bancarios actualizados con exito!'),
+          ),
         );
         Navigator.of(context).pop();
       }
@@ -247,7 +272,10 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Actualizar Datos Bancarios', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text(
+            'Actualizar Datos Bancarios',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           leading: BackButton(
             onPressed: () async {
               if (await _onWillPop()) {
@@ -259,103 +287,115 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
           ),
         ),
         body: _isLoading && _errorMessage == null
-            ? const Center(child: CircularProgressIndicator(color: _PRIMARY_COLOR))
+            ? const Center(
+                child: CircularProgressIndicator(color: _PRIMARY_COLOR),
+              )
             : _errorMessage != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text('Error: $_errorMessage', style: TextStyle(color: Colors.red.shade700)),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                           _buildTextField(
-                            controller: _rutController,
-                            label: 'RUT / Identificacion',
-                            icon: Icons.badge_outlined,
-                            keyboardType: TextInputType.text,
-                            textCapitalization: TextCapitalization.characters,
-                            autocorrect: false,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9kK]')),
-                              RutInputFormatter(),
-                            ],
-                            validator: (value) {
-                              final trimmed = value?.trim() ?? '';
-                              if (trimmed.isEmpty) {
-                                return 'Ingresa el RUT';
-                              }
-                              final normalized = RutUtils.normalize(trimmed);
-                              if (normalized.length < 8 || normalized.length > 9) {
-                                return 'Ingrese un RUT válido';
-                              }
-                              if (!RutUtils.isValid(trimmed)) {
-                                return 'Ingresa un RUT válido';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _buildBankDropdown(),
-                          const SizedBox(height: 16),
-                          _buildAccountTypeDropdown(),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _numeroCuentaController,
-                            label: 'Numero de Cuenta',
-                            icon: Icons.numbers,
-                            keyboardType: TextInputType.number,
-                            readOnly: _selectedAccountType == _rutAccountType,
-                            validator: (value) {
-                              if (_selectedAccountType == _rutAccountType) {
-                                final rutBody = RutUtils.bodyWithoutVerifier(_rutController.text);
-                                if (rutBody.isEmpty) {
-                                  return 'Ingresa un RUT válido para generar la Cuenta RUT';
-                                }
-                                return null;
-                              }
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Ingresa el numero de cuenta';
-                              }
-                              if (value.trim().length < 6) {
-                                return 'Ingresa un numero de cuenta valido';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 40),
-                          ElevatedButton(
-                            onPressed: _isSaving ? null : _guardarDatosBancarios,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _PRIMARY_COLOR,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                            child: _isSaving
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
-                                    'GUARDAR DATOS BANCARIOS',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Text(
+                    'Error: $_errorMessage',
+                    style: TextStyle(color: Colors.red.shade700),
                   ),
+                ),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTextField(
+                        controller: _rutController,
+                        label: 'RUT / Identificacion',
+                        icon: Icons.badge_outlined,
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.characters,
+                        autocorrect: false,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9kK]')),
+                          RutInputFormatter(),
+                        ],
+                        validator: (value) {
+                          final trimmed = value?.trim() ?? '';
+                          if (trimmed.isEmpty) {
+                            return 'Ingresa el RUT';
+                          }
+                          final normalized = RutUtils.normalize(trimmed);
+                          if (normalized.length < 8 || normalized.length > 9) {
+                            return 'Ingrese un RUT válido';
+                          }
+                          if (!RutUtils.isValid(trimmed)) {
+                            return 'Ingresa un RUT válido';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildBankDropdown(),
+                      const SizedBox(height: 16),
+                      _buildAccountTypeDropdown(),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _numeroCuentaController,
+                        label: 'Numero de Cuenta',
+                        icon: Icons.numbers,
+                        keyboardType: TextInputType.number,
+                        readOnly: _selectedAccountType == _rutAccountType,
+                        validator: (value) {
+                          if (_selectedAccountType == _rutAccountType) {
+                            final rutBody = RutUtils.bodyWithoutVerifier(
+                              _rutController.text,
+                            );
+                            if (rutBody.isEmpty) {
+                              return 'Ingresa un RUT válido para generar la Cuenta RUT';
+                            }
+                            return null;
+                          }
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Ingresa el numero de cuenta';
+                          }
+                          if (value.trim().length < 6) {
+                            return 'Ingresa un numero de cuenta valido';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 40),
+                      ElevatedButton(
+                        onPressed: _isSaving ? null : _guardarDatosBancarios,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _PRIMARY_COLOR,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'GUARDAR DATOS BANCARIOS',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -366,7 +406,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
-     bool readOnly = false,
+    bool readOnly = false,
     List<TextInputFormatter>? inputFormatters,
     TextCapitalization textCapitalization = TextCapitalization.none,
     bool autocorrect = true,
@@ -379,12 +419,14 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
       textCapitalization: textCapitalization,
       autocorrect: autocorrect,
       decoration: _inputDecoration(label, icon),
-      validator: validator ?? (value) {
-        if (value == null || value.isEmpty) {
-          return 'Este campo es obligatorio';
-        }
-        return null;
-      },
+      validator:
+          validator ??
+          (value) {
+            if (value == null || value.isEmpty) {
+              return 'Este campo es obligatorio';
+            }
+            return null;
+          },
     );
   }
 
@@ -393,18 +435,14 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
       value: _selectedBankName,
       decoration: _inputDecoration('Nombre del Banco', Icons.account_balance),
       items: _banks
-          .map(
-            (bank) => DropdownMenuItem(
-              value: bank,
-              child: Text(bank),
-            ),
-          )
+          .map((bank) => DropdownMenuItem(value: bank, child: Text(bank)))
           .toList(),
       onChanged: (value) {
         setState(() {
           _selectedBankName = value;
           final validTypes = _accountTypeOptionsForBank(value);
-          if (_selectedAccountType != null && !validTypes.contains(_selectedAccountType)) {
+          if (_selectedAccountType != null &&
+              !validTypes.contains(_selectedAccountType)) {
             _selectedAccountType = null;
           }
         });
@@ -427,18 +465,14 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
 
     return DropdownButtonFormField<String>(
       value: _selectedAccountType,
-      decoration: _inputDecoration('Tipo de Cuenta', Icons.account_tree_outlined),
+      decoration: _inputDecoration(
+        'Tipo de Cuenta',
+        Icons.account_tree_outlined,
+      ),
       items: options
-          .map(
-            (type) => DropdownMenuItem(
-              value: type,
-              child: Text(type),
-            ),
-          )
+          .map((type) => DropdownMenuItem(value: type, child: Text(type)))
           .toList(),
-      onChanged: _selectedBankName == null
-          ? null
-          : _onAccountTypeChanged,
+      onChanged: _selectedBankName == null ? null : _onAccountTypeChanged,
       validator: (value) {
         if (_selectedBankName == null || _selectedBankName!.trim().isEmpty) {
           return 'Selecciona el banco';
@@ -458,9 +492,7 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     return InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon, color: _PRIMARY_COLOR),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: _PRIMARY_COLOR, width: 2),
@@ -505,7 +537,8 @@ class _EditarDatosBancariosScreenState extends State<EditarDatosBancariosScreen>
     if (_isInitializingControllers) return;
     if (!mounted) return;
 
-    final hasChanges = (_selectedBankName ?? '') != _initialBanco ||
+    final hasChanges =
+        (_selectedBankName ?? '') != _initialBanco ||
         (_selectedAccountType ?? '') != _initialTipoCuenta ||
         _numeroCuentaController.text != _initialNumeroCuenta ||
         _rutController.text != _initialRut;
