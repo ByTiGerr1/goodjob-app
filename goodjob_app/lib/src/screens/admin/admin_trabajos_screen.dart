@@ -449,6 +449,7 @@ class _AdminTrabajosScreenState extends State<AdminTrabajosScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
+                    // ignore: unnecessary_null_comparison
                     '${(trabajo.precio != null) ? FormatUtils.formatCurrency(trabajo.precio.toDouble()) : 'N/D'} CLP',
                     style: const TextStyle(
                       fontSize: 14,

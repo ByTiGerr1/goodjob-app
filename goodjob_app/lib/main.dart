@@ -16,7 +16,7 @@ import 'src/screens/auth/account_verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'src/services/firebase_service.dart';
 import 'firebase_options.dart';
-import 'package:intl/date_symbol_data_local.dart'; 
+import 'package:intl/date_symbol_data_local.dart';
 // import 'theme/app_colors.dart'; // No es necesario si se definen en ThemeData
 
 void main() async {
@@ -57,10 +57,12 @@ Future<void> _initializeFirebaseAppCheck() async {
     );
   }
 
-  final AndroidProvider primaryAndroidProvider =
-      kReleaseMode ? AndroidProvider.playIntegrity : AndroidProvider.debug;
-  final AppleProvider primaryAppleProvider =
-      kReleaseMode ? AppleProvider.appAttest : AppleProvider.debug;
+  final AndroidProvider primaryAndroidProvider = kReleaseMode
+      ? AndroidProvider.playIntegrity
+      : AndroidProvider.debug;
+  final AppleProvider primaryAppleProvider = kReleaseMode
+      ? AppleProvider.appAttest
+      : AppleProvider.debug;
 
   try {
     await activateAppCheck(
@@ -98,7 +100,7 @@ class MainApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Ubuntu',
-        
+
         // 1. ColorScheme: Define la paleta central (fuente de verdad)
         colorScheme: const ColorScheme(
           primary: primaryPurple,
@@ -111,10 +113,10 @@ class MainApp extends StatelessWidget {
           onError: Colors.white,
           brightness: Brightness.light,
         ),
-        
+
         // 2. Base Scaffold Color
         scaffoldBackgroundColor: backgroundGray,
-        
+
         // 3. AppBar Theme
         appBarTheme: const AppBarTheme(
           elevation: 0,
@@ -127,7 +129,7 @@ class MainApp extends StatelessWidget {
             fontFamily: 'Ubuntu',
           ),
         ),
-        
+
         // 4. Button Themes
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -156,7 +158,7 @@ class MainApp extends StatelessWidget {
 
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: primaryPurple, 
+            foregroundColor: primaryPurple,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10.0),
             ),
@@ -167,8 +169,14 @@ class MainApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white, // Color de fondo del input más limpio
-          labelStyle: const TextStyle(color: Color.fromARGB(255, 27, 27, 28), fontFamily: 'Ubuntu'),
-          hintStyle: const TextStyle(color: Color(0xFF757575), fontFamily: 'Ubuntu'),
+          labelStyle: const TextStyle(
+            color: Color.fromARGB(255, 27, 27, 28),
+            fontFamily: 'Ubuntu',
+          ),
+          hintStyle: const TextStyle(
+            color: Color(0xFF757575),
+            fontFamily: 'Ubuntu',
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10.0),
             borderSide: const BorderSide(color: Color(0xFF757575)),
@@ -186,11 +194,31 @@ class MainApp extends StatelessWidget {
 
         // 7. Text Theme
         textTheme: const TextTheme(
-          displayLarge: TextStyle(fontSize: 32.0, fontWeight: FontWeight.bold, fontFamily: 'Ubuntu'),
-          headlineSmall: TextStyle(fontSize: 24.0, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu'),
-          bodyMedium: TextStyle(fontSize: 14.0, fontWeight: FontWeight.w400, fontFamily: 'Ubuntu'),
-          bodySmall: TextStyle(fontSize: 12.0, fontWeight: FontWeight.w300, fontFamily: 'Ubuntu'),
-          labelLarge: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500, fontFamily: 'Ubuntu'),
+          displayLarge: TextStyle(
+            fontSize: 32.0,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Ubuntu',
+          ),
+          headlineSmall: TextStyle(
+            fontSize: 24.0,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Ubuntu',
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 14.0,
+            fontWeight: FontWeight.w400,
+            fontFamily: 'Ubuntu',
+          ),
+          bodySmall: TextStyle(
+            fontSize: 12.0,
+            fontWeight: FontWeight.w300,
+            fontFamily: 'Ubuntu',
+          ),
+          labelLarge: TextStyle(
+            fontSize: 16.0,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Ubuntu',
+          ),
         ),
       ),
 
@@ -236,12 +264,12 @@ class AuthGate extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           // Usamos la SplashScreen mientras esperamos el estado de auth
-          return const SplashScreen(); 
+          return const SplashScreen();
         }
         final user = snapshot.data;
         if (user == null) {
           // Si no hay usuario, mostramos el Onboarding principal
-          return const BenefitSlidesScreen(); 
+          return const BenefitSlidesScreen();
         }
         // Si hay usuario, verificamos su rol
         return FutureBuilder<String?>(

@@ -3,24 +3,26 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:goodjob_app/src/screens/trabajos_vista_usuario/display_option.dart';
+import 'package:goodjob_app/src/screens/trabajos_vista_usuario/trabajos_time_utils.dart';
+import 'package:goodjob_app/src/screens/trabajos_vista_usuario/rabajos_data_processor.dart';
+import 'package:goodjob_app/src/screens/trabajos_vista_usuario/trabajos_map_coordinator.dart';
+import 'package:goodjob_app/src/screens/trabajos_vista_usuario/trabajos_screen_controller.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:goodjob_app/src/utils/location_utils.dart';
 import 'package:goodjob_app/src/utils/format_utils.dart';
 import 'package:goodjob_app/src/utils/resistant_page_scroll_physics.dart';
 import 'package:goodjob_app/theme/app_colors.dart';
 
-import '../models/trabajo.dart';
-import '../services/postulacion_service.dart';
-import '../services/trabajo_service.dart';
-import '../services/user_eligibility_service.dart';
-import '../widgets/user_eligibility_gate.dart';
-import '../widgets/verification_required_view.dart';
-import 'auth/account_verification_screen.dart';
-import 'detalle_trabajo_screen.dart';
-import 'auth/login_screen.dart';
-
-// Opciones de ordenamiento
-enum DisplayOption { upcoming, recent }
+import '../../models/trabajo.dart';
+import '../../services/postulacion_service.dart';
+import '../../services/trabajo_service.dart';
+import '../../services/user_eligibility_service.dart';
+import '../../widgets/user_eligibility_gate.dart';
+import '../../widgets/verification_required_view.dart';
+import '../auth/account_verification_screen.dart';
+import '../detalle_trabajo_screen.dart';
+import '../auth/login_screen.dart';
 
 class TrabajosScreen extends StatefulWidget {
   const TrabajosScreen({super.key});
@@ -32,133 +34,35 @@ class TrabajosScreen extends StatefulWidget {
 class _TrabajosScreenState extends State<TrabajosScreen> {
   final _servicio = TrabajoService();
   final PostulacionService _postulacionService = PostulacionService();
-  DisplayOption _selectedDisplay = DisplayOption.upcoming;
-  Position? _currentPosition;
-  int _vistaActual = 0; // 0 -> Lista, 1 -> Mapa
-  final MapController _mapController = MapController();
   final PageController _carouselController = PageController(
     viewportFraction: 0.75,
   );
-  String? _ultimoTrabajoSeleccionadoId;
   static const LatLng _defaultLocation = LatLng(-33.447487, -70.673676);
-  final Set<String> _trabajosMarcadosPorRevisar = <String>{};
-  bool _isCarouselInteracting = false;
-
+  late final TrabajosMapCoordinator _mapCoordinator;
+  late final TrabajosDataProcessor _dataProcessor;
+  late final TrabajosScreenController _controller;
   // Color primario utilizado en los selectores/marcadores
   static const Color _primaryAppColor = AppColors.primary;
   static const Color _secondaryAppColor = AppColors.accent;
 
-  bool get _mapReady =>
-      _mapController is MapControllerImpl &&
-      (_mapController).value.options != null;
-
   @override
   void initState() {
     super.initState();
-    _obtenerUbicacion();
-  }
-  
-  // --- LÓGICA DE TIEMPO (SOPORTE DUAL-SCHEMA) ---
-
-  /// Función auxiliar para convertir dinámicamente cualquier Map genérico
-  /// a Map<String, dynamic> de forma segura, evitando errores de tipado.
-  Map<String, dynamic>? _safeMapCast(dynamic value) {
-    if (value is Map) {
-      return Map<String, dynamic>.from(value);
-    }
-    return null;
+    _mapCoordinator = TrabajosMapCoordinator(defaultLocation: _defaultLocation);
+    _dataProcessor = TrabajosDataProcessor(trabajoService: _servicio);
+    _controller = TrabajosScreenController()..addListener(_onControllerChanged);
+    _initializeLocation();
   }
 
-  /// Obtiene la fecha y hora de inicio del trabajo de forma robusta (Dual-Schema).
-  DateTime? _getTrabajoStartDateTime(Map<String, dynamic> trabajo) {
-    // 1. Probar campo nuevo (Timestamp combinado)
-    final newStartTs = trabajo['fechaInicioTrabajo'] as Timestamp?;
-    if (newStartTs != null) return newStartTs.toDate();
-
-    // 2. Probar esquema antiguo (Timestamp de fecha + Map de hora)
-    final oldDateTs = trabajo['fechaTrabajo'] as Timestamp?;
-    final oldHourMap = _safeMapCast(trabajo['horaInicio']);
-
-    if (oldDateTs != null && oldHourMap != null) {
-      final date = oldDateTs.toDate();
-      final h = oldHourMap['h'] as int? ?? 0;
-      final m = oldHourMap['m'] as int? ?? 0;
-      return DateTime(date.year, date.month, date.day, h, m);
-    }
-
-    return null;
+  void _onControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
-  /// Obtiene la fecha límite de postulación (Dual-Schema).
-  DateTime? _getFechaLimite(Map<String, dynamic> trabajo) {
-    // Intentar leer el campo principal (fechaLimite)
-    final fechaLimiteTs =
-        trabajo['fechaLimite'] as Timestamp? ??
-        trabajo['fechaLimitePostulacion'] as Timestamp?; // Campo de respaldo
-
-    return fechaLimiteTs?.toDate();
-  }
-
-  /// Obtiene la fecha y hora de fin del trabajo de forma robusta (Dual-Schema).
-  DateTime? _getTrabajoEndDateTime(Map<String, dynamic> trabajo) {
-    // 1. Probar campo nuevo (Timestamp combinado)
-    final newEndTs = trabajo['fechaFinTrabajo'] as Timestamp?;
-    if (newEndTs != null) return newEndTs.toDate();
-
-    // 2. Probar esquema antiguo (Timestamp de fecha + Map de hora)
-    final oldDateTs = trabajo['fechaTrabajo'] as Timestamp?;
-    final oldHourMap = _safeMapCast(trabajo['horaFin']);
-
-    if (oldDateTs != null && oldHourMap != null) {
-      final date = oldDateTs.toDate();
-      final h = oldHourMap['h'] as int? ?? 0;
-      final m = oldHourMap['m'] as int? ?? 0;
-      return DateTime(date.year, date.month, date.day, h, m);
-    }
-
-    return null;
-  }
-
-  // --- LÓGICA DE UBICACIÓN Y MAPA ---
-
-  Future<void> _obtenerUbicacion() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      final pos = await Geolocator.getCurrentPosition();
-      setState(() => _currentPosition = pos);
-      if (_mapReady) _centrarEnUbicacion();
-    } catch (_) {
-      // Ignorar errores de ubicación
-    }
-  }
-
-  void _centrarEnUbicacion() {
-    if (_currentPosition == null || !_mapReady) return;
-    final dest = LatLng(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-    );
-    _mapController.move(dest, 16.0);
-  }
-
-  void _centrarEnTrabajo(Map<String, dynamic> trabajo) {
-    if (!_mapReady) return;
-    final ubicacion = trabajo['ubicacion'] as Map<String, dynamic>?;
-    final coords = extractLatLngFromUbicacion(ubicacion);
-    if (coords == null) return;
-    _mapController.move(coords, 17.0);
-  }
-
-  void _setCarouselInteraction(bool value) {
-    if (_isCarouselInteracting == value) return;
-    setState(() => _isCarouselInteracting = value);
+  Future<void> _initializeLocation() async {
+    await _mapCoordinator.loadUserPosition();
+    if (!mounted) return;
+    setState(() {});
   }
 
   void _onTrabajoCarruselTap(
@@ -168,7 +72,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     final id = trabajo['id'] as String?;
     if (id == null) return;
 
-    if (_ultimoTrabajoSeleccionadoId == id) {
+    if (_controller.registerTrabajoTap(id)) {
       final detalleTrabajo = Map<String, dynamic>.from(trabajo)
         ..remove('distance');
       Navigator.push(
@@ -179,191 +83,22 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         ),
       );
     } else {
-      setState(() => _ultimoTrabajoSeleccionadoId = id);
-      _centrarEnTrabajo(trabajo);
+      _mapCoordinator.centerOnTrabajo(trabajo);
     }
   }
 
   @override
   void dispose() {
+    _controller
+      ..removeListener(_onControllerChanged)
+      ..dispose();
     _carouselController.dispose();
     super.dispose();
   }
-
-  double? _calcularDistancia(Map<String, dynamic> trabajo) {
-    if (_currentPosition == null) return null;
-    final ubicacion = trabajo['ubicacion'] as Map<String, dynamic>?;
-    final coords = extractLatLngFromUbicacion(ubicacion);
-    if (coords == null) return null;
-    return Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          coords.latitude,
-          coords.longitude,
-        ) /
-        1000;
-  }
-
-  void _marcarTrabajoComoPorRevisar(Map<String, dynamic> trabajo) {
-    final id = trabajo['id'] as String?;
-    if (id == null) return;
-
-    final estadoActual = trabajo['estado']?.toString().toLowerCase();
-    if (estadoActual == EstadoTrabajo.porRevisar.name.toLowerCase()) {
-      return;
-    }
-
-    if (_trabajosMarcadosPorRevisar.contains(id)) {
-      return;
-    }
-
-    _trabajosMarcadosPorRevisar.add(id);
-    _servicio.actualizarEstado(id, EstadoTrabajo.porRevisar).catchError((error) {
-      debugPrint('No se pudo actualizar el estado del trabajo $id: $error');
-    });
-  }
-
-  bool _estadoIndicaCierre(String? estado) {
-    if (estado == null) return false;
-    final normalizado = estado.toLowerCase().replaceAll('_', ' ').trim();
-    if (normalizado.isEmpty) return false;
-
-    const estadosCerrados = {
-      'cerrado',
-      'cerrada',
-      'cancelado',
-      'cancelada',
-      'finalizado',
-      'finalizada',
-      'completado',
-      'completada',
-      'en curso',
-      'en progreso',
-      'no disponible',
-    };
-
-    return estadosCerrados.contains(normalizado);
-  }
-
-  bool _estaDisponibleParaPostular(
-    Map<String, dynamic> trabajo,
-    DateTime ahora,
-  ) {
-    final fechaLimite = _getFechaLimite(trabajo);
-    if (fechaLimite != null && ahora.isAfter(fechaLimite)) return false;
-
-    final camposEstado = <String?>[
-      trabajo['estado']?.toString(),
-      trabajo['estadoTrabajo']?.toString(),
-      trabajo['estadoAsignacion']?.toString(),
-    ];
-
-    if (camposEstado.any(_estadoIndicaCierre)) {
-      return false;
-    }
-
-    final postulacionesHabilitadas = trabajo['postulacionesHabilitadas'];
-    if (postulacionesHabilitadas is bool && !postulacionesHabilitadas) {
-      return false;
-    }
-
-    final maxPostulantes = trabajo['maxPostulantes'];
-    final totalPostulaciones =
-        trabajo['totalPostulaciones'] ?? trabajo['postulacionesActuales'];
-
-    if (maxPostulantes is num && totalPostulaciones is num) {
-      if (totalPostulaciones >= maxPostulantes) return false;
-    }
-
-    return true;
-  }
-
-  List<Map<String, dynamic>> _filtrarTrabajosVigentes(
-    List<Map<String, dynamic>> trabajos,
-  ) {
-    final ahora = DateTime.now();
-    return trabajos.where((trabajo) {
-      final fechaFin = _getTrabajoEndDateTime(trabajo);
-      if (fechaFin != null && !fechaFin.isAfter(ahora)) {
-        _marcarTrabajoComoPorRevisar(trabajo);
-        return false;
-      }
-
-      return _estaDisponibleParaPostular(trabajo, ahora);
-    }).toList();
-  }
-
-  List<Map<String, dynamic>> _prepararTrabajosParaMostrar(
-    QuerySnapshot? snapshot,
-  ) {
-    final trabajosDocs = snapshot?.docs ?? [];
-    final trabajosSinProcesar = trabajosDocs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return {...data, 'id': doc.id};
-    }).toList();
-
-    final filtrados = _filtrarTrabajosVigentes(trabajosSinProcesar);
-
-    return filtrados
-        .map((trabajo) => {...trabajo, 'distance': _calcularDistancia(trabajo)})
-        .toList();
-  }
-
-  List<Map<String, dynamic>> _excluirTrabajosPostulados(
-    List<Map<String, dynamic>> trabajos,
-    Set<String> postulaciones,
-  ) {
-    if (postulaciones.isEmpty) {
-      return List<Map<String, dynamic>>.from(trabajos);
-    }
-
-    return trabajos
-        .where((trabajo) {
-          final id = trabajo['id'] as String?;
-          if (id == null) return true;
-          return !postulaciones.contains(id);
-        })
-        .toList();
-  }
-
-  void _ordenar(List<Map<String, dynamic>> trabajos) {
-    int compareDate(a, b) {
-      final dateA = _getTrabajoStartDateTime(a);
-      final dateB = _getTrabajoStartDateTime(b);
-      // Usar fecha actual si es nula para forzar el orden
-      return (dateA ?? DateTime.now()).compareTo(dateB ?? DateTime.now());
-    }
-
-    int compareCreated(a, b) =>
-        ((a['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0)).compareTo(
-          (b['creadoEn'] as Timestamp?)?.toDate() ?? DateTime(0),
-        );
-
-    switch (_selectedDisplay) {
-      case DisplayOption.upcoming:
-        trabajos.sort(
-          compareDate,
-        ); // Ordena por fecha de trabajo ascendente (usando nueva lógica)
-        break;
-      case DisplayOption.recent:
-        trabajos.sort(
-          (a, b) => compareCreated(b, a),
-        ); // Ordena por fecha de creación descendente
-        break;
-    }
-  }
-
-  String _formatFecha(DateTime? fecha) {
-    if (fecha == null) return 'N/D';
-    final day = fecha.day.toString().padLeft(2, '0');
-    final month = fecha.month.toString().padLeft(2, '0');
-    final year = (fecha.year % 100).toString().padLeft(2, '0');
-    return '$day/$month/$year';
-  }
-
   // --- WIDGETS DE VISTA ---
 
   Widget _buildSelectorVista() {
+    final vistaActual = _controller.vistaActual;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       decoration: BoxDecoration(
@@ -375,18 +110,18 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         children: [
           _buildSelectorButton(
             label: 'Lista',
-            isSelected: _vistaActual == 0,
-            onTap: () => setState(() => _vistaActual = 0),
+            isSelected: vistaActual == 0,
+            onTap: () => _controller.setVistaActual(0),
           ),
           const SizedBox(width: 8),
           _buildSelectorButton(
             label: 'Mapa',
-            isSelected: _vistaActual == 1,
+            isSelected: vistaActual == 1,
             onTap: () {
-              setState(() => _vistaActual = 1);
+              _controller.setVistaActual(1);
               // Centrar en ubicación solo cuando el mapa esté listo
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                _centrarEnUbicacion();
+                _mapCoordinator.centerOnUserPosition();
               });
             },
           ),
@@ -448,13 +183,13 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     required IconData icon,
     required DisplayOption option,
   }) {
-    final isSelected = _selectedDisplay == option;
+    final isSelected = _controller.selectedDisplay == option;
     final color = isSelected ? _primaryAppColor : Colors.grey[200];
     final contentColor = isSelected ? Colors.white : Colors.black87;
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedDisplay = option),
+        onTap: () => _controller.setSelectedDisplay(option),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           // Padding ajustado
@@ -519,25 +254,27 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
             final data = trabajos[index];
 
             // --- LECTURA DUAL DE FECHAS (NUEVO) ---
-            final fechaInicio = _getTrabajoStartDateTime(data);
-            final fechaFin = _getTrabajoEndDateTime(data);
-            final fechaLimite = _getFechaLimite(
+            final fechaInicio = getTrabajoStartDateTime(data);
+            final fechaFin = getTrabajoEndDateTime(data);
+            final fechaLimite = getFechaLimite(
               data,
             ); // Usado para mostrar si es fecha límite
 
             final distancia = data['distance'] as double?;
-            final imagenUrl = data['imagenPrincipalUrl'] as String?; // <--- Extraemos la URL
+            final imagenUrl =
+                data['imagenPrincipalUrl'] as String?; // <--- Extraemos la URL
 
-            String fechaTxt = _formatFecha(fechaInicio);
+            String fechaTxt = formatFecha(fechaInicio);
 
             if (fechaInicio != null &&
                 fechaFin != null &&
                 fechaFin.day != fechaInicio.day) {
               fechaTxt =
-                  'Del ${_formatFecha(fechaInicio)} al ${_formatFecha(fechaFin)}';
+                  'Del ${formatFecha(fechaInicio)} al ${formatFecha(fechaFin)}';
             } else if (fechaLimite != null && fechaInicio == null) {
               // Si solo tenemos fecha límite y no fecha de inicio (trabajo antiguo/incompleto)
-              fechaTxt = 'Postula antes del ${_formatFecha(fechaLimite)}';
+              fechaTxt = fechaTxt =
+                  'Postula antes del ${formatFecha(fechaLimite)}';
             }
             // Si solo tenemos fecha de inicio, ya se muestra en _formatFecha(fechaInicio)
 
@@ -557,10 +294,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 );
               },
               child: Card(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -575,7 +309,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                         radius: 30,
                         backgroundColor: _primaryAppColor,
                         // Lógica para mostrar la imagen de red o el icono
-                        backgroundImage: (imagenUrl != null && imagenUrl.isNotEmpty)
+                        backgroundImage:
+                            (imagenUrl != null && imagenUrl.isNotEmpty)
                             ? NetworkImage(imagenUrl)
                             : null,
                         child: (imagenUrl == null || imagenUrl.isEmpty)
@@ -612,8 +347,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                             Text(
                               (data['precio'] != null)
                                   ? FormatUtils.formatCurrency(
-                                        data['precio'].toDouble(),
-                                      )
+                                      data['precio'].toDouble(),
+                                    )
                                   : 'N/D',
                               style: const TextStyle(
                                 fontSize: 16,
@@ -690,20 +425,27 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           );
         }
 
-        final trabajosPreparados =
-            _prepararTrabajosParaMostrar(snapshot.data);
+        final trabajosPreparados = _dataProcessor.prepararTrabajosParaMostrar(
+          snapshot.data,
+          _mapCoordinator.calculateDistance,
+        );
 
         if (userId == null) {
-          final trabajosOrdenados =
-              List<Map<String, dynamic>>.from(trabajosPreparados);
-          _ordenar(trabajosOrdenados);
+          final trabajosOrdenados = List<Map<String, dynamic>>.from(
+            trabajosPreparados,
+          );
+          _dataProcessor.ordenar(
+            trabajosOrdenados,
+            _controller.selectedDisplay,
+          );
           return _buildListaContent(trabajosOrdenados);
         }
 
         return StreamBuilder<QuerySnapshot>(
           stream: _postulacionService.obtenerPostulacionesDeUsuario(userId),
           builder: (context, postulacionesSnapshot) {
-            if (postulacionesSnapshot.connectionState == ConnectionState.waiting) {
+            if (postulacionesSnapshot.connectionState ==
+                ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
@@ -715,15 +457,19 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
             final postulacionesDocs =
                 postulacionesSnapshot.data?.docs ?? <QueryDocumentSnapshot>[];
-            final postulacionesIds =
-                postulacionesDocs.map((doc) => doc.id).toSet();
+            final postulacionesIds = postulacionesDocs
+                .map((doc) => doc.id)
+                .toSet();
 
-            final trabajosFiltrados = _excluirTrabajosPostulados(
+            final trabajosFiltrados = _dataProcessor.excluirTrabajosPostulados(
               trabajosPreparados,
               postulacionesIds,
             );
 
-            _ordenar(trabajosFiltrados);
+            _dataProcessor.ordenar(
+              trabajosFiltrados,
+              _controller.selectedDisplay,
+            );
             return _buildListaContent(trabajosFiltrados);
           },
         );
@@ -732,6 +478,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
   }
 
   Widget _buildMapaContent(List<Map<String, dynamic>> trabajos) {
+    final position = _mapCoordinator.currentPosition;
     final trabajosOrdenadosPorDistancia =
         List<Map<String, dynamic>>.from(trabajos)..sort((a, b) {
           final distanciaA = a['distance'] as double? ?? double.infinity;
@@ -745,7 +492,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       final ubicacion = t['ubicacion'] as Map<String, dynamic>?;
       final pos = extractLatLngFromUbicacion(ubicacion);
       if (pos == null) continue;
-      final isSelected = t['id'] == _ultimoTrabajoSeleccionadoId;
+      final isSelected = _controller.selectedTrabajoId == t['id'];
 
       markers.add(
         Marker(
@@ -754,8 +501,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           point: pos,
           child: GestureDetector(
             onTap: () {
-              setState(() => _ultimoTrabajoSeleccionadoId = t['id']);
-              _centrarEnTrabajo(t);
+              final trabajoId = t['id'] as String?;
+              if (trabajoId != null) {
+                _controller.setTrabajoSeleccionado(trabajoId);
+              }
+              _mapCoordinator.centerOnTrabajo(t);
               final index = trabajosOrdenadosPorDistancia.indexWhere(
                 (tc) => tc['id'] == t['id'],
               );
@@ -777,29 +527,20 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       );
     }
 
-    if (_currentPosition != null) {
+    if (position != null) {
       markers.add(
         Marker(
           width: 40,
           height: 40,
-          point: LatLng(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-          ),
-          child: const Icon(
-            Icons.my_location,
-            color: Colors.blue,
-            size: 40,
-          ),
+          point: LatLng(position.latitude, position.longitude),
+          child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
         ),
       );
     }
 
-    final center = _currentPosition != null
-        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-        : _defaultLocation;
+    final center = _mapCoordinator.initialCenter;
 
-    final zoom = _currentPosition != null ? 14.0 : 5.0;
+    final zoom = _mapCoordinator.initialZoom;
 
     final double fabBottom = trabajosOrdenadosPorDistancia.isNotEmpty
         ? 180.0
@@ -809,18 +550,16 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
     return Stack(
       children: [
         IgnorePointer(
-          ignoring: _isCarouselInteracting,
+          ignoring: _controller.isCarouselInteracting,
           child: FlutterMap(
-            mapController: _mapController,
+            mapController: _mapCoordinator.mapController,
             options: MapOptions(
               initialCenter: center,
               initialZoom: zoom,
               maxZoom: 40,
               minZoom: 9,
               onMapReady: () {
-                if (_currentPosition != null) {
-                  _centrarEnUbicacion();
-                }
+                _mapCoordinator.centerOnUserPosition();
               },
             ),
             children: [
@@ -856,23 +595,20 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                   ),
                   child: const Text(
                     'No hay trabajos disponibles',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
             ),
           ),
 
-        if (_currentPosition != null)
+        if (position != null)
           Positioned(
             bottom: fabBottom,
             right: 16,
             child: FloatingActionButton(
               mini: true,
-              onPressed: _centrarEnUbicacion,
+              onPressed: _mapCoordinator.centerOnUserPosition,
               backgroundColor: _primaryAppColor,
               child: const Icon(Icons.my_location, color: Colors.white),
             ),
@@ -905,143 +641,153 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
                 SizedBox(
                   height: 150,
                   child: Listener(
-                    onPointerDown: (_) => _setCarouselInteraction(true),
-                    onPointerCancel: (_) => _setCarouselInteraction(false),
-                    onPointerUp: (_) => _setCarouselInteraction(false),
+                    onPointerDown: (_) =>
+                        _controller.setCarouselInteraction(true),
+                    onPointerCancel: (_) =>
+                        _controller.setCarouselInteraction(false),
+                    onPointerUp: (_) =>
+                        _controller.setCarouselInteraction(false),
+
                     child: PageView.builder(
                       controller: _carouselController,
                       physics: const ResistantPageScrollPhysics(),
                       itemCount: trabajosOrdenadosPorDistancia.length,
                       onPageChanged: (index) {
                         final trabajo = trabajosOrdenadosPorDistancia[index];
-                        setState(
-                          () => _ultimoTrabajoSeleccionadoId = trabajo['id'],
-                        );
-                        _centrarEnTrabajo(trabajo);
+                        final trabajoId = trabajo['id'] as String?;
+                        if (trabajoId != null) {
+                          _controller.setTrabajoSeleccionado(trabajoId);
+                        }
+                        _mapCoordinator.centerOnTrabajo(trabajo);
                       },
                       itemBuilder: (context, index) {
-                      final trabajo = trabajosOrdenadosPorDistancia[index];
-                      final id = trabajo['id'] as String?;
-                      final seleccionado =
-                          id != null && id == _ultimoTrabajoSeleccionadoId;
-                      final distancia = trabajo['distance'] as double?;
-                      final imagenUrl =
-                          trabajo['imagenPrincipalUrl'] as String?;
+                        final trabajo = trabajosOrdenadosPorDistancia[index];
+                        final id = trabajo['id'] as String?;
+                        final seleccionado =
+                            id != null && id == _controller.selectedTrabajoId;
+                        final distancia = trabajo['distance'] as double?;
+                        final imagenUrl =
+                            trabajo['imagenPrincipalUrl'] as String?;
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: GestureDetector(
-                          onTap: () => _onTrabajoCarruselTap(context, trabajo),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: seleccionado
-                                    ? _secondaryAppColor
-                                    : Colors.transparent,
-                                width: 3,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: GestureDetector(
+                            onTap: () =>
+                                _onTrabajoCarruselTap(context, trabajo),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
                                   color: seleccionado
-                                      ? _secondaryAppColor.withOpacity(0.4)
-                                      : Colors.black.withOpacity(0.1),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
+                                      ? _secondaryAppColor
+                                      : Colors.transparent,
+                                  width: 3,
                                 ),
-                              ],
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: _primaryAppColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                    image:
-                                        (imagenUrl != null && imagenUrl.isNotEmpty)
-                                            ? DecorationImage(
-                                                image: NetworkImage(imagenUrl),
-                                                fit: BoxFit.cover,
-                                              )
-                                            : null,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: seleccionado
+                                        ? _secondaryAppColor.withOpacity(0.4)
+                                        : Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
                                   ),
-                                  child: (imagenUrl == null || imagenUrl.isEmpty)
-                                      ? const Icon(
-                                          Icons.work_outline,
-                                          size: 30,
-                                          color: Colors.white,
-                                        )
-                                      : null,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        trabajo['titulo'] ?? 'Sin título',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: _primaryAppColor,
+                                      borderRadius: BorderRadius.circular(8),
+                                      image:
+                                          (imagenUrl != null &&
+                                              imagenUrl.isNotEmpty)
+                                          ? DecorationImage(
+                                              image: NetworkImage(imagenUrl),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : null,
+                                    ),
+                                    child:
+                                        (imagenUrl == null || imagenUrl.isEmpty)
+                                        ? const Icon(
+                                            Icons.work_outline,
+                                            size: 30,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          trabajo['titulo'] ?? 'Sin título',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        trabajo['empresa'] ??
-                                            'Empresa no registrada',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
+                                        Text(
+                                          trabajo['empresa'] ??
+                                              'Empresa no registrada',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        (trabajo['precio'] != null)
-                                            ? FormatUtils.formatCurrency(
-                                                trabajo['precio'].toDouble(),
-                                              )
-                                            : 'N/D',
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                      if (distancia != null)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 6.0),
-                                          child: Text(
-                                            '${distancia.toStringAsFixed(1)} km de distancia',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black54,
-                                            ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          (trabajo['precio'] != null)
+                                              ? FormatUtils.formatCurrency(
+                                                  trabajo['precio'].toDouble(),
+                                                )
+                                              : 'N/D',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
                                           ),
                                         ),
-                                    ],
+                                        if (distancia != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 6.0,
+                                            ),
+                                            child: Text(
+                                              '${distancia.toStringAsFixed(1)} km de distancia',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
-                )
               ],
             ),
           ),
@@ -1065,9 +811,10 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
           );
         }
 
-        final trabajosPreparados =
-            _prepararTrabajosParaMostrar(snapshot.data);
-
+        final trabajosPreparados = _dataProcessor.prepararTrabajosParaMostrar(
+          snapshot.data,
+          _mapCoordinator.calculateDistance,
+        );
         if (userId == null) {
           return _buildMapaContent(trabajosPreparados);
         }
@@ -1075,7 +822,8 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
         return StreamBuilder<QuerySnapshot>(
           stream: _postulacionService.obtenerPostulacionesDeUsuario(userId),
           builder: (context, postulacionesSnapshot) {
-            if (postulacionesSnapshot.connectionState == ConnectionState.waiting) {
+            if (postulacionesSnapshot.connectionState ==
+                ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
@@ -1087,10 +835,11 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
 
             final postulacionesDocs =
                 postulacionesSnapshot.data?.docs ?? <QueryDocumentSnapshot>[];
-            final postulacionesIds =
-                postulacionesDocs.map((doc) => doc.id).toSet();
+            final postulacionesIds = postulacionesDocs
+                .map((doc) => doc.id)
+                .toSet();
 
-            final trabajosFiltrados = _excluirTrabajosPostulados(
+            final trabajosFiltrados = _dataProcessor.excluirTrabajosPostulados(
               trabajosPreparados,
               postulacionesIds,
             );
@@ -1174,7 +923,7 @@ class _TrabajosScreenState extends State<TrabajosScreen> {
       ),
       body: UserEligibilityGate(
         eligibleBuilder: (context, status, refresh) {
-          return _vistaActual == 0
+          return _controller.vistaActual == 0
               ? _buildLista(status)
               : _buildMapa(status);
         },
