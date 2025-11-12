@@ -532,12 +532,14 @@ class _PostulacionContent extends StatelessWidget {
           size: 20,
         ),
         const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 14,
-            color: isPrimary ? Colors.green.shade700 : Colors.grey.shade700,
-            fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w400,
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: isPrimary ? Colors.green.shade700 : Colors.grey.shade700,
+              fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w400,
+            ),
           ),
         ),
       ],
@@ -772,24 +774,32 @@ class _PostulacionContent extends StatelessWidget {
                       spacing: 20,
                       runSpacing: 10,
                       children: [
-                        _buildInfoChip(
-                          Icons.location_on,
-                          _formatearUbicacion(
-                            trabajo['ubicacion'] as Map<String, dynamic>?,
+                        Flexible(
+                          child: _buildInfoChip(
+                            Icons.location_on,
+                            _formatearUbicacion(
+                              trabajo['ubicacion'] as Map<String, dynamic>?,
+                            ),
                           ),
                         ),
-                        _buildInfoChip(
-                          Icons.event,
-                          _formatearFecha(fechaReferencia),
+                        Flexible(
+                          child: _buildInfoChip(
+                            Icons.event,
+                            _formatearFecha(fechaReferencia),
+                          ),
                         ),
-                        _buildInfoChip(
-                          Icons.access_time,
-                          '${_formatearHora(horarioInicio, fallback: 'Por confirmar')} - ${_formatearHora(horarioFin, fallback: 'Por confirmar')}',
+                        Flexible(
+                          child: _buildInfoChip(
+                            Icons.access_time,
+                            '${_formatearHora(horarioInicio, fallback: 'Por confirmar')} - ${_formatearHora(horarioFin, fallback: 'Por confirmar')}',
+                          ),
                         ),
-                        _buildInfoChip(
-                          Icons.payments,
-                          '${(trabajo['precio'] != null) ? FormatUtils.formatCurrency(trabajo['precio'].toDouble()) : 'N/D'} brutos',
-                          isPrimary: true,
+                        Flexible(
+                          child: _buildInfoChip(
+                            Icons.payments,
+                            '${(trabajo['precio'] != null) ? FormatUtils.formatCurrency(trabajo['precio'].toDouble()) : 'N/D'} brutos',
+                            isPrimary: true,
+                          ),
                         ),
                       ],
                     ),
