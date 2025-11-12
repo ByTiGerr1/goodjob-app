@@ -9,6 +9,30 @@ import 'instrucciones_trabajo_screen.dart';
 import 'trabajo_en_curso/mapa_checkin_screen.dart'; // Importamos la nueva pantalla
 import 'trabajo_en_curso/trabajo_en_curso_screen.dart';
 
+// =============================================================================
+// LÓGICA DE ESTADOS DEL TRABAJO Y SEGUIMIENTO
+// =============================================================================
+// Esta pantalla muestra el progreso de una postulación basándose en el ESTADO
+// DEL TRABAJO (campo 'estado' en Firestore) según el modelo EstadoTrabajo:
+//
+// MAPEO DE ESTADOS DEL TRABAJO -> PASOS DE PROGRESO:
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ Estado Trabajo │ Paso │ Título del Paso           │ Descripción         │
+// ├────────────────┼──────┼───────────────────────────┼─────────────────────┤
+// │ (sin aceptar)  │  0   │ Postulación enviada       │ Esperando revisión  │
+// │ activo         │  1   │ Postulación enviada       │ Con postulación     │
+// │ porConfirmar   │  2   │ Seleccionado/a            │ Debe confirmar      │
+// │ pendiente      │  3   │ Asistencia confirmada     │ Listo para trabajar │
+// │ enCurso        │  4   │ Trabajo en curso          │ Realizando trabajo  │
+// │ porRevisar     │  5   │ Tarea finalizada          │ En revisión         │
+// │ porPagar       │  6   │ Pago en proceso           │ Procesando pago     │
+// │ finalizado     │  7   │ Pago completado           │ Trabajo terminado   │
+// │ rechazado      │ -1   │ Postulación rechazada     │ No seleccionado     │
+// └────────────────┴──────┴───────────────────────────┴─────────────────────┘
+//
+// NOTA: El estado 'finalizado' con 'pagado: true' indica paso 7 (completado)
+// =============================================================================
+
 // Definición de estados
 enum _PasoEstado { completado, actual, pendiente }
 
@@ -261,153 +285,105 @@ class _PostulacionContent extends StatelessWidget {
 
   String _normalizarEstado(dynamic valor) {
     if (valor is String) {
-      return valor.trim().toLowerCase();
+      return valor.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
     }
     return '';
   }
 
-  bool _esEstadoAceptado(String estado) {
-    switch (estado) {
-      case 'aceptado':
-      case 'aceptada':
-      case 'asignado':
-      case 'asignada':
-      case 'seleccionado':
-      case 'seleccionada':
-      case 'confirmado':
-      case 'confirmada':
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  String _estadoPostulacionPrincipal(Map<String, dynamic> postulacion) {
-    final candidatos = [
-      postulacion['estado'],
-      postulacion['estadoPostulacion'],
-      postulacion['estadoAsignacion'],
-    ];
-
-    for (final candidato in candidatos) {
-      final normalizado = _normalizarEstado(candidato);
-      if (normalizado.isNotEmpty) {
-        return normalizado;
-      }
-    }
-
-    return '';
-  }
-
-  bool _tieneConfirmacionRegistrada(
-    Map<String, dynamic> postulacion,
-    Map<String, dynamic> trabajo,
-    String estadoPrincipal,
-  ) {
-    if (estadoPrincipal == 'confirmado') return true;
-
+  /// Verifica si el usuario tiene una postulación aceptada para este trabajo
+  bool _tienePostulacionAceptada(Map<String, dynamic> postulacion) {
+    final estadoPostulacion = _normalizarEstado(postulacion['estado']);
     final estadoAsignacion = _normalizarEstado(postulacion['estadoAsignacion']);
-    if (estadoAsignacion == 'confirmado') return true;
-
-    final estadoAsignacionTrabajo = _normalizarEstado(
-      trabajo['estadoAsignacion'],
-    );
-    if (estadoAsignacionTrabajo == 'confirmado') return true;
-
-    if (postulacion['asistenciaConfirmada'] == true) return true;
-    if (trabajo['asistenciaConfirmada'] == true) return true;
-    if (postulacion['confirmadoEn'] != null) return true;
-    if (trabajo['confirmadoEn'] != null) return true;
-
-    return false;
+    
+    // Verificar estados que indican aceptación
+    const estadosAceptados = {
+      'aceptado',
+      'aceptada',
+      'confirmado',
+      'confirmada',
+      'asignado',
+      'asignada',
+      'seleccionado',
+      'seleccionada'
+    };
+    
+    return estadosAceptados.contains(estadoPostulacion) ||
+           estadosAceptados.contains(estadoAsignacion) ||
+           postulacion['aceptado'] == true ||
+           postulacion['confirmadoEn'] != null;
   }
 
+  /// Determina el progreso basado en el estado del TRABAJO (no de la postulación)
+  /// Retorna un índice de 0 a 7 que representa cada paso del proceso:
+  /// 0: Postulación enviada (esperando revisión)
+  /// 1: Postulación enviada pero con postulación aceptada (estado activo del trabajo)
+  /// 2: Seleccionado (porConfirmar) 
+  /// 3: Asistencia confirmada (pendiente)
+  /// 4: Trabajo en curso (enCurso)
+  /// 5: Tarea finalizada (porRevisar)
+  /// 6: Pago en proceso (porPagar)
+  /// 7: Pago completado (finalizado + pagado)
+  /// Retorna -1 si la postulación fue rechazada
   int _indiceProgreso(
     Map<String, dynamic> postulacion,
-    Map<String, dynamic> trabajo, {
-    String? estadoPrincipal,
-    bool? confirmacionRegistrada,
-  }) {
-    final estado = estadoPrincipal ?? _estadoPostulacionPrincipal(postulacion);
+    Map<String, dynamic> trabajo,
+  ) {
+    // Verificar si la postulación fue rechazada
+    final estadoPostulacion = _normalizarEstado(postulacion['estado']);
     final estadoAsignacion = _normalizarEstado(postulacion['estadoAsignacion']);
-    final estadoTrabajo = _normalizarEstado(
-      postulacion['estadoTrabajo'] ??
-          trabajo['estadoTrabajo'] ??
-          trabajo['estado'],
-    );
-    final estadoPago = _normalizarEstado(
-      postulacion['estadoPago'] ??
-          trabajo['estadoPago'] ??
-          trabajo['pagoEstado'],
-    );
-    final confirmacion =
-        confirmacionRegistrada ??
-        _tieneConfirmacionRegistrada(postulacion, trabajo, estado);
-    final aceptadoFlag =
-        postulacion['aceptado'] == true ||
-        postulacion['asignado'] == true ||
-        trabajo['aceptado'] == true ||
-        trabajo['asignado'] == true;
-
-    final trabajoEnCurso =
-        estadoTrabajo == 'en curso' ||
-        estadoTrabajo == 'en_curso' ||
-        estadoTrabajo == 'activo' ||
-        estadoTrabajo == 'abierto' ||
-        estadoTrabajo == 'ejecutando' ||
-        estadoTrabajo == 'realizando';
-    final trabajoCompletado =
-        postulacion['trabajoCompletado'] == true ||
-        estadoTrabajo == 'completado' ||
-        estadoTrabajo == 'realizado' ||
-        estadoTrabajo == 'finalizado' ||
-        estadoTrabajo == 'pendiente_revision';
-    final pagoEnCurso =
-        estadoPago == 'en_curso' ||
-        estadoPago == 'procesando' ||
-        estadoPago == 'en proceso';
-    final pagoCompletado = estadoPago == 'completado' || estadoPago == 'pagado';
-
-    if (estado == 'rechazado' || estadoAsignacion == 'rechazado') return -1;
-
-    final aceptado =
-        aceptadoFlag ||
-        _esEstadoAceptado(estado) ||
-        _esEstadoAceptado(estadoAsignacion) ||
-        confirmacion ||
-        trabajoEnCurso ||
-        trabajoCompletado ||
-        pagoEnCurso ||
-        pagoCompletado;
-
-    final etapasCompletadas = <bool>[
-      aceptado, // Etapa 0: Postulación enviada (implícita)
-      aceptado, // Etapa 1: Postulación aceptada (Se evalúa con aceptado)
-      confirmacion ||
-          trabajoEnCurso ||
-          trabajoCompletado ||
-          pagoEnCurso ||
-          pagoCompletado, // Etapa 2: Trabajo confirmado
-      trabajoEnCurso ||
-          trabajoCompletado ||
-          pagoEnCurso ||
-          pagoCompletado, // Etapa 3: Trabajo en curso
-      trabajoCompletado ||
-          pagoEnCurso ||
-          pagoCompletado, // Etapa 4: Trabajo completado
-      pagoEnCurso || pagoCompletado, // Etapa 5: Pago en curso
-      pagoCompletado, // Etapa 6: Pago completado
-    ];
-
-    final siguientePendiente = etapasCompletadas.indexWhere(
-      (completado) => !completado,
-    );
-
-    if (siguientePendiente == -1) {
-      return etapasCompletadas.length;
+    
+    if (estadoPostulacion == 'rechazado' || 
+        estadoPostulacion == 'rechazada' ||
+        estadoAsignacion == 'rechazado' ||
+        estadoAsignacion == 'rechazada') {
+      return -1; // Rechazado
     }
 
-    return siguientePendiente;
+    // Verificar si el usuario tiene postulación aceptada
+    final tienePostulacion = _tienePostulacionAceptada(postulacion);
+    
+    // Obtener el estado del trabajo normalizado
+    final estadoTrabajo = _normalizarEstado(trabajo['estado']);
+    final pagado = trabajo['pagado'] == true;
+
+    // Mapeo de estados según el modelo EstadoTrabajo:
+    switch (estadoTrabajo) {
+      case 'activo':
+      case 'abierto':
+        // Si tiene postulación aceptada, está en paso 1, sino en paso 0
+        return tienePostulacion ? 1 : 0;
+      
+      case 'porconfirmar':
+        return 2; // Seleccionado/Aceptado
+      
+      case 'pendiente':
+        return 3; // Asistencia confirmada
+      
+      case 'encurso':
+        return 4; // Trabajo en curso
+      
+      case 'porrevisar':
+        return 5; // Tarea finalizada
+      
+      case 'porpagar':
+        return 6; // Pago en proceso
+      
+      case 'finalizado':
+        return pagado ? 7 : 6; // Pago completado si pagado=true, sino pago en proceso
+      
+      case 'cancelado':
+      case 'rechazado':
+        return -1; // Cancelado/Rechazado
+      
+      default:
+        // Si no coincide con ningún estado conocido, inferir por otros campos
+        if (pagado) return 7;
+        if (postulacion['trabajoCompletado'] == true) return 5;
+        if (postulacion['inicioTrabajoReal'] != null) return 4;
+        if (postulacion['confirmadoEn'] != null) return 3;
+        if (tienePostulacion) return 1;
+        return 0; // Por defecto, postulación enviada esperando revisión
+    }
   }
 
   _PasoEstado _estadoPaso(int paso, int indiceActual) {
@@ -570,24 +546,34 @@ class _PostulacionContent extends StatelessWidget {
     final fechaTrabajo = _getTrabajoStartDateTime(trabajo);
     final fechaFinProgramada = _getTrabajoEndDateTime(trabajo);
     final empresa = trabajo['empresa'] ?? '';
-    final estadoPrincipal = _estadoPostulacionPrincipal(postulacion);
-    final confirmacionRegistrada = _tieneConfirmacionRegistrada(
-      postulacion,
-      trabajo,
-      estadoPrincipal,
-    );
-    final estadoActual = confirmacionRegistrada
-        ? 'confirmado'
-        : estadoPrincipal;
-    final progreso = _indiceProgreso(
-      postulacion,
-      trabajo,
-      estadoPrincipal: estadoPrincipal,
-      confirmacionRegistrada: confirmacionRegistrada,
-    );
+    
+    // Calcular progreso basado en el estado del trabajo
+    final progreso = _indiceProgreso(postulacion, trabajo);
+    
+    // Determinar estado actual para mostrar
+    String estadoActual;
+    if (progreso == -1) {
+      estadoActual = 'rechazado';
+    } else if (progreso >= 7) {
+      estadoActual = 'pagado';
+    } else if (progreso >= 6) {
+      estadoActual = 'pago_en_proceso';
+    } else if (progreso >= 5) {
+      estadoActual = 'tarea_finalizada';
+    } else if (progreso >= 4) {
+      estadoActual = 'en_curso';
+    } else if (progreso >= 3) {
+      estadoActual = 'confirmado';
+    } else if (progreso >= 2) {
+      estadoActual = 'aceptado';
+    } else if (progreso >= 1) {
+      estadoActual = 'enviado_aceptado'; // Postulación enviada pero ya aceptada
+    } else {
+      estadoActual = 'pendiente'; // Esperando revisión
+    }
 
     // LÓGICA DE DÍA Y ESTADO DE TRABAJO
-    final esTrabajoActivo = estadoActual == 'confirmado' && (progreso < 4);
+    final esTrabajoActivo = progreso >= 2 && progreso < 5; // Desde aceptado hasta antes de finalizado
     final isJobDay =
         fechaTrabajo != null &&
         (DateTime.now().isAfter(
@@ -607,7 +593,7 @@ class _PostulacionContent extends StatelessWidget {
     final horarioInicio = inicioTrabajoReal ?? fechaTrabajo;
     final horarioFin = finTrabajoReal ?? fechaFinProgramada;
     final tieneCheckInActivo =
-        inicioTrabajoReal != null && finTrabajoReal == null && esTrabajoActivo;
+        inicioTrabajoReal != null && finTrabajoReal == null && progreso == 4; // Solo en estado "en curso"
 
     final pasos = [
       (
@@ -617,9 +603,9 @@ class _PostulacionContent extends StatelessWidget {
         estado: _estadoPaso(0, progreso),
       ),
       (
-        titulo: 'Seleccionado/a (Aceptado)',
+        titulo: 'Seleccionado/a',
         descripcion:
-            '¡Felicidades! Fuiste elegido/a. Debes confirmar tu asistencia en la pantalla anterior.',
+            '¡Felicidades! Fuiste elegido/a. Debes confirmar tu asistencia.',
         estado: _estadoPaso(1, progreso),
       ),
       (
@@ -629,7 +615,7 @@ class _PostulacionContent extends StatelessWidget {
         estado: _estadoPaso(2, progreso),
       ),
       (
-        titulo: 'Trabajo en curso (HOY)',
+        titulo: 'Trabajo en curso',
         descripcion:
             'Hoy es el día de la tarea. Haz Check-in al llegar y mantente en comunicación.',
         estado: _estadoPaso(3, progreso),
@@ -1003,44 +989,68 @@ class _EstadoActualBanner extends StatelessWidget {
     final Color redBase = Colors.red.shade800;
 
     switch (estadoActual) {
+      case 'pagado':
+        backgroundColor = const Color(0xFFE6F4EA);
+        textColor = greenBase;
+        icon = Icons.payments_outlined;
+        titulo = '¡Pago completado!';
+        descripcion = 'Tu pago ha sido realizado con éxito. Revisa tu cuenta bancaria.';
+        break;
+      case 'pago_en_proceso':
+        backgroundColor = const Color(0xFFF0E4F3);
+        textColor = _PRIMARY_COLOR;
+        icon = Icons.account_balance_wallet_outlined;
+        titulo = 'Pago en proceso';
+        descripcion = 'Tu pago está siendo procesado y se depositará en tu cuenta registrada.';
+        break;
+      case 'tarea_finalizada':
+        backgroundColor = const Color(0xFFE8F0FE);
+        textColor = blueBase;
+        icon = Icons.task_alt;
+        titulo = 'Tarea finalizada';
+        descripcion = 'El trabajo ha terminado. Esperando aprobación del administrador.';
+        break;
+      case 'en_curso':
+        backgroundColor = const Color(0xFFFFF8E1);
+        textColor = Colors.orange.shade800;
+        icon = Icons.work_outline;
+        titulo = 'Trabajo en curso';
+        descripcion = 'El trabajo está en progreso. Completa todas las tareas asignadas.';
+        break;
       case 'confirmado':
         backgroundColor = const Color(0xFFE6F4EA);
         textColor = greenBase;
         icon = Icons.event_available;
         titulo = '¡Trabajo confirmado!';
-        // Descripción con recordatorio de instrucciones
-        descripcion =
-            'Recuerda asistir el día acordado. Revisa las instrucciones antes de iniciar.';
+        descripcion = 'Recuerda asistir el día acordado. Revisa las instrucciones antes de iniciar.';
         break;
       case 'aceptado':
-        backgroundColor = const Color(0xFFF0E4F3); // Morado claro
+        backgroundColor = const Color(0xFFF0E4F3);
         textColor = _PRIMARY_COLOR;
         icon = Icons.thumb_up_alt_outlined;
         titulo = 'Postulación aceptada';
-        descripcion =
-            'Confirma tu asistencia lo antes posible para asegurar tu cupo.';
+        descripcion = 'Confirma tu asistencia lo antes posible para asegurar tu cupo.';
+        break;
+      case 'enviado_aceptado':
+        backgroundColor = const Color(0xFFE8F0FE);
+        textColor = blueBase;
+        icon = Icons.check_circle_outline;
+        titulo = 'Postulación aceptada';
+        descripcion = 'Tu postulación fue aceptada. Esperando que el administrador confirme la asignación.';
         break;
       case 'rechazado':
         backgroundColor = const Color(0xFFFDE7E9);
         textColor = redBase;
         icon = Icons.cancel_outlined;
         titulo = 'Postulación rechazada';
-        descripcion =
-            'Esta oportunidad ya no está disponible para ti. Revisa otras ofertas.';
+        descripcion = 'Esta oportunidad ya no está disponible para ti. Revisa otras ofertas.';
         break;
-      default: // Pendiente o en proceso
+      default: // Pendiente
         backgroundColor = const Color(0xFFE8F0FE);
         textColor = blueBase;
         icon = Icons.access_time_outlined;
-        if (progreso <= 0) {
-          titulo = 'Postulación en revisión';
-          descripcion =
-              'Te avisaremos cuando el administrador revise tu postulación.';
-        } else {
-          titulo = 'Seguimos procesando';
-          descripcion =
-              'Tu pago está siendo procesado o tu tarea está en revisión final.';
-        }
+        titulo = 'Postulación en revisión';
+        descripcion = 'Te avisaremos cuando el administrador revise tu postulación.';
         break;
     }
 
