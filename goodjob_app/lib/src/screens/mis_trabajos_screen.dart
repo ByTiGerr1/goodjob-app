@@ -363,9 +363,6 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         final pagado = trabajoData['pagado'] == true || 
                        postulacionData['pagado'] == true;
 
-        // DEBUG: Imprimir valores para diagnóstico
-        print('🔍 DEBUG mis_trabajos - Estado Trabajo: "${trabajoData['estado']}" | Estado Postulación: "${postulacionData['estado']}" | Estado Final: "$estado" | Pagado: $pagado');
-
         final inicioTrabajo =
             _obtenerInicioTrabajo(trabajoData, postulacionData);
         final finTrabajo = _obtenerFinTrabajo(trabajoData, postulacionData);

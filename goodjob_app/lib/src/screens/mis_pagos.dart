@@ -365,9 +365,6 @@ class _CompletedJobCard extends StatelessWidget {
     final pagado = trabajoData?['pagado'] == true || 
                    _postulacionData['pagado'] == true;
 
-    // DEBUG: Imprimir valores para diagnóstico
-    print('🔍 DEBUG mis_pagos - Estado Trabajo: "${trabajoData?['estado']}" | Estado Postulación: "${_postulacionData['estado']}" | Estado Final: "$estado" | Pagado: $pagado');
-
     final estadoLabel = _statusLabel(estado, pagado: pagado);
     final estadoColor = _statusColor(estado, context, pagado: pagado);
 
