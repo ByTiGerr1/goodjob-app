@@ -98,6 +98,8 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         return _COLOR_RECHAZADO;
       case 'confirmado':
         return _COLOR_CONFIRMADO;
+      case 'porconfirmar':
+        return _COLOR_ACEPTADO; // Verde para por confirmar
       case 'finalizado':
         return pagado ? Colors.green.shade700 : Colors.orange.shade700;
       case 'pagado':
@@ -129,6 +131,8 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         return Icons.cancel_outlined; // Rojo
       case 'confirmado':
         return Icons.task_alt; // Verde Azulado
+      case 'porconfirmar':
+        return Icons.verified_user_outlined; // Icono de verificación
       case 'finalizado':
         return pagado ? Icons.check_circle_outline : Icons.fact_check_outlined;
       case 'pagado':
@@ -160,6 +164,8 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         return 'Rechazado';
       case 'confirmado':
         return 'Confirmado';
+      case 'porconfirmar':
+        return 'Por Confirmar';
       case 'pendienterevision':
       case 'pendiente_revision':
       case 'porrevisar':
@@ -420,8 +426,8 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             ),
             child: const Text('Ver Detalles'),
           );
-        } else if (estado == 'aceptado') {
-          // Si está aceptado, forzamos la acción de Confirmar/Rechazar
+        } else if (estado == 'aceptado' || estado == 'porconfirmar') {
+          // Si está aceptado o por confirmar, mostrar botones de Confirmar/Rechazar
           actionButtons = Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
