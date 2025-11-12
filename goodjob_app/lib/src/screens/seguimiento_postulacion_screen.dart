@@ -770,36 +770,30 @@ class _PostulacionContent extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // Fila de datos clave
-                    Wrap(
-                      spacing: 20,
-                      runSpacing: 10,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Flexible(
-                          child: _buildInfoChip(
-                            Icons.location_on,
-                            _formatearUbicacion(
-                              trabajo['ubicacion'] as Map<String, dynamic>?,
-                            ),
+                        _buildInfoChip(
+                          Icons.location_on,
+                          _formatearUbicacion(
+                            trabajo['ubicacion'] as Map<String, dynamic>?,
                           ),
                         ),
-                        Flexible(
-                          child: _buildInfoChip(
-                            Icons.event,
-                            _formatearFecha(fechaReferencia),
-                          ),
+                        const SizedBox(height: 10),
+                        _buildInfoChip(
+                          Icons.event,
+                          _formatearFecha(fechaReferencia),
                         ),
-                        Flexible(
-                          child: _buildInfoChip(
-                            Icons.access_time,
-                            '${_formatearHora(horarioInicio, fallback: 'Por confirmar')} - ${_formatearHora(horarioFin, fallback: 'Por confirmar')}',
-                          ),
+                        const SizedBox(height: 10),
+                        _buildInfoChip(
+                          Icons.access_time,
+                          '${_formatearHora(horarioInicio, fallback: 'Por confirmar')} - ${_formatearHora(horarioFin, fallback: 'Por confirmar')}',
                         ),
-                        Flexible(
-                          child: _buildInfoChip(
-                            Icons.payments,
-                            '${(trabajo['precio'] != null) ? FormatUtils.formatCurrency(trabajo['precio'].toDouble()) : 'N/D'} brutos',
-                            isPrimary: true,
-                          ),
+                        const SizedBox(height: 10),
+                        _buildInfoChip(
+                          Icons.payments,
+                          '${(trabajo['precio'] != null) ? FormatUtils.formatCurrency(trabajo['precio'].toDouble()) : 'N/D'} brutos',
+                          isPrimary: true,
                         ),
                       ],
                     ),
