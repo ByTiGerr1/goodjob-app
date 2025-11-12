@@ -227,15 +227,28 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     }
 
     try {
-      await _postulacionService.actualizarEstado(
-        trabajoId: trabajoId,
-        postulanteId: uid,
-        nuevoEstado: nuevoEstado,
-        trabajoTitulo: trabajoTitulo,
-        limitarAUsuario: true,
-      );
-      if (!mounted) return;
       final estadoNormalizado = nuevoEstado.toLowerCase();
+      
+      // CORRECCIÓN: Si el estado es 'confirmado', usar el método específico
+      // confirmarAsignacion() que actualiza el estado del trabajo a 'pendiente'
+      if (estadoNormalizado == 'confirmado') {
+        await _postulacionService.confirmarAsignacion(
+          trabajoId: trabajoId,
+          postulanteId: uid,
+          trabajoTitulo: trabajoTitulo ?? 'Trabajo',
+        );
+      } else {
+        // Para otros estados (rechazado, etc.) usar actualizarEstado
+        await _postulacionService.actualizarEstado(
+          trabajoId: trabajoId,
+          postulanteId: uid,
+          nuevoEstado: nuevoEstado,
+          trabajoTitulo: trabajoTitulo,
+          limitarAUsuario: true,
+        );
+      }
+      
+      if (!mounted) return;
       final mensaje = estadoNormalizado == 'confirmado'
           ? '¡Trabajo confirmado! ¡Prepárate!'
           : estadoNormalizado == 'rechazado'
@@ -247,7 +260,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('No se pudo actualizar la postulación.')),
+        SnackBar(content: Text('No se pudo actualizar la postulación: ${e.toString()}')),
       );
     }
   }
