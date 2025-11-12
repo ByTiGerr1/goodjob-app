@@ -30,7 +30,7 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
   }
 
   bool _isCompletedPostulation(Map<String, dynamic> data) {
-    final estadoTrabajo = _normalizeStatus(data['estadoTrabajo'] ?? data['estado']);
+    final estado = _normalizeStatus(data['estado']);
     final estadoPago = _normalizeStatus(data['estadoPago']);
     final trabajoCompletado = data['trabajoCompletado'] == true;
 
@@ -51,7 +51,7 @@ class _MisPagosScreenState extends State<MisPagosScreen> {
       'rechazado',
     };
 
-    if (estadosTrabajoFinales.contains(estadoTrabajo)) {
+    if (estadosTrabajoFinales.contains(estado)) {
       return true;
     }
 
@@ -357,15 +357,19 @@ class _CompletedJobCard extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic>? trabajoData,
   ) {
-    final estadoTrabajo = _normalizeStatus(
-      _postulacionData['estadoTrabajo'] ??
-          trabajoData?['estadoTrabajo'] ??
-          trabajoData?['estado'] ??
-          _postulacionData['estado'],
-    );
+    // CORRECCIÓN: Priorizar el estado del TRABAJO sobre el de la postulación
+    final estadoRaw = trabajoData?['estado'] ?? _postulacionData['estado'];
+    final estado = _normalizeStatus(estadoRaw);
+    
+    // IMPORTANTE: Verificar el campo booleano 'pagado' del trabajo
+    final pagado = trabajoData?['pagado'] == true || 
+                   _postulacionData['pagado'] == true;
 
-    final estadoLabel = _statusLabel(estadoTrabajo);
-    final estadoColor = _statusColor(estadoTrabajo, context);
+    // DEBUG: Imprimir valores para diagnóstico
+    print('🔍 DEBUG mis_pagos - Estado Trabajo: "${trabajoData?['estado']}" | Estado Postulación: "${_postulacionData['estado']}" | Estado Final: "$estado" | Pagado: $pagado');
+
+    final estadoLabel = _statusLabel(estado, pagado: pagado);
+    final estadoColor = _statusColor(estado, context, pagado: pagado);
 
     final finTrabajo = _readDate(_postulacionData['finTrabajoReal']) ??
         _readDate(_postulacionData['finTrabajoLocal']);
@@ -380,7 +384,7 @@ class _CompletedJobCard extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           avatar: Icon(
-            _statusIcon(estadoTrabajo),
+            _statusIcon(estado, pagado: pagado),
             color: estadoColor,
           ),
           backgroundColor: estadoColor.withOpacity(0.12),
@@ -614,10 +618,8 @@ class _CompletedJobCard extends StatelessWidget {
     Map<String, dynamic>? trabajoData,
   ) {
     final mensaje = _resolveAdminMessage(trabajoData);
-    final estadoTrabajo = _normalizeStatus(
+    final estado = _normalizeStatus(
       trabajoData?['estado'] ??
-          trabajoData?['estadoTrabajo'] ??
-          _postulacionData['estadoTrabajo'] ??
           _postulacionData['estado'],
     );
 
@@ -626,7 +628,7 @@ class _CompletedJobCard extends StatelessWidget {
     String titulo;
     String description;
 
-    switch (estadoTrabajo) {
+    switch (estado) {
       case 'porpagar':
       case 'porpago':
       case 'porpagoenproceso':
@@ -639,6 +641,7 @@ class _CompletedJobCard extends StatelessWidget {
         break;
       case 'finalizado':
       case 'pagado':
+      case 'completado':
         icon = Icons.payments_outlined;
         color = Colors.green.shade700;
         titulo = 'Pago finalizado';
@@ -785,50 +788,87 @@ class _CompletedJobCard extends StatelessWidget {
     );
   }
 
-  String _statusLabel(String estado) {
+  String _statusLabel(String estado, {bool pagado = false}) {
+    // Si el estado es finalizado y está pagado, mostrar "Pagado"
+    if (estado == 'finalizado' && pagado) {
+      return 'Pagado';
+    }
+    
     switch (estado) {
       case 'pendienterevision':
+      case 'porrevisar':
         return 'Pendiente de revisión';
       case 'porpagar':
         return 'Listo para pago';
       case 'finalizado':
+        return pagado ? 'Pagado' : 'Trabajo finalizado';
       case 'pagado':
-        return 'Trabajo finalizado';
+        return 'Pagado';
       case 'rechazado':
         return 'Evidencias rechazadas';
+      case 'encurso':
+      case 'enprogreso':
+        return 'Trabajo en curso';
+      case 'completado':
+        return 'Trabajo completado';
       default:
         if (estado.isEmpty) return 'Estado no disponible';
-        return estado;
+        // Capitalizar la primera letra y reemplazar guiones/underscores
+        final normalized = estado.replaceAll(RegExp(r'[_-]'), ' ');
+        if (normalized.isEmpty) return 'Estado no disponible';
+        return normalized[0].toUpperCase() + normalized.substring(1);
     }
   }
 
-  Color _statusColor(String estado, BuildContext context) {
+  Color _statusColor(String estado, BuildContext context, {bool pagado = false}) {
+    // Si el estado es finalizado y está pagado, color verde
+    if (estado == 'finalizado' && pagado) {
+      return Colors.green.shade700;
+    }
+    
     switch (estado) {
       case 'pendienterevision':
+      case 'porrevisar':
         return Colors.orange.shade700;
       case 'porpagar':
         return Colors.blue.shade700;
       case 'finalizado':
+        return pagado ? Colors.green.shade700 : Colors.orange.shade700;
       case 'pagado':
+      case 'completado':
         return Colors.green.shade700;
       case 'rechazado':
         return Colors.red.shade700;
+      case 'encurso':
+      case 'enprogreso':
+        return Colors.amber.shade700;
       default:
         return Theme.of(context).colorScheme.primary;
     }
   }
 
-  IconData _statusIcon(String estado) {
+  IconData _statusIcon(String estado, {bool pagado = false}) {
+    // Si el estado es finalizado y está pagado, icono de check
+    if (estado == 'finalizado' && pagado) {
+      return Icons.check_circle_outline;
+    }
+    
     switch (estado) {
       case 'pendienterevision':
+      case 'porrevisar':
         return Icons.fact_check_outlined;
       case 'porpagar':
         return Icons.payments_outlined;
       case 'finalizado':
+        return pagado ? Icons.check_circle_outline : Icons.fact_check_outlined;
       case 'pagado':
+      case 'completado':
         return Icons.check_circle_outline;
       case 'rechazado':
         return Icons.cancel_outlined;
+      case 'encurso':
+      case 'enprogreso':
+        return Icons.work_outline;
       default:
         return Icons.info_outline;
     }

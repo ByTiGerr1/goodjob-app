@@ -39,8 +39,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
   }
 
   bool _isTrabajoCompletado(Map<String, dynamic> postulacionData) {
-    final estadoTrabajo =
-        _normalizeStatus(postulacionData['estadoTrabajo'] ?? postulacionData['estado']);
+    final estado = _normalizeStatus(postulacionData['estado']);
     final estadoPago = _normalizeStatus(postulacionData['estadoPago']);
     final trabajoCompletado = postulacionData['trabajoCompletado'] == true;
 
@@ -61,7 +60,7 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
       'rechazado',
     };
 
-    if (estadosTrabajoFinales.contains(estadoTrabajo)) {
+    if (estadosTrabajoFinales.contains(estado)) {
       return true;
     }
 
@@ -86,7 +85,12 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
 
   // --- Funciones de Utilidad de Estado ---
 
-  Color _colorEstado(String estado) {
+  Color _colorEstado(String estado, {bool pagado = false}) {
+    // Si el estado es finalizado y está pagado, color verde
+    if (estado == 'finalizado' && pagado) {
+      return Colors.green.shade700;
+    }
+    
     switch (estado) {
       case 'aceptado':
         return _COLOR_ACEPTADO;
@@ -94,12 +98,30 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         return _COLOR_RECHAZADO;
       case 'confirmado':
         return _COLOR_CONFIRMADO;
+      case 'finalizado':
+        return pagado ? Colors.green.shade700 : Colors.orange.shade700;
+      case 'pagado':
+      case 'completado':
+        return Colors.green.shade700; // Verde oscuro para finalizado
+      case 'porpagar':
+        return Colors.blue.shade700; // Azul para por pagar
+      case 'pendienterevision':
+      case 'porrevisar':
+        return Colors.orange.shade700; // Naranja para revisión
+      case 'encurso':
+      case 'enprogreso':
+        return Colors.amber.shade700; // Ámbar para en curso
       default:
         return _COLOR_PENDIENTE;
     }
   }
 
-  IconData _iconEstado(String estado) {
+  IconData _iconEstado(String estado, {bool pagado = false}) {
+    // Si el estado es finalizado y está pagado, icono de check
+    if (estado == 'finalizado' && pagado) {
+      return Icons.check_circle_outline;
+    }
+    
     switch (estado) {
       case 'aceptado':
         return Icons.verified_user_outlined; // Verde
@@ -107,12 +129,30 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         return Icons.cancel_outlined; // Rojo
       case 'confirmado':
         return Icons.task_alt; // Verde Azulado
+      case 'finalizado':
+        return pagado ? Icons.check_circle_outline : Icons.fact_check_outlined;
+      case 'pagado':
+      case 'completado':
+        return Icons.check_circle_outline; // Check para finalizado
+      case 'porpagar':
+        return Icons.payments_outlined; // Ícono de pago
+      case 'pendienterevision':
+      case 'porrevisar':
+        return Icons.fact_check_outlined; // Revisión
+      case 'encurso':
+      case 'enprogreso':
+        return Icons.work_outline; // Trabajo en curso
       default:
         return Icons.access_time_filled; // Púrpura
     }
   }
 
-  String _estadoDisplay(String estado) {
+  String _estadoDisplay(String estado, {bool pagado = false}) {
+    // Si el estado es finalizado y está pagado, mostrar "Pagado"
+    if (estado == 'finalizado' && pagado) {
+      return 'Pagado';
+    }
+    
     switch (estado) {
       case 'aceptado':
         return 'Aceptado';
@@ -120,8 +160,20 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
         return 'Rechazado';
       case 'confirmado':
         return 'Confirmado';
+      case 'pendienterevision':
       case 'pendiente_revision':
+      case 'porrevisar':
         return 'Pendiente de Revisión';
+      case 'finalizado':
+        return pagado ? 'Pagado' : 'Finalizado';
+      case 'pagado':
+      case 'completado':
+        return 'Pagado';
+      case 'porpagar':
+        return 'Por Pagar';
+      case 'encurso':
+      case 'enprogreso':
+        return 'En Curso';
       case 'pendiente':
       default:
         final normalized = estado.replaceAll('_', ' ').trim();
@@ -301,8 +353,18 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
             ? FormatUtils.formatCurrency(precioNumerico.toDouble())
             : 'N/D';
 
-        final estadoRaw = postulacionData['estado']?.toString() ?? 'pendiente';
+        // CORRECCIÓN: Priorizar el estado del TRABAJO sobre el de la postulación
+        final estadoRaw = (trabajoData['estado']?.toString() ?? 
+                          postulacionData['estado']?.toString() ?? 
+                          'pendiente');
         final estado = estadoRaw.toLowerCase();
+        
+        // IMPORTANTE: Verificar el campo booleano 'pagado' del trabajo
+        final pagado = trabajoData['pagado'] == true || 
+                       postulacionData['pagado'] == true;
+
+        // DEBUG: Imprimir valores para diagnóstico
+        print('🔍 DEBUG mis_trabajos - Estado Trabajo: "${trabajoData['estado']}" | Estado Postulación: "${postulacionData['estado']}" | Estado Final: "$estado" | Pagado: $pagado');
 
         final inicioTrabajo =
             _obtenerInicioTrabajo(trabajoData, postulacionData);
@@ -480,24 +542,24 @@ class _MisTrabajosScreenState extends State<MisTrabajosScreen>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _colorEstado(estado).withOpacity(0.15),
+                        color: _colorEstado(estado, pagado: pagado).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _iconEstado(estado),
+                            _iconEstado(estado, pagado: pagado),
                             size: 16,
-                            color: _colorEstado(estado),
+                            color: _colorEstado(estado, pagado: pagado),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            _estadoDisplay(estado),
+                            _estadoDisplay(estado, pagado: pagado),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: _colorEstado(estado),
+                              color: _colorEstado(estado, pagado: pagado),
                             ),
                           ),
                         ],

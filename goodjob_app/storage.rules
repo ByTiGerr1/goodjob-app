@@ -42,15 +42,9 @@ service firebase.storage {
           (
             hasAnyEstado(
               getPostulacion(trabajoId, request.auth.uid).data.estado,
-              ['confirmado', 'Confirmado', 'pendiente_revision', 'Pendiente_revision']
-            ) ||
-            hasAnyEstado(
-              getPostulacion(trabajoId, request.auth.uid).data.estadoAsignacion,
-              ['confirmado', 'Confirmado', 'pendiente_confirmacion', 'Pendiente_confirmacion']
-            ) ||
-            hasAnyEstado(
-              getPostulacion(trabajoId, request.auth.uid).data.estadoTrabajo,
               [
+                'confirmado',
+                'Confirmado',
                 'pendiente_revision',
                 'Pendiente_revision',
                 'pendiente',
@@ -60,6 +54,10 @@ service firebase.storage {
                 'en curso',
                 'En curso'
               ]
+            ) ||
+            hasAnyEstado(
+              getPostulacion(trabajoId, request.auth.uid).data.estadoAsignacion,
+              ['confirmado', 'Confirmado', 'pendiente_confirmacion', 'Pendiente_confirmacion']
             ) ||
             getPostulacion(trabajoId, request.auth.uid).data.trabajoCompletado == true ||
             getPostulacion(trabajoId, request.auth.uid).data.confirmadoEn != null

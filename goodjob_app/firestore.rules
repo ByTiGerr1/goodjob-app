@@ -67,13 +67,18 @@ service cloud.firestore {
               'confirmarAntesDe',
               'aceptadoEn',
               'liberadoPorExpiracionEn',
-              'estadoTrabajo',
               'trabajoCompletado',
               'pendienteRevisionEn',
               'estadoAsignacion',
               'evidenciasEnviadas',
               'evidenciasRequeridas',
-              'evidenciasPendientes'
+              'evidenciasPendientes',
+              'inicioTrabajoReal',
+              'finTrabajoReal',
+              'duracionTrabajoMinutos',
+              'inicioTrabajoLocal',
+              'finTrabajoLocal',
+              'retrasoCheckInMinutos'
             ])
         );
         allow delete: if isAdmin() || (
@@ -97,14 +102,14 @@ service cloud.firestore {
             'estadoAsignacion',
             'confirmadoEn',
             'confirmacionExpiradaEn',
-            'estadoTrabajo',
             'inicioTrabajoReal',
             'finTrabajoReal',
             'duracionTrabajoMinutos',
             'trabajoCompletado',
             'evidenciasEnviadas',
             'evidenciasRequeridas',
-            'evidenciasPendientes'
+            'evidenciasPendientes',
+            'retrasoCheckInMinutos'
           ]) &&
         (
           !request.resource.data.keys().hasAny(['trabajadorAsignadoId']) ||
@@ -165,13 +170,18 @@ service cloud.firestore {
               'confirmarAntesDe',
               'aceptadoEn',
               'liberadoPorExpiracionEn',
-              'estadoTrabajo',
               'trabajoCompletado',
               'pendienteRevisionEn',
               'evidenciasEnviadas',
               'evidenciasRequeridas',
               'evidenciasPendientes',
-              'estadoAsignacion'
+              'estadoAsignacion',
+              'inicioTrabajoReal',
+              'finTrabajoReal',
+              'duracionTrabajoMinutos',
+              'inicioTrabajoLocal',
+              'finTrabajoLocal',
+              'retrasoCheckInMinutos'
             ])
         );
         allow delete: if isAdmin() || (
