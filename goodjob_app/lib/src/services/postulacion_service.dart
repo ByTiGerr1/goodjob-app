@@ -273,7 +273,7 @@ class PostulacionService {
         .doc(trabajoId);
     final trabajoRef = _firestore.collection('trabajos').doc(trabajoId);
 
-    String estadoTrabajo = '';
+    String estadoActualTrabajo = '';
     bool sinFechaLimiteTrabajo = false;
     Map<String, dynamic>? trabajoData;
 
@@ -283,19 +283,19 @@ class PostulacionService {
         throw Exception('El trabajo $trabajoId no existe.');
       }
       trabajoData = trabajoDoc.data();
-      estadoTrabajo = trabajoData?['estado'] as String? ?? '';
+      estadoActualTrabajo = trabajoData?['estado'] as String? ?? '';
       sinFechaLimiteTrabajo = trabajoData?['sinFechaLimite'] == true;
     }
 
     // Validar que no haya otro usuario con estado "aceptado" o "confirmado"
     if (estadoNormalizado == 'aceptado') {
-      final estadoTrabajoNormalizado = estadoTrabajo.toLowerCase();
+      final estadoTrabajoNormalizado = estadoActualTrabajo.toLowerCase();
 
       // Solo permitir aceptar postulantes si el trabajo está en estado "activo" o "abierto"
       if (estadoTrabajoNormalizado != 'activo' &&
           estadoTrabajoNormalizado != 'abierto') {
         throw Exception(
-          'No se puede aceptar postulaciones porque el trabajo no está en estado Abierto. Estado actual: $estadoTrabajo',
+          'No se puede aceptar postulaciones porque el trabajo no está en estado Abierto. Estado actual: $estadoActualTrabajo',
         );
       }
 
@@ -566,7 +566,6 @@ class PostulacionService {
 
     final data = <String, dynamic>{
       'estado': 'pendiente_revision',
-      'estadoTrabajo': 'pendiente_revision',
       'trabajoCompletado': true,
       'pendienteRevisionEn': FieldValue.serverTimestamp(),
     };
@@ -587,7 +586,6 @@ class PostulacionService {
     batch.set(postulacionUsuarioRef, data, SetOptions(merge: true));
     final trabajoData = <String, dynamic>{
       'estado': 'porRevisar',
-      'estadoTrabajo': 'pendiente_revision',
     };
     if (evidenciasEnviadas != null) {
       trabajoData['evidenciasEnviadas'] = evidenciasEnviadas;
@@ -626,7 +624,7 @@ class PostulacionService {
     final serverTimestamp = FieldValue.serverTimestamp();
 
     final updates = {
-      'estadoTrabajo': 'en_curso',
+      'estado': 'en_curso',
       'inicioTrabajoReal': serverTimestamp,
       'finTrabajoReal': FieldValue.delete(),
       'duracionTrabajoMinutos': FieldValue.delete(),
@@ -641,7 +639,6 @@ class PostulacionService {
     batch.set(postulacionUsuarioRef, updates, SetOptions(merge: true));
     batch.set(trabajoRef, {
       'estado': 'enCurso',
-      'estadoTrabajo': 'en_curso',
       'inicioTrabajoReal': serverTimestamp,
       'finTrabajoReal': FieldValue.delete(),
       'duracionTrabajoMinutos': FieldValue.delete(),

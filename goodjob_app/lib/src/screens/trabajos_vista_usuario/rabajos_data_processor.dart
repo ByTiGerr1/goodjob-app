@@ -102,7 +102,6 @@ class TrabajosDataProcessor {
 
     final camposEstado = <String?>[
       trabajo['estado']?.toString(),
-      trabajo['estadoTrabajo']?.toString(),
       trabajo['estadoAsignacion']?.toString(),
     ];
 
